@@ -1,0 +1,100 @@
+from decimal import Decimal
+
+from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.core.validators import MinValueValidator
+from django.db import models
+
+from apps.categories.models import Category, TransactionType
+
+
+class Transaction(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="transactions"
+    )
+    category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name="transactions")
+    recurring_transaction = models.ForeignKey(
+        "RecurringTransaction",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="generated_transactions",
+    )
+    type = models.CharField(max_length=10, choices=TransactionType.choices)
+    amount = models.DecimalField(
+        max_digits=12, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))]
+    )
+    description = models.CharField(max_length=255, blank=True, default="")
+    date = models.DateField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-date", "-created_at"]
+        constraints = [
+            models.CheckConstraint(condition=models.Q(amount__gt=0), name="transaction_amount_positive"),
+        ]
+        indexes = [
+            models.Index(fields=["user", "date"], name="transaction_user_date_idx"),
+            models.Index(fields=["user", "type"], name="transaction_user_type_idx"),
+        ]
+
+    def clean(self):
+        if self.category_id and self.type and self.category.type != self.type:
+            raise ValidationError(
+                {"type": "Transaction type must match the selected category's type."}
+            )
+
+    def __str__(self):
+        return f"{self.date} · {self.get_type_display()} · {self.amount}"
+
+
+class Frequency(models.TextChoices):
+    WEEKLY = "weekly", "Weekly"
+    MONTHLY = "monthly", "Monthly"
+    YEARLY = "yearly", "Yearly"
+
+
+class RecurringTransaction(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="recurring_transactions"
+    )
+    category = models.ForeignKey(
+        Category, on_delete=models.PROTECT, related_name="recurring_transactions"
+    )
+    name = models.CharField(max_length=100)
+    type = models.CharField(max_length=10, choices=TransactionType.choices)
+    amount = models.DecimalField(
+        max_digits=12, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))]
+    )
+    frequency = models.CharField(max_length=10, choices=Frequency.choices)
+    start_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
+    next_occurrence_date = models.DateField()
+    is_active = models.BooleanField(default=True)
+    description = models.CharField(max_length=255, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["next_occurrence_date"]
+        constraints = [
+            models.CheckConstraint(condition=models.Q(amount__gt=0), name="recurring_amount_positive"),
+            models.CheckConstraint(
+                condition=models.Q(end_date__isnull=True) | models.Q(end_date__gte=models.F("start_date")),
+                name="recurring_end_date_after_start_date",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["user", "is_active"], name="recurring_user_active_idx"),
+            models.Index(fields=["user", "next_occurrence_date"], name="recurring_user_next_occ_idx"),
+        ]
+
+    def clean(self):
+        if self.category_id and self.type and self.category.type != self.type:
+            raise ValidationError(
+                {"type": "Recurring transaction type must match the selected category's type."}
+            )
+
+    def __str__(self):
+        return f"{self.name} ({self.get_frequency_display()})"
