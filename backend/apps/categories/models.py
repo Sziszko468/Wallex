@@ -22,6 +22,7 @@ class Category(models.Model):
     type = models.CharField(max_length=10, choices=TransactionType.choices)
     color = models.CharField(max_length=7, default="#6366F1", validators=[hex_color_validator])
     icon = models.CharField(max_length=50, blank=True, default="")
+    is_system = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

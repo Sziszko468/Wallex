@@ -1,7 +1,10 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import transaction
 from rest_framework import serializers
+
+from apps.categories.defaults import create_default_categories
 
 User = get_user_model()
 
@@ -36,7 +39,9 @@ class RegisterSerializer(serializers.ModelSerializer):
         password = validated_data.pop("password")
         user = User(username=validated_data["email"], **validated_data)
         user.set_password(password)
-        user.save()
+        with transaction.atomic():
+            user.save()
+            create_default_categories(user)
         return user
 
 

@@ -4,6 +4,9 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from apps.categories.defaults import DEFAULT_CATEGORIES
+from apps.categories.models import Category
+
 User = get_user_model()
 
 
@@ -24,6 +27,22 @@ def test_register_success(api_client):
     assert "password" not in response.data
     created_user = User.objects.get(email="newuser@example.com")
     assert created_user.check_password("StrongPass!2024")
+
+
+@pytest.mark.django_db
+def test_register_seeds_default_categories(api_client):
+    response = api_client.post(
+        reverse("auth-register"),
+        {
+            "email": "seeded@example.com",
+            "password": "StrongPass!2024",
+            "password_confirm": "StrongPass!2024",
+        },
+    )
+    assert response.status_code == status.HTTP_201_CREATED
+    created_user = User.objects.get(email="seeded@example.com")
+    categories = Category.objects.filter(user=created_user, is_system=True)
+    assert categories.count() == len(DEFAULT_CATEGORIES)
 
 
 @pytest.mark.django_db

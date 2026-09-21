@@ -2,6 +2,7 @@ import pytest
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 
+from apps.categories.defaults import DEFAULT_CATEGORIES, create_default_categories
 from apps.categories.models import Category, TransactionType
 
 
@@ -31,3 +32,13 @@ def test_category_invalid_color_rejected(user):
     category = Category(user=user, name="Rent", type=TransactionType.EXPENSE, color="not-a-color")
     with pytest.raises(ValidationError):
         category.full_clean()
+
+
+@pytest.mark.django_db
+def test_create_default_categories_seeds_expected_set(user):
+    create_default_categories(user)
+
+    categories = Category.objects.filter(user=user, is_system=True)
+    assert categories.count() == len(DEFAULT_CATEGORIES)
+    for name, category_type in DEFAULT_CATEGORIES:
+        assert categories.filter(name=name, type=category_type).exists()
