@@ -1,0 +1,41 @@
+@use "variables" as vars;
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: vars.$font-family-base;
+  font-size: vars.$font-size-base;
+  color: vars.$color-text;
+  background-color: vars.$color-background;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0 0 vars.$space-md 0;
+}
+
+a {
+  color: vars.$color-primary;
+}
+
+button {
+  font-family: inherit;
+}
+
+input {
+  font-family: inherit;
+}

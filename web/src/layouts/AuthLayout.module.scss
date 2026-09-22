@@ -1,0 +1,26 @@
+@use "../styles/variables" as vars;
+
+.page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: vars.$space-lg vars.$space-md;
+  background-color: vars.$color-background;
+}
+
+.card {
+  width: 100%;
+  max-width: 400px;
+  padding: vars.$space-xl vars.$space-lg;
+  background-color: vars.$color-surface;
+  border-radius: vars.$radius-md;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.brand {
+  text-align: center;
+  color: vars.$color-primary;
+  font-size: vars.$font-size-xl;
+  margin-bottom: vars.$space-lg;
+}

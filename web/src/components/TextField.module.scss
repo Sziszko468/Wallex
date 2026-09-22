@@ -1,0 +1,44 @@
+@use "../styles/variables" as vars;
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: vars.$space-xs;
+  margin-bottom: vars.$space-md;
+  text-align: left;
+}
+
+.label {
+  font-size: vars.$font-size-sm;
+  font-weight: 600;
+  color: vars.$color-text;
+}
+
+.input {
+  padding: 0.65rem vars.$space-sm;
+  font-size: vars.$font-size-base;
+  border: 1px solid vars.$color-border;
+  border-radius: vars.$radius-sm;
+  background-color: vars.$color-surface;
+  color: vars.$color-text;
+
+  &:focus {
+    outline: none;
+    border-color: vars.$color-primary;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  }
+}
+
+.inputError {
+  border-color: vars.$color-danger;
+
+  &:focus {
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
+  }
+}
+
+.errorText {
+  margin: 0;
+  font-size: vars.$font-size-sm;
+  color: vars.$color-danger;
+}

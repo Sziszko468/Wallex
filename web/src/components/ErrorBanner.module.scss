@@ -1,0 +1,11 @@
+@use "../styles/variables" as vars;
+
+.banner {
+  padding: vars.$space-sm vars.$space-md;
+  margin-bottom: vars.$space-md;
+  background-color: rgba(220, 38, 38, 0.08);
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  border-radius: vars.$radius-sm;
+  color: vars.$color-danger;
+  font-size: vars.$font-size-sm;
+}

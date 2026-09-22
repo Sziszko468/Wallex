@@ -1,0 +1,52 @@
+@use "../styles/variables" as vars;
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 0.75rem vars.$space-md;
+  font-size: vars.$font-size-base;
+  font-weight: 600;
+  border: none;
+  border-radius: vars.$radius-md;
+  cursor: pointer;
+  transition: background-color 0.15s ease, opacity 0.15s ease;
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
+  }
+
+  @media (min-width: vars.$breakpoint-tablet) {
+    width: auto;
+  }
+}
+
+.primary {
+  background-color: vars.$color-primary;
+  color: white;
+
+  &:hover:not(:disabled) {
+    background-color: vars.$color-primary-dark;
+  }
+}
+
+.secondary {
+  background-color: transparent;
+  color: vars.$color-text;
+  border: 1px solid vars.$color-border;
+
+  &:hover:not(:disabled) {
+    background-color: vars.$color-background;
+  }
+}
+
+.danger {
+  background-color: vars.$color-danger;
+  color: white;
+
+  &:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+}

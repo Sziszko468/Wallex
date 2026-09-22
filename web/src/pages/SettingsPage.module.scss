@@ -1,0 +1,27 @@
+@use "../styles/variables" as vars;
+
+.card {
+  background-color: vars.$color-surface;
+  border: 1px solid vars.$color-border;
+  border-radius: vars.$radius-md;
+  padding: vars.$space-lg;
+  margin-bottom: vars.$space-md;
+  max-width: 480px;
+}
+
+.profile {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: vars.$space-xs vars.$space-md;
+  margin: 0;
+
+  dt {
+    color: vars.$color-text-muted;
+    font-size: vars.$font-size-sm;
+  }
+
+  dd {
+    margin: 0;
+    font-weight: 500;
+  }
+}

@@ -1,0 +1,36 @@
+@use "../styles/variables" as vars;
+
+.spinner {
+  display: inline-flex;
+  align-items: center;
+  gap: vars.$space-sm;
+  color: vars.$color-text-muted;
+  font-size: vars.$font-size-sm;
+}
+
+.circle {
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid vars.$color-border;
+  border-top-color: vars.$color-primary;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+.label {
+  white-space: nowrap;
+}
+
+.fullPage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: vars.$space-lg;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
