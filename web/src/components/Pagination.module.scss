@@ -1,0 +1,34 @@
+@use "../styles/variables" as vars;
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: vars.$space-md;
+  flex-wrap: wrap;
+}
+
+.status {
+  font-size: vars.$font-size-sm;
+  color: vars.$color-text-muted;
+}
+
+.button {
+  padding: 0.5rem vars.$space-md;
+  font-size: vars.$font-size-sm;
+  font-weight: 600;
+  border: 1px solid vars.$color-border;
+  border-radius: vars.$radius-sm;
+  background-color: vars.$color-surface;
+  color: vars.$color-text;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    background-color: vars.$color-background;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+}

@@ -1,0 +1,57 @@
+@use "../styles/variables" as vars;
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(17, 24, 39, 0.5);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: vars.$space-md;
+  overflow-y: auto;
+  z-index: 100;
+
+  @media (min-width: vars.$breakpoint-tablet) {
+    align-items: center;
+  }
+}
+
+.dialog {
+  width: 100%;
+  max-width: 480px;
+  background-color: vars.$color-surface;
+  border-radius: vars.$radius-md;
+  box-shadow: 0 10px 40px rgba(17, 24, 39, 0.2);
+  margin: vars.$space-lg 0;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: vars.$space-md vars.$space-lg;
+  border-bottom: 1px solid vars.$color-border;
+}
+
+.title {
+  margin: 0;
+  font-size: vars.$font-size-lg;
+}
+
+.closeButton {
+  border: none;
+  background: transparent;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: vars.$color-text-muted;
+  cursor: pointer;
+  padding: vars.$space-xs;
+
+  &:hover {
+    color: vars.$color-text;
+  }
+}
+
+.body {
+  padding: vars.$space-lg;
+}

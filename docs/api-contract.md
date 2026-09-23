@@ -195,6 +195,33 @@ interface CreateTransactionPayload {
 
 ---
 
+## `PATCH /api/transactions/{id}/`
+
+Partial update of a transaction owned by the current user (404 for any other user's transaction —
+ownership is enforced via queryset scoping, not a 403). Same validation rules as create (category
+must belong to the user, `type` must match the category's own type, `amount` > 0).
+
+**Body:** `UpdateTransactionPayload` — `Partial<CreateTransactionPayload>` (send only the fields
+being changed).
+
+**Response** `200 OK` — the updated `Transaction`. Same `400` shape as create on validation errors.
+
+**Client function:** `updateTransaction(id: number, payload: UpdateTransactionPayload): Promise<Transaction>`.
+Currently used by **web only** — the mobile client doesn't have an edit UI yet.
+
+---
+
+## `DELETE /api/transactions/{id}/`
+
+Deletes a transaction owned by the current user (404 for any other user's transaction). No
+`PROTECT` relations point at `Transaction` (unlike `Category`), so this never fails with a 409 —
+it's always a clean `204 No Content` once ownership/existence checks pass.
+
+**Client function:** `deleteTransaction(id: number): Promise<void>`. Currently used by **web
+only** — the mobile client doesn't have a delete UI yet.
+
+---
+
 ## `GET /api/categories/`
 
 Returns **every** category (system-seeded + custom) belonging to the current user, as a plain
@@ -363,6 +390,12 @@ axios instance (JWT attached automatically, 401 triggers the shared refresh-toke
 developer moving between the two codebases should find the same function under the same name
 doing the same thing — the only difference is the underlying HTTP client's platform (browser
 `localStorage` vs. `expo-secure-store` for tokens), never the API shape.
+
+**Known asymmetry:** `web/src/services/transactionsService.ts` additionally exports
+`updateTransaction`/`deleteTransaction` (backing the web Transactions page's edit/delete flows).
+`mobile/services/transactionsService.ts` intentionally does **not** mirror these yet — the mobile
+app has no edit/delete UI, and an unused exported function is dead code. Add them to the mobile
+service, matching this same signature, whenever a mobile edit/delete screen is actually built.
 
 This document and the type files are intentionally **not** shared via a monorepo package: `web/`
 (Vite) and `mobile/` (Metro/Expo) resolve modules differently enough that cross-package imports
