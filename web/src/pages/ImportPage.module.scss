@@ -1,0 +1,93 @@
+@use "../styles/variables" as vars;
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: vars.$space-lg;
+}
+
+.heading {
+  margin: 0;
+  font-size: vars.$font-size-xl;
+}
+
+.card {
+  background-color: vars.$color-surface;
+  border: 1px solid vars.$color-border;
+  border-radius: vars.$radius-md;
+  padding: vars.$space-md;
+
+  @media (min-width: vars.$breakpoint-tablet) {
+    padding: vars.$space-lg;
+  }
+}
+
+.cardTitle {
+  margin: 0 0 vars.$space-sm 0;
+  font-size: vars.$font-size-lg;
+}
+
+.helpText {
+  color: vars.$color-text-muted;
+  font-size: vars.$font-size-sm;
+  line-height: 1.6;
+  margin: 0 0 vars.$space-md 0;
+
+  code {
+    background-color: vars.$color-background;
+    border-radius: 4px;
+    padding: 0.1rem 0.35rem;
+    font-size: 0.85em;
+  }
+}
+
+.uploadRow {
+  display: flex;
+  flex-direction: column;
+  gap: vars.$space-sm;
+  align-items: flex-start;
+
+  @media (min-width: vars.$breakpoint-tablet) {
+    flex-direction: row;
+    align-items: center;
+  }
+}
+
+// Visually hidden but still focusable/clickable via its <label for=...> —
+// display:none would break label-triggered file dialogs in some browsers.
+.fileInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+
+  &:focus-visible + .fileLabel {
+    outline: 2px solid vars.$color-primary;
+    outline-offset: 2px;
+  }
+}
+
+.fileLabel {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.65rem vars.$space-md;
+  border: 1px solid vars.$color-border;
+  border-radius: vars.$radius-sm;
+  background-color: vars.$color-background;
+  color: vars.$color-text;
+  font-size: vars.$font-size-sm;
+  cursor: pointer;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  &:hover {
+    background-color: vars.$color-border;
+  }
+}

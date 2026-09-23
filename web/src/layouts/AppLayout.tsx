@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { to: "/recurring", label: "Recurring" },
   { to: "/budgets", label: "Budgets" },
   { to: "/categories", label: "Categories" },
+  { to: "/import", label: "Import" },
   { to: "/settings", label: "Settings" },
 ];
 

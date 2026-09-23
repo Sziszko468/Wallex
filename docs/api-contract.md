@@ -207,7 +207,7 @@ being changed).
 **Response** `200 OK` — the updated `Transaction`. Same `400` shape as create on validation errors.
 
 **Client function:** `updateTransaction(id: number, payload: UpdateTransactionPayload): Promise<Transaction>`.
-Currently used by **web only** — the mobile client doesn't have an edit UI yet.
+Used by both clients (web's Transactions page, mobile's transaction edit screen).
 
 ---
 
@@ -217,8 +217,70 @@ Deletes a transaction owned by the current user (404 for any other user's transa
 `PROTECT` relations point at `Transaction` (unlike `Category`), so this never fails with a 409 —
 it's always a clean `204 No Content` once ownership/existence checks pass.
 
-**Client function:** `deleteTransaction(id: number): Promise<void>`. Currently used by **web
-only** — the mobile client doesn't have a delete UI yet.
+**Client function:** `deleteTransaction(id: number): Promise<void>`. Used by both clients (web's
+Transactions page, mobile's transaction details screen).
+
+---
+
+## `POST /api/transactions/import/`
+
+Bulk-imports transactions from an uploaded bank CSV file. **Web only** — see
+`apps/transactions/services.py` for the full pipeline. Multipart form upload, not JSON.
+
+**Expected CSV format** — exactly these three columns (header names case-insensitive, extra
+columns are ignored):
+
+```csv
+date,description,amount
+2026-09-10,Albert Heijn,-42.50
+2026-09-01,Salary,3000.00
+```
+
+- `date`: `YYYY-MM-DD` or `DD/MM/YYYY`.
+- `description`: free text — also used for rule-based category detection (see below).
+- `amount`: a **signed** decimal. Negative → expense, positive → income, zero is rejected.
+  Period is the decimal separator; `,`, spaces, and `€`/`$`/`£` are stripped as thousands
+  separators (a comma-as-decimal-separator CSV will parse wrong — not currently detected).
+
+**Category detection** is rule-based (hardcoded keyword → category name table, e.g. "Albert
+Heijn"/"Jumbo" → Food, "Shell" → Transport, "Netflix" → Entertainment): an unmatched **expense**
+row falls back to the user's "Other" category; an unmatched **income** row has no fallback
+(unlike expenses, there's no generic income catch-all category) and the row **fails**. A future
+step could move this to a per-user, DB-backed rule table — this one is deliberately just a flat
+list in `services.py` for now.
+
+**Duplicate detection**: a row is skipped (not created, not an error) if a transaction with the
+same `(user, date, amount, description)` already exists — checked both against the database and
+against earlier rows already processed from the same file.
+
+**Body:** `multipart/form-data` with a single `file` field.
+
+**Response** `200 OK`:
+
+```json
+{
+  "imported": 42,
+  "skipped": 3,
+  "failed": 1,
+  "details": [
+    {"row": 7, "status": "failed", "reason": "Unrecognized date '2026-13-40' (expected YYYY-MM-DD or DD/MM/YYYY)."},
+    {"row": 12, "status": "skipped", "reason": "Duplicate of an existing transaction."}
+  ]
+}
+```
+
+`row` is the actual line number in the uploaded file (header = line 1, so the first data row is
+line 2) — this is what a user sees when opening the CSV in a text editor or Excel. `details` only
+lists skipped/failed rows; successfully imported rows aren't individually listed, only counted.
+Fully blank lines are silently ignored (not counted in any bucket).
+
+**File-level validation error** `400` — the whole upload is rejected, no rows are processed:
+
+```json
+{"file": ["Missing required column(s): amount."]}
+```
+
+**Client function:** `importTransactionsCsv(file: File): Promise<ImportSummary>`.
 
 ---
 
@@ -275,6 +337,48 @@ never stored values.
 ```
 
 **Client function:** `listBudgets(): Promise<Budget[]>`.
+
+---
+
+## `GET /api/recurring-transactions/`, `POST`, `PATCH .../{id}/`, `DELETE .../{id}/`
+
+Full CRUD for recurring transaction templates (rent, subscriptions, bills, ...) — a plain array,
+**not paginated**, ordered by `next_occurrence_date` ascending. Same ownership scoping as every
+other resource (404, not 403, for another user's row).
+
+```typescript
+export type RecurringFrequency = "weekly" | "monthly" | "yearly";
+
+export interface RecurringTransaction {
+  id: number;
+  name: string;
+  category: number;
+  type: TransactionType;
+  amount: string;           // decimal string
+  frequency: RecurringFrequency;
+  start_date: string;        // "YYYY-MM-DD"
+  end_date: string | null;
+  next_occurrence_date: string; // server-derived, see below — never set this directly
+  is_active: boolean;
+  description: string;
+  created_at: string;
+  updated_at: string;
+}
+```
+
+`next_occurrence_date` is **read-only** and server-derived: it's set to `start_date` on create,
+and re-derived (reset to the new `start_date`) only when `start_date` itself changes on update —
+otherwise untouched. No job currently advances it after generating an occurrence; that (and
+actually generating `Transaction` rows / notifications from due recurring items) is a **future**
+step — this one is CRUD-only, per the project roadmap.
+
+Validation mirrors `Transaction`: `type` must match the selected category's own type, `amount` >
+0, and `end_date` (if set) must be on/after `start_date`.
+
+**Client functions:** `listRecurringTransactions()`, `getRecurringTransaction(id)`,
+`createRecurringTransaction(payload)`, `updateRecurringTransaction(id, payload)`,
+`deleteRecurringTransaction(id)`. `getRecurringTransaction` is mobile-only so far (its edit
+screen re-fetches by id on open); web's edit modal reuses the already-fetched list row instead.
 
 ---
 

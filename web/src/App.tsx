@@ -10,6 +10,7 @@ import { DashboardPage } from "./pages/DashboardPage";
 import { TransactionsPage } from "./pages/TransactionsPage";
 import { RecurringTransactionsPage } from "./pages/RecurringTransactionsPage";
 import { BudgetsPage } from "./pages/BudgetsPage";
+import { ImportPage } from "./pages/ImportPage";
 import { CategoriesPage } from "./pages/CategoriesPage";
 import { SettingsPage } from "./pages/SettingsPage";
 
@@ -31,6 +32,7 @@ export default function App() {
               <Route path="/transactions" element={<TransactionsPage />} />
               <Route path="/recurring" element={<RecurringTransactionsPage />} />
               <Route path="/budgets" element={<BudgetsPage />} />
+              <Route path="/import" element={<ImportPage />} />
               <Route path="/categories" element={<CategoriesPage />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Route>

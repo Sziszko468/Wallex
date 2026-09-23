@@ -1,0 +1,94 @@
+@use "../../styles/variables" as vars;
+
+.statsRow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: vars.$space-md;
+  margin-bottom: vars.$space-lg;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: vars.$space-xs;
+  background-color: vars.$color-surface;
+  border: 1px solid vars.$color-border;
+  border-radius: vars.$radius-md;
+  padding: vars.$space-md;
+
+  @media (min-width: vars.$breakpoint-tablet) {
+    padding: vars.$space-lg;
+  }
+}
+
+.label {
+  font-size: vars.$font-size-sm;
+  color: vars.$color-text-muted;
+}
+
+.value {
+  font-size: vars.$font-size-xl;
+  font-weight: 700;
+}
+
+.success {
+  color: vars.$color-success;
+}
+
+.warning {
+  color: vars.$color-warning;
+}
+
+.danger {
+  color: vars.$color-danger;
+}
+
+.detailsWrapper {
+  background-color: vars.$color-surface;
+  border: 1px solid vars.$color-border;
+  border-radius: vars.$radius-md;
+  overflow-x: auto;
+}
+
+.detailsTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: vars.$font-size-sm;
+
+  th,
+  td {
+    padding: vars.$space-sm vars.$space-md;
+    text-align: left;
+    border-bottom: 1px solid vars.$color-border;
+  }
+
+  thead th {
+    color: vars.$color-text-muted;
+    font-weight: 600;
+    background-color: vars.$color-background;
+  }
+
+  tbody tr:last-child td {
+    border-bottom: none;
+  }
+}
+
+.statusFailed {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: vars.$color-danger;
+  background-color: rgba(220, 38, 38, 0.12);
+}
+
+.statusSkipped {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: vars.$color-warning;
+  background-color: rgba(217, 119, 6, 0.12);
+}

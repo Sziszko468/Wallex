@@ -1,4 +1,7 @@
-from rest_framework import permissions, viewsets
+from rest_framework import permissions, status, viewsets
+from rest_framework.decorators import action
+from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.response import Response
 
 from apps.common.permissions import IsOwner
 
@@ -6,6 +9,7 @@ from .filters import TransactionFilter
 from .models import RecurringTransaction, Transaction
 from .pagination import TransactionPagination
 from .serializers import RecurringTransactionSerializer, TransactionSerializer
+from .services import CsvValidationError, import_transactions_from_csv
 
 
 class TransactionViewSet(viewsets.ModelViewSet):
@@ -23,6 +27,42 @@ class TransactionViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="import",
+        parser_classes=[MultiPartParser, FormParser],
+    )
+    def import_csv(self, request):
+        """POST /api/transactions/import/ — see apps/transactions/services.py
+        for the full pipeline (file validation, parsing, dedup, category
+        detection) and docs/api-contract.md for the expected CSV format."""
+        uploaded_file = request.FILES.get("file")
+        if uploaded_file is None:
+            return Response({"file": ["This field is required."]}, status=status.HTTP_400_BAD_REQUEST)
+        if not uploaded_file.name.lower().endswith(".csv"):
+            return Response(
+                {"file": ["Please upload a .csv file."]}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            summary = import_transactions_from_csv(request.user, uploaded_file)
+        except CsvValidationError as error:
+            return Response({"file": [str(error)]}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(
+            {
+                "imported": summary.imported,
+                "skipped": summary.skipped,
+                "failed": summary.failed,
+                "details": [
+                    {"row": item.row, "status": item.status, "reason": item.reason}
+                    for item in summary.details
+                ],
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class RecurringTransactionViewSet(viewsets.ModelViewSet):
