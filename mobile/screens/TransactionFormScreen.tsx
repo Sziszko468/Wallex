@@ -1,9 +1,9 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { listCategories } from "../services/categoriesService";
-import { createTransaction } from "../services/transactionsService";
+import { createTransaction, getTransaction, updateTransaction } from "../services/transactionsService";
 import { extractErrorMessage, extractFieldErrors, type FieldErrors } from "../utils/errors";
 import { toIsoDate, isValidIsoDate } from "../utils/date";
 import { Screen } from "../components/Screen";
@@ -21,7 +21,23 @@ import { colors, fontSize, spacing } from "../utils/theme";
  * modal auto-dismisses — long enough to register, short enough to stay fast. */
 const SUCCESS_DISMISS_DELAY_MS = 550;
 
-export function AddTransactionScreen() {
+/**
+ * Handles both creating a new transaction (no `id` route param) and editing
+ * an existing one (`/edit-transaction/[id]`) — same fields, same validation,
+ * same reusable pieces (TypeToggle/CategoryChipPicker/QuickDateField), just
+ * a different initial fetch and a PATCH instead of a POST on submit.
+ */
+export function TransactionFormScreen() {
+  const { id } = useLocalSearchParams<{ id?: string }>();
+  const transactionId = id ? Number(id) : null;
+  const isEditMode = transactionId !== null;
+
+  const existingTransaction = useAsyncData(
+    useCallback(() => {
+      if (transactionId === null) return Promise.resolve(null);
+      return getTransaction(transactionId);
+    }, [transactionId])
+  );
   const categories = useAsyncData(useCallback(() => listCategories(), []));
 
   const [type, setType] = useState<TransactionType>("expense");
@@ -33,6 +49,17 @@ export function AddTransactionScreen() {
   const [justSaved, setJustSaved] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+
+  // Seed the form once the transaction being edited has loaded.
+  useEffect(() => {
+    if (!isEditMode || !existingTransaction.data) return;
+    const transaction = existingTransaction.data;
+    setType(transaction.type);
+    setAmount(transaction.amount);
+    setCategoryId(transaction.category);
+    setDescription(transaction.description);
+    setDate(transaction.date);
+  }, [isEditMode, existingTransaction.data]);
 
   const availableCategories = useMemo(
     () => categories.data?.filter((category) => category.type === type) ?? [],
@@ -77,17 +104,22 @@ export function AddTransactionScreen() {
 
     setIsSubmitting(true);
     try {
-      await createTransaction({
+      const payload = {
         amount,
         type,
         category: categoryId as number,
         description: description.trim() || undefined,
         date,
-      });
+      };
+      if (transactionId !== null) {
+        await updateTransaction(transactionId, payload);
+      } else {
+        await createTransaction(payload);
+      }
       setIsSubmitting(false);
       setJustSaved(true);
-      // The Dashboard's useFocusEffect refetches automatically once this
-      // modal is dismissed — no manual "add to list" wiring needed here.
+      // The list/details screens refetch on focus once this modal is
+      // dismissed — no manual "update the list" wiring needed here.
       setTimeout(() => router.back(), SUCCESS_DISMISS_DELAY_MS);
     } catch (error) {
       setIsSubmitting(false);
@@ -98,53 +130,59 @@ export function AddTransactionScreen() {
 
   return (
     <Screen scroll>
-      <ErrorBanner message={errorMessage} />
+      <SectionState
+        isLoading={isEditMode && existingTransaction.isLoading}
+        error={isEditMode ? existingTransaction.error : null}
+        onRetry={existingTransaction.refetch}
+      >
+        <ErrorBanner message={errorMessage} />
 
-      <TypeToggle value={type} onChange={handleTypeChange} />
+        <TypeToggle value={type} onChange={handleTypeChange} />
 
-      <TextField
-        label="Amount"
-        placeholder="0.00"
-        keyboardType="decimal-pad"
-        autoFocus
-        value={amount}
-        onChangeText={setAmount}
-        error={fieldErrors.amount}
-      />
+        <TextField
+          label="Amount"
+          placeholder="0.00"
+          keyboardType="decimal-pad"
+          autoFocus={!isEditMode}
+          value={amount}
+          onChangeText={setAmount}
+          error={fieldErrors.amount}
+        />
 
-      <View style={styles.field}>
-        <Text style={styles.label}>Category</Text>
-        <SectionState
-          isLoading={categories.isLoading}
-          error={categories.error}
-          onRetry={categories.refetch}
-        >
-          <CategoryChipPicker
-            categories={availableCategories}
-            selectedId={categoryId}
-            onSelect={setCategoryId}
-          />
-        </SectionState>
-        {fieldErrors.category && <Text style={styles.errorText}>{fieldErrors.category}</Text>}
-      </View>
+        <View style={styles.field}>
+          <Text style={styles.label}>Category</Text>
+          <SectionState
+            isLoading={categories.isLoading}
+            error={categories.error}
+            onRetry={categories.refetch}
+          >
+            <CategoryChipPicker
+              categories={availableCategories}
+              selectedId={categoryId}
+              onSelect={setCategoryId}
+            />
+          </SectionState>
+          {fieldErrors.category && <Text style={styles.errorText}>{fieldErrors.category}</Text>}
+        </View>
 
-      <TextField
-        label="Description (optional)"
-        placeholder="e.g. Groceries"
-        value={description}
-        onChangeText={setDescription}
-      />
+        <TextField
+          label="Description (optional)"
+          placeholder="e.g. Groceries"
+          value={description}
+          onChangeText={setDescription}
+        />
 
-      <QuickDateField value={date} onChange={setDate} error={fieldErrors.date} />
+        <QuickDateField value={date} onChange={setDate} error={fieldErrors.date} />
 
-      <Button
-        title={justSaved ? "Saved ✓" : "Save"}
-        variant={justSaved ? "success" : "primary"}
-        size="large"
-        onPress={handleSave}
-        isLoading={isSubmitting}
-        disabled={justSaved}
-      />
+        <Button
+          title={justSaved ? "Saved ✓" : isEditMode ? "Save changes" : "Save"}
+          variant={justSaved ? "success" : "primary"}
+          size="large"
+          onPress={handleSave}
+          isLoading={isSubmitting}
+          disabled={justSaved}
+        />
+      </SectionState>
     </Screen>
   );
 }

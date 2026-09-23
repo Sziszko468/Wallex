@@ -13,6 +13,21 @@ export default function AppLayout() {
           headerStyle: { backgroundColor: colors.surface },
         }}
       />
+      <Stack.Screen
+        name="edit-transaction/[id]"
+        options={{
+          presentation: "modal",
+          title: "Edit transaction",
+          headerStyle: { backgroundColor: colors.surface },
+        }}
+      />
+      <Stack.Screen
+        name="transaction/[id]"
+        options={{
+          title: "Transaction details",
+          headerStyle: { backgroundColor: colors.surface },
+        }}
+      />
     </Stack>
   );
 }

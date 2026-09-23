@@ -32,3 +32,12 @@ export function formatShortDate(isoDate: string): string {
     day: "numeric",
   });
 }
+
+/** Full date with year, for single-item detail views. */
+export function formatFullDate(isoDate: string): string {
+  return new Date(isoDate).toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}

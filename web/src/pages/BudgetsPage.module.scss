@@ -1,0 +1,12 @@
+@use "../styles/variables" as vars;
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: vars.$space-lg;
+}
+
+.heading {
+  margin: 0;
+  font-size: vars.$font-size-xl;
+}

@@ -7,7 +7,7 @@ import { useAuth } from "../hooks/useAuth";
 import type { Category } from "../types/category";
 import { DashboardCard } from "../components/dashboard/DashboardCard";
 import { StatCard } from "../components/dashboard/StatCard";
-import { MonthNavigator } from "../components/dashboard/MonthNavigator";
+import { MonthNavigator } from "../components/MonthNavigator";
 import { MonthlySpendingChart } from "../components/dashboard/MonthlySpendingChart";
 import { CategoryPieChart } from "../components/dashboard/CategoryPieChart";
 import { BudgetOverview } from "../components/dashboard/BudgetOverview";

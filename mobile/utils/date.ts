@@ -16,3 +16,11 @@ export function isValidIsoDate(value: string): boolean {
   const date = new Date(year, month - 1, day);
   return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
 }
+
+/** [dateFrom, dateTo] covering the whole calendar month `monthsAgo` months back (0 = current). */
+export function getMonthRange(monthsAgo: number): { dateFrom: string; dateTo: string } {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth() - monthsAgo, 1);
+  const end = new Date(now.getFullYear(), now.getMonth() - monthsAgo + 1, 0);
+  return { dateFrom: toIsoDate(start), dateTo: toIsoDate(end) };
+}

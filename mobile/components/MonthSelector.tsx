@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { formatMonthYear } from "../../utils/format";
-import { colors, fontSize, radius, spacing } from "../../utils/theme";
+import { formatMonthYear } from "../utils/format";
+import { colors, fontSize, radius, spacing } from "../utils/theme";
 
 interface MonthSelectorProps {
   year: number;

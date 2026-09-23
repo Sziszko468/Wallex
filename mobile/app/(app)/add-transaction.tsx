@@ -1,3 +1,3 @@
-import { AddTransactionScreen } from "../../screens/AddTransactionScreen";
+import { TransactionFormScreen } from "../../screens/TransactionFormScreen";
 
-export default AddTransactionScreen;
+export default TransactionFormScreen;

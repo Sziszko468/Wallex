@@ -7,7 +7,7 @@ import { Screen } from "../components/Screen";
 import { AddTransactionFab } from "../components/AddTransactionFab";
 import { SectionState } from "../components/SectionState";
 import { DashboardCard } from "../components/dashboard/DashboardCard";
-import { MonthSelector } from "../components/dashboard/MonthSelector";
+import { MonthSelector } from "../components/MonthSelector";
 import { SummaryCard } from "../components/dashboard/SummaryCard";
 import { SpendingTrendChart } from "../components/dashboard/SpendingTrendChart";
 import { TopCategories } from "../components/dashboard/TopCategories";

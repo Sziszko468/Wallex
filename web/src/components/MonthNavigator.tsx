@@ -1,4 +1,4 @@
-import { formatMonthYear } from "../../utils/format";
+import { formatMonthYear } from "../utils/format";
 import styles from "./MonthNavigator.module.scss";
 
 interface MonthNavigatorProps {

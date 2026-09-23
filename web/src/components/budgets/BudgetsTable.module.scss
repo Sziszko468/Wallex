@@ -1,0 +1,100 @@
+@use "../../styles/variables" as vars;
+
+.tableWrapper {
+  background-color: vars.$color-surface;
+  border: 1px solid vars.$color-border;
+  border-radius: vars.$radius-md;
+  overflow-x: auto;
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: vars.$font-size-sm;
+  white-space: nowrap;
+
+  th,
+  td {
+    padding: vars.$space-sm vars.$space-md;
+    text-align: left;
+    border-bottom: 1px solid vars.$color-border;
+  }
+
+  thead th {
+    color: vars.$color-text-muted;
+    font-weight: 600;
+    background-color: vars.$color-background;
+  }
+
+  tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  tbody tr:hover {
+    background-color: vars.$color-background;
+  }
+}
+
+.categoryBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: vars.$space-xs;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.overBudget {
+  color: vars.$color-danger;
+  font-weight: 700;
+}
+
+.usageCell {
+  display: flex;
+  align-items: center;
+  gap: vars.$space-sm;
+  min-width: 10rem;
+}
+
+.track {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  background-color: vars.$color-background;
+  overflow: hidden;
+}
+
+.fillSuccess,
+.fillWarning,
+.fillDanger {
+  height: 100%;
+  border-radius: 4px;
+}
+
+.fillSuccess {
+  background-color: vars.$color-success;
+}
+
+.fillWarning {
+  background-color: vars.$color-warning;
+}
+
+.fillDanger {
+  background-color: vars.$color-danger;
+}
