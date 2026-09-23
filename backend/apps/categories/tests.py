@@ -40,5 +40,5 @@ def test_create_default_categories_seeds_expected_set(user):
 
     categories = Category.objects.filter(user=user, is_system=True)
     assert categories.count() == len(DEFAULT_CATEGORIES)
-    for name, category_type in DEFAULT_CATEGORIES:
-        assert categories.filter(name=name, type=category_type).exists()
+    for name, category_type, color in DEFAULT_CATEGORIES:
+        assert categories.filter(name=name, type=category_type, color=color).exists()

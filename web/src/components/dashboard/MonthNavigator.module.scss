@@ -1,0 +1,38 @@
+@use "../../styles/variables" as vars;
+
+.navigator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: vars.$space-md;
+  margin-bottom: vars.$space-lg;
+}
+
+.label {
+  min-width: 10ch;
+  text-align: center;
+  font-size: vars.$font-size-lg;
+  font-weight: 600;
+  color: vars.$color-text;
+}
+
+.navButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  border: 1px solid vars.$color-border;
+  background-color: vars.$color-surface;
+  font-size: vars.$font-size-lg;
+  line-height: 1;
+  cursor: pointer;
+  color: vars.$color-text;
+
+  &:hover {
+    background-color: vars.$color-background;
+    border-color: vars.$color-primary;
+    color: vars.$color-primary;
+  }
+}

@@ -1,0 +1,49 @@
+import axios, { type AxiosError } from "axios";
+import type { ApiErrorBody } from "../types/api";
+
+export type FieldErrors = Record<string, string>;
+
+function getErrorBody(error: unknown): ApiErrorBody | null {
+  if (!axios.isAxiosError(error)) return null;
+  const axiosError = error as AxiosError<ApiErrorBody>;
+  return axiosError.response?.data ?? null;
+}
+
+export function extractFieldErrors(error: unknown): FieldErrors {
+  const body = getErrorBody(error);
+  if (!body) return {};
+
+  const fieldErrors: FieldErrors = {};
+  for (const [key, value] of Object.entries(body)) {
+    if (key === "detail" || key === "non_field_errors") continue;
+    if (Array.isArray(value) && typeof value[0] === "string") {
+      fieldErrors[key] = value[0];
+    } else if (typeof value === "string") {
+      fieldErrors[key] = value;
+    }
+  }
+  return fieldErrors;
+}
+
+export function extractErrorMessage(error: unknown): string {
+  const body = getErrorBody(error);
+  if (!body) {
+    if (axios.isAxiosError(error) && !error.response) {
+      return "Network error — please check your connection and try again.";
+    }
+    return "Something went wrong. Please try again.";
+  }
+
+  if (typeof body.detail === "string") return body.detail;
+
+  const nonFieldErrors = body.non_field_errors;
+  if (Array.isArray(nonFieldErrors) && typeof nonFieldErrors[0] === "string") {
+    return nonFieldErrors[0];
+  }
+
+  const fieldErrors = extractFieldErrors(error);
+  const firstField = Object.keys(fieldErrors)[0];
+  if (firstField) return fieldErrors[firstField]!;
+
+  return "Something went wrong. Please try again.";
+}

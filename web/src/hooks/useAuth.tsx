@@ -6,6 +6,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import axios from "axios";
 import * as authService from "../services/authService";
 import { setOnAuthFailure } from "../services/apiClient";
 import {
@@ -44,8 +45,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const currentUser = await authService.getCurrentUser();
         setUser(currentUser);
-      } catch {
-        clearTokens();
+      } catch (error) {
+        // Only a real response (e.g. 401 for an invalid/expired token) means
+        // the session is actually gone. A network error (backend briefly
+        // unreachable, offline, ...) shouldn't wipe otherwise-valid tokens —
+        // that would force a fresh login for something that fixes itself.
+        if (axios.isAxiosError(error) && error.response) {
+          clearTokens();
+        }
       } finally {
         setIsLoading(false);
       }

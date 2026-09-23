@@ -1,0 +1,60 @@
+@use "../styles/variables" as vars;
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: vars.$space-lg;
+}
+
+.heading {
+  margin: 0;
+  font-size: vars.$font-size-xl;
+}
+
+.statsRow {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: vars.$space-md;
+
+  @media (min-width: vars.$breakpoint-tablet) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.chartsRow {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: vars.$space-md;
+
+  @media (min-width: vars.$breakpoint-desktop) {
+    grid-template-columns: 2fr 1fr;
+  }
+}
+
+.listsRow {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: vars.$space-md;
+
+  @media (min-width: vars.$breakpoint-tablet) {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.spanTwo {
+  @media (min-width: vars.$breakpoint-tablet) {
+    grid-column: span 1;
+  }
+}
+
+.spanThree {
+  @media (min-width: vars.$breakpoint-tablet) {
+    grid-column: span 3;
+  }
+}
+
+.skeletonStack {
+  display: flex;
+  flex-direction: column;
+  gap: vars.$space-sm;
+}

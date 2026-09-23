@@ -1,0 +1,37 @@
+@use "../../styles/variables" as vars;
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: vars.$space-xs;
+  background-color: vars.$color-surface;
+  border: 1px solid vars.$color-border;
+  border-radius: vars.$radius-md;
+  padding: vars.$space-md;
+
+  @media (min-width: vars.$breakpoint-tablet) {
+    padding: vars.$space-lg;
+  }
+}
+
+.label {
+  font-size: vars.$font-size-sm;
+  color: vars.$color-text-muted;
+}
+
+.value {
+  font-size: vars.$font-size-xl;
+  font-weight: 700;
+}
+
+.neutral {
+  color: vars.$color-text;
+}
+
+.positive {
+  color: vars.$color-success;
+}
+
+.negative {
+  color: vars.$color-danger;
+}

@@ -1,0 +1,57 @@
+@use "../../styles/variables" as vars;
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: vars.$space-md;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: vars.$space-md;
+  padding-bottom: vars.$space-md;
+  border-bottom: 1px solid vars.$color-border;
+
+  &:last-child {
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+}
+
+.details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.description {
+  font-weight: 600;
+  color: vars.$color-text;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  font-size: vars.$font-size-sm;
+  color: vars.$color-text-muted;
+}
+
+.amount {
+  flex-shrink: 0;
+  font-weight: 700;
+}
+
+.income {
+  color: vars.$color-success;
+}
+
+.expense {
+  color: vars.$color-danger;
+}

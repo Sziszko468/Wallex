@@ -1,0 +1,60 @@
+@use "../../styles/variables" as vars;
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: vars.$space-md;
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: vars.$space-xs;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  gap: vars.$space-sm;
+  font-size: vars.$font-size-sm;
+}
+
+.name {
+  font-weight: 600;
+  color: vars.$color-text;
+}
+
+.amounts {
+  color: vars.$color-text-muted;
+}
+
+.track {
+  height: 8px;
+  border-radius: 999px;
+  background-color: vars.$color-background;
+  overflow: hidden;
+}
+
+.fill {
+  height: 100%;
+  border-radius: 999px;
+  background-color: vars.$color-primary;
+  transition: width 0.2s ease;
+}
+
+.fill.over {
+  background-color: vars.$color-danger;
+}
+
+.percentage {
+  font-size: 0.75rem;
+  color: vars.$color-text-muted;
+}
+
+.overText {
+  color: vars.$color-danger;
+  font-weight: 600;
+}

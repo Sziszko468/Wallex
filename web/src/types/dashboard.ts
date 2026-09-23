@@ -1,0 +1,76 @@
+export interface TopSpendingCategory {
+  category_id: number;
+  category_name: string;
+  amount: string;
+}
+
+export interface BudgetUsageEntry {
+  budget_id: number;
+  category_id: number | null;
+  category_name: string;
+  budget_amount: string;
+  spent_amount: string;
+  remaining_amount: string;
+  usage_percentage: number;
+}
+
+/**
+ * Shape of GET /api/analytics/dashboard/. Every figure here — totals,
+ * balance, top category, budget usage — is computed by the backend from
+ * the user's transactions/budgets for the given month. Render it as-is;
+ * don't derive or override any of these numbers on the client.
+ */
+export interface DashboardStats {
+  year: number;
+  month: number;
+  total_income: string;
+  total_expenses: string;
+  balance: string;
+  transaction_count: number;
+  top_spending_category: TopSpendingCategory | null;
+  budget_usage: BudgetUsageEntry[];
+}
+
+/** Query params accepted by GET /api/analytics/dashboard/ — both default to the current month. */
+export interface DashboardParams {
+  year?: number;
+  month?: number;
+}
+
+export interface MonthlyDataPoint {
+  month: number;
+  month_name: string;
+  income: string;
+  expenses: string;
+  balance: string;
+}
+
+/** Shape of GET /api/analytics/monthly/ — always 12 entries, zero-filled for months with no data. */
+export interface MonthlyAnalytics {
+  year: number;
+  months: MonthlyDataPoint[];
+}
+
+export interface MonthlyAnalyticsParams {
+  year?: number;
+}
+
+export interface CategoryBreakdownEntry {
+  category_id: number;
+  category_name: string;
+  amount: string;
+  /** Share of that month's total expenses, 0-100. */
+  percentage: number;
+}
+
+/** Shape of GET /api/analytics/categories/ — expense categories only, sorted by amount descending. */
+export interface CategoryAnalytics {
+  year: number;
+  month: number;
+  categories: CategoryBreakdownEntry[];
+}
+
+export interface CategoryAnalyticsParams {
+  year?: number;
+  month?: number;
+}

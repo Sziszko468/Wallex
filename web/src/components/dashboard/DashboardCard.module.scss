@@ -1,0 +1,22 @@
+@use "../../styles/variables" as vars;
+
+.card {
+  background-color: vars.$color-surface;
+  border: 1px solid vars.$color-border;
+  border-radius: vars.$radius-md;
+  padding: vars.$space-md;
+  min-width: 0;
+
+  @media (min-width: vars.$breakpoint-tablet) {
+    padding: vars.$space-lg;
+  }
+}
+
+.title {
+  font-size: vars.$font-size-lg;
+  margin: 0 0 vars.$space-md 0;
+}
+
+.body {
+  min-width: 0;
+}

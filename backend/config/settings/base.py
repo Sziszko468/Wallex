@@ -106,7 +106,7 @@ REST_FRAMEWORK = {
 }
 
 CORS_ALLOWED_ORIGINS = env.list(
-    "CORS_ALLOWED_ORIGINS", default=["http://localhost:5173"]
+    "CORS_ALLOWED_ORIGINS", default=["http://localhost:5173", "http://localhost:8081"]
 )
 
 SIMPLE_JWT = {

@@ -1,0 +1,25 @@
+@use "../styles/variables" as vars;
+
+.errorState {
+  padding: vars.$space-md;
+  text-align: center;
+}
+
+.message {
+  margin: 0 0 vars.$space-sm 0;
+  color: vars.$color-danger;
+  font-size: vars.$font-size-sm;
+}
+
+.retryButton {
+  padding: vars.$space-xs vars.$space-md;
+  background: none;
+  border: 1px solid vars.$color-border;
+  border-radius: vars.$radius-sm;
+  cursor: pointer;
+  font-size: vars.$font-size-sm;
+
+  &:hover {
+    background-color: vars.$color-background;
+  }
+}
