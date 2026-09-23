@@ -18,7 +18,7 @@ import { getMonthRange } from "../utils/date";
 import { extractErrorMessage } from "../utils/errors";
 import { Screen } from "../components/Screen";
 import { ErrorBanner } from "../components/ErrorBanner";
-import { AddTransactionFab } from "../components/AddTransactionFab";
+import { Fab } from "../components/Fab";
 import { SearchBar } from "../components/transactions/SearchBar";
 import { CategoryFilterChips } from "../components/transactions/CategoryFilterChips";
 import { DateRangeFilterChips, type DatePreset } from "../components/transactions/DateRangeFilterChips";
@@ -143,7 +143,7 @@ export function TransactionsScreen() {
         </View>
       </Screen>
 
-      <AddTransactionFab />
+      <Fab accessibilityLabel="Add transaction" onPress={() => router.push("/add-transaction")} />
     </View>
   );
 }

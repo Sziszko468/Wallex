@@ -3,9 +3,9 @@ from rest_framework import permissions, viewsets
 from apps.common.permissions import IsOwner
 
 from .filters import TransactionFilter
-from .models import Transaction
+from .models import RecurringTransaction, Transaction
 from .pagination import TransactionPagination
-from .serializers import TransactionSerializer
+from .serializers import RecurringTransactionSerializer, TransactionSerializer
 
 
 class TransactionViewSet(viewsets.ModelViewSet):
@@ -20,6 +20,19 @@ class TransactionViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return Transaction.objects.filter(user=self.request.user).select_related("category")
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+class RecurringTransactionViewSet(viewsets.ModelViewSet):
+    serializer_class = RecurringTransactionSerializer
+    permission_classes = [permissions.IsAuthenticated, IsOwner]
+    http_method_names = ["get", "post", "patch", "delete", "head", "options"]
+    lookup_value_regex = r"\d+"
+
+    def get_queryset(self):
+        return RecurringTransaction.objects.filter(user=self.request.user).select_related("category")
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)

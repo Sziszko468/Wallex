@@ -1,0 +1,239 @@
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import type { Category, TransactionType } from "../../types/category";
+import type {
+  RecurringFrequency,
+  RecurringTransaction,
+} from "../../types/recurringTransaction";
+import {
+  createRecurringTransaction,
+  updateRecurringTransaction,
+} from "../../services/recurringTransactionsService";
+import { extractErrorMessage, extractFieldErrors, type FieldErrors } from "../../utils/errors";
+import { toIsoDate } from "../../utils/date";
+import { Modal } from "../Modal";
+import { Button } from "../Button";
+import { TextField } from "../TextField";
+import { Select } from "../Select";
+import { ErrorBanner } from "../ErrorBanner";
+import { TypeToggle } from "../TypeToggle";
+import styles from "./RecurringTransactionFormModal.module.scss";
+
+const FREQUENCY_OPTIONS: { value: RecurringFrequency; label: string }[] = [
+  { value: "weekly", label: "Weekly" },
+  { value: "monthly", label: "Monthly" },
+  { value: "yearly", label: "Yearly" },
+];
+
+interface RecurringTransactionFormModalProps {
+  isOpen: boolean;
+  item: RecurringTransaction | null;
+  categories: Category[];
+  onClose: () => void;
+  onSaved: () => void;
+}
+
+export function RecurringTransactionFormModal({
+  isOpen,
+  item,
+  categories,
+  onClose,
+  onSaved,
+}: RecurringTransactionFormModalProps) {
+  const [name, setName] = useState("");
+  const [type, setType] = useState<TransactionType>("expense");
+  const [categoryId, setCategoryId] = useState("");
+  const [amount, setAmount] = useState("");
+  const [frequency, setFrequency] = useState<RecurringFrequency>("monthly");
+  const [startDate, setStartDate] = useState(() => toIsoDate(new Date()));
+  const [endDate, setEndDate] = useState("");
+  const [description, setDescription] = useState("");
+  const [isActive, setIsActive] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (item) {
+      setName(item.name);
+      setType(item.type);
+      setCategoryId(String(item.category));
+      setAmount(item.amount);
+      setFrequency(item.frequency);
+      setStartDate(item.start_date);
+      setEndDate(item.end_date ?? "");
+      setDescription(item.description);
+      setIsActive(item.is_active);
+    } else {
+      setName("");
+      setType("expense");
+      setCategoryId("");
+      setAmount("");
+      setFrequency("monthly");
+      setStartDate(toIsoDate(new Date()));
+      setEndDate("");
+      setDescription("");
+      setIsActive(true);
+    }
+    setErrorMessage(null);
+    setFieldErrors({});
+  }, [isOpen, item]);
+
+  const availableCategories = useMemo(
+    () => categories.filter((category) => category.type === type),
+    [categories, type]
+  );
+
+  function handleTypeChange(nextType: TransactionType) {
+    setType(nextType);
+    setCategoryId("");
+  }
+
+  function validate(): FieldErrors {
+    const errors: FieldErrors = {};
+    if (!name.trim()) errors.name = "Name is required.";
+
+    const numericAmount = Number(amount);
+    if (!amount.trim()) {
+      errors.amount = "Amount is required.";
+    } else if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+      errors.amount = "Amount must be greater than 0.";
+    }
+
+    if (!categoryId) errors.category = "Choose a category.";
+    if (!startDate) errors.start_date = "Start date is required.";
+    if (endDate && startDate && endDate < startDate) {
+      errors.end_date = "End date must be on or after the start date.";
+    }
+
+    return errors;
+  }
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    setErrorMessage(null);
+    const errors = validate();
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+
+    setIsSubmitting(true);
+    try {
+      const payload = {
+        name: name.trim(),
+        category: Number(categoryId),
+        type,
+        amount,
+        frequency,
+        start_date: startDate,
+        end_date: endDate || null,
+        description: description.trim() || undefined,
+        is_active: isActive,
+      };
+      if (item) {
+        await updateRecurringTransaction(item.id, payload);
+      } else {
+        await createRecurringTransaction(payload);
+      }
+      setIsSubmitting(false);
+      onSaved();
+    } catch (error) {
+      setIsSubmitting(false);
+      setFieldErrors((previous) => ({ ...previous, ...extractFieldErrors(error) }));
+      setErrorMessage(extractErrorMessage(error));
+    }
+  }
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={item ? "Edit recurring transaction" : "Add recurring transaction"}
+    >
+      <form onSubmit={handleSubmit} className={styles.form} noValidate>
+        <ErrorBanner message={errorMessage} />
+
+        <TextField
+          label="Name"
+          placeholder="e.g. Rent, Netflix, Spotify"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          error={fieldErrors.name}
+        />
+
+        <TypeToggle value={type} onChange={handleTypeChange} />
+
+        <TextField
+          label="Amount"
+          type="number"
+          step="0.01"
+          min="0.01"
+          placeholder="0.00"
+          value={amount}
+          onChange={(event) => setAmount(event.target.value)}
+          error={fieldErrors.amount}
+        />
+
+        <Select
+          label="Category"
+          placeholder="Select a category"
+          value={categoryId}
+          onChange={(event) => setCategoryId(event.target.value)}
+          options={availableCategories.map((category) => ({
+            value: String(category.id),
+            label: category.name,
+          }))}
+          error={fieldErrors.category}
+        />
+
+        <Select
+          label="Frequency"
+          value={frequency}
+          onChange={(event) => setFrequency(event.target.value as RecurringFrequency)}
+          options={FREQUENCY_OPTIONS}
+        />
+
+        <div className={styles.dateRow}>
+          <TextField
+            label="Start date"
+            type="date"
+            value={startDate}
+            onChange={(event) => setStartDate(event.target.value)}
+            error={fieldErrors.start_date}
+          />
+          <TextField
+            label="End date (optional)"
+            type="date"
+            value={endDate}
+            onChange={(event) => setEndDate(event.target.value)}
+            error={fieldErrors.end_date}
+          />
+        </div>
+
+        <TextField
+          label="Description (optional)"
+          placeholder="e.g. Apartment on Main St."
+          value={description}
+          onChange={(event) => setDescription(event.target.value)}
+        />
+
+        <label className={styles.checkboxRow}>
+          <input
+            type="checkbox"
+            checked={isActive}
+            onChange={(event) => setIsActive(event.target.checked)}
+          />
+          Active (generates occurrences once the notification system exists)
+        </label>
+
+        <div className={styles.actions}>
+          <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
+            Cancel
+          </Button>
+          <Button type="submit" isLoading={isSubmitting}>
+            {item ? "Save changes" : "Add recurring transaction"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}

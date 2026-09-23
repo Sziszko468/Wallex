@@ -28,6 +28,22 @@ export default function AppLayout() {
           headerStyle: { backgroundColor: colors.surface },
         }}
       />
+      <Stack.Screen
+        name="add-recurring"
+        options={{
+          presentation: "modal",
+          title: "Add recurring transaction",
+          headerStyle: { backgroundColor: colors.surface },
+        }}
+      />
+      <Stack.Screen
+        name="edit-recurring/[id]"
+        options={{
+          presentation: "modal",
+          title: "Edit recurring transaction",
+          headerStyle: { backgroundColor: colors.surface },
+        }}
+      />
     </Stack>
   );
 }

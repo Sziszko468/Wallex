@@ -1,10 +1,10 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { RefreshControl, StyleSheet, Text, View } from "react-native";
-import { useFocusEffect } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { useAuth } from "../hooks/useAuth";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { Screen } from "../components/Screen";
-import { AddTransactionFab } from "../components/AddTransactionFab";
+import { Fab } from "../components/Fab";
 import { SectionState } from "../components/SectionState";
 import { DashboardCard } from "../components/dashboard/DashboardCard";
 import { MonthSelector } from "../components/MonthSelector";
@@ -181,7 +181,7 @@ export function DashboardScreen() {
         </DashboardCard>
       </Screen>
 
-      <AddTransactionFab />
+      <Fab accessibilityLabel="Add transaction" onPress={() => router.push("/add-transaction")} />
     </View>
   );
 }

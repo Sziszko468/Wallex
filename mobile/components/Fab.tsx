@@ -1,13 +1,17 @@
 import { Pressable, StyleSheet, Text } from "react-native";
-import { router } from "expo-router";
 import { colors } from "../utils/theme";
 
-export function AddTransactionFab() {
+interface FabProps {
+  onPress: () => void;
+  accessibilityLabel: string;
+}
+
+export function Fab({ onPress, accessibilityLabel }: FabProps) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel="Add transaction"
-      onPress={() => router.push("/add-transaction")}
+      accessibilityLabel={accessibilityLabel}
+      onPress={onPress}
       hitSlop={8}
       style={({ pressed }) => [styles.fab, pressed && styles.pressed]}
     >
