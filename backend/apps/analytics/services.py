@@ -8,7 +8,7 @@ from django.db.models.functions import Coalesce, ExtractMonth
 
 from apps.budgets.models import Budget
 from apps.categories.models import TransactionType
-from apps.transactions.models import Transaction
+from apps.transactions.models import Frequency, RecurringTransaction, Transaction
 
 ZERO = Decimal("0.00")
 _DECIMAL = DecimalField(max_digits=12, decimal_places=2)
@@ -37,8 +37,16 @@ def get_month_summary(user, year, month):
     return result
 
 
+def previous_month(year, month):
+    return (year - 1, 12) if month == 1 else (year, month - 1)
+
+
 def get_category_expense_rows(user, year, month):
     start, end = month_date_range(year, month)
+    return get_category_expense_rows_between(user, start, end)
+
+
+def get_category_expense_rows_between(user, start, end):
     return list(
         Transaction.objects.filter(user=user, type=TransactionType.EXPENSE, date__gte=start, date__lte=end)
         .values("category_id", "category__name")
@@ -148,10 +156,7 @@ def get_monthly_analytics(user, year):
 
 
 def get_comparison(user, year, month):
-    if month == 1:
-        prev_year, prev_month = year - 1, 12
-    else:
-        prev_year, prev_month = year, month - 1
+    prev_year, prev_month = previous_month(year, month)
 
     current = get_month_summary(user, year, month)
     previous = get_month_summary(user, prev_year, prev_month)
@@ -171,3 +176,31 @@ def get_comparison(user, year, month):
         "difference": {field: _diff(field) for field in fields},
         "percentage_difference": {field: _pct_diff(field) for field in fields},
     }
+
+
+# How many times per month each frequency occurs on average (weekly = 52 / 12).
+MONTHLY_OCCURRENCES = {
+    Frequency.WEEKLY: Decimal(52) / Decimal(12),
+    Frequency.MONTHLY: Decimal(1),
+    Frequency.YEARLY: Decimal(1) / Decimal(12),
+}
+
+
+def get_recurring_monthly_expenses(user, year, month):
+    """Monthly-equivalent total of the recurring expenses active in the given month.
+
+    Based on the RecurringTransaction templates themselves (not on generated
+    transactions), normalized so weekly/yearly items are comparable with a
+    month of income. Single grouped query: one row per frequency at most.
+    """
+    start, end = month_date_range(year, month)
+    rows = (
+        RecurringTransaction.objects.filter(
+            user=user, type=TransactionType.EXPENSE, is_active=True, start_date__lte=end
+        )
+        .filter(Q(end_date__isnull=True) | Q(end_date__gte=start))
+        .values("frequency")
+        .annotate(total=Sum("amount"))
+    )
+    total = sum((row["total"] * MONTHLY_OCCURRENCES[row["frequency"]] for row in rows), ZERO)
+    return total.quantize(Decimal("0.01"))

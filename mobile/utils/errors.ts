@@ -1,5 +1,6 @@
 import axios, { type AxiosError } from "axios";
 import type { ApiErrorBody } from "../types/api";
+import { AppError } from "./appError";
 
 export type FieldErrors = Record<string, string>;
 
@@ -26,8 +27,13 @@ export function extractFieldErrors(error: unknown): FieldErrors {
 }
 
 export function extractErrorMessage(error: unknown): string {
+  if (error instanceof AppError) return error.message;
+
   const body = getErrorBody(error);
   if (!body) {
+    if (axios.isAxiosError(error) && error.code === "ECONNABORTED") {
+      return "The server took too long to respond. Please try again.";
+    }
     if (axios.isAxiosError(error) && !error.response) {
       return "Network error — please check your connection and try again.";
     }

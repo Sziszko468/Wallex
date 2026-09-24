@@ -3,7 +3,9 @@ from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 
+from apps.categories.models import TransactionType
 from apps.common.permissions import IsOwner
+from apps.notifications.services import check_budget_thresholds
 
 from .filters import TransactionFilter
 from .models import RecurringTransaction, Transaction
@@ -26,7 +28,14 @@ class TransactionViewSet(viewsets.ModelViewSet):
         return Transaction.objects.filter(user=self.request.user).select_related("category")
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        self._check_budgets(serializer.save(user=self.request.user))
+
+    def perform_update(self, serializer):
+        self._check_budgets(serializer.save())
+
+    def _check_budgets(self, transaction):
+        if transaction.type == TransactionType.EXPENSE:
+            check_budget_thresholds(self.request.user, transaction.date.year, transaction.date.month)
 
     @action(
         detail=False,
@@ -50,6 +59,9 @@ class TransactionViewSet(viewsets.ModelViewSet):
             summary = import_transactions_from_csv(request.user, uploaded_file)
         except CsvValidationError as error:
             return Response({"file": [str(error)]}, status=status.HTTP_400_BAD_REQUEST)
+
+        for year, month in sorted(summary.expense_months):
+            check_budget_thresholds(request.user, year, month)
 
         return Response(
             {

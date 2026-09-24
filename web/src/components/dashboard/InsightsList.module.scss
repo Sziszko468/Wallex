@@ -1,0 +1,74 @@
+@use "../../styles/variables" as vars;
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: vars.$space-sm;
+
+  @media (min-width: vars.$breakpoint-desktop) {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.item {
+  --accent: #{vars.$color-primary};
+
+  display: flex;
+  align-items: flex-start;
+  gap: vars.$space-sm;
+  padding: vars.$space-sm vars.$space-md;
+  border: 1px solid vars.$color-border;
+  border-left: 4px solid var(--accent);
+  border-radius: vars.$radius-sm;
+  background-color: vars.$color-surface;
+}
+
+.alert {
+  --accent: #{vars.$color-danger};
+}
+
+.warning {
+  --accent: #{vars.$color-warning};
+}
+
+.positive {
+  --accent: #{vars.$color-success};
+}
+
+.info {
+  --accent: #{vars.$color-primary};
+}
+
+.icon {
+  flex-shrink: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: vars.$color-surface;
+  background-color: var(--accent);
+}
+
+.text {
+  min-width: 0;
+}
+
+.message {
+  margin: 0;
+  font-size: vars.$font-size-sm;
+  color: vars.$color-text;
+  line-height: 1.5rem;
+}
+
+.detail {
+  margin: 0;
+  font-size: 0.75rem;
+  color: vars.$color-text-muted;
+}

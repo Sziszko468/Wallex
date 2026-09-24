@@ -1,5 +1,10 @@
 import { useCallback, useMemo, useState, type ReactNode } from "react";
-import { getCategoryAnalytics, getDashboard, getMonthlyAnalytics } from "../services/analyticsService";
+import {
+  getCategoryAnalytics,
+  getDashboard,
+  getInsights,
+  getMonthlyAnalytics,
+} from "../services/analyticsService";
 import { listCategories } from "../services/categoriesService";
 import { listTransactions } from "../services/transactionsService";
 import { useAsyncData } from "../hooks/useAsyncData";
@@ -13,6 +18,7 @@ import { CategoryPieChart } from "../components/dashboard/CategoryPieChart";
 import { BudgetOverview } from "../components/dashboard/BudgetOverview";
 import { TopCategoriesList } from "../components/dashboard/TopCategoriesList";
 import { RecentTransactionsList } from "../components/dashboard/RecentTransactionsList";
+import { InsightsList } from "../components/dashboard/InsightsList";
 import { Skeleton } from "../components/Skeleton";
 import { ErrorState } from "../components/ErrorState";
 import { formatCurrency } from "../utils/format";
@@ -41,6 +47,9 @@ export function DashboardPage() {
     [year, month]
   );
   const categoryBreakdown = useAsyncData(fetchCategoryBreakdown);
+
+  const fetchInsights = useCallback(() => getInsights({ year, month }), [year, month]);
+  const insights = useAsyncData(fetchInsights);
 
   const fetchRecentTransactions = useCallback(
     () => listTransactions({ page_size: RECENT_TRANSACTIONS_LIMIT }),
@@ -105,6 +114,12 @@ export function DashboardPage() {
           />
         </div>
       )}
+
+      <DashboardCard title="Insights">
+        <SectionBody isLoading={insights.isLoading} error={insights.error} onRetry={insights.refetch}>
+          {insights.data && <InsightsList insights={insights.data.insights} />}
+        </SectionBody>
+      </DashboardCard>
 
       <div className={styles.chartsRow}>
         <DashboardCard title="Monthly spending" className={styles.spanTwo}>

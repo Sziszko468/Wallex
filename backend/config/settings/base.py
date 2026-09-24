@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     "apps.transactions",
     "apps.budgets",
     "apps.analytics",
+    "apps.notifications",
 ]
 
 MIDDLEWARE = [
@@ -108,6 +109,9 @@ REST_FRAMEWORK = {
 CORS_ALLOWED_ORIGINS = env.list(
     "CORS_ALLOWED_ORIGINS", default=["http://localhost:5173", "http://localhost:8081"]
 )
+
+# Optional: only needed once "Enhanced push security" is enabled for the Expo project.
+EXPO_PUSH_ACCESS_TOKEN = env("EXPO_PUSH_ACCESS_TOKEN", default="")
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),

@@ -13,9 +13,11 @@ import { SpendingTrendChart } from "../components/dashboard/SpendingTrendChart";
 import { TopCategories } from "../components/dashboard/TopCategories";
 import { RecentTransactions } from "../components/dashboard/RecentTransactions";
 import { BudgetStatus } from "../components/dashboard/BudgetStatus";
+import { Insights } from "../components/dashboard/Insights";
 import {
   getCategoryAnalytics,
   getDashboard,
+  getInsights,
   getMonthlyAnalytics,
 } from "../services/analyticsService";
 import { listCategories } from "../services/categoriesService";
@@ -36,6 +38,7 @@ export function DashboardScreen() {
   const categoryBreakdown = useAsyncData(
     useCallback(() => getCategoryAnalytics({ year, month }), [year, month])
   );
+  const insights = useAsyncData(useCallback(() => getInsights({ year, month }), [year, month]));
   const recentTransactions = useAsyncData(
     useCallback(
       () => listTransactions({ ordering: "-date", page_size: RECENT_TRANSACTIONS_COUNT }),
@@ -64,6 +67,7 @@ export function DashboardScreen() {
       dashboard.refetch(),
       monthly.refetch(),
       categoryBreakdown.refetch(),
+      insights.refetch(),
       recentTransactions.refetch(),
       categories.refetch(),
     ]);
@@ -83,6 +87,7 @@ export function DashboardScreen() {
       dashboard.refetch();
       monthly.refetch();
       categoryBreakdown.refetch();
+      insights.refetch();
       recentTransactions.refetch();
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [year, month])
@@ -128,6 +133,12 @@ export function DashboardScreen() {
         <DashboardCard title="Overview">
           <SectionState isLoading={dashboard.isLoading} error={dashboard.error} onRetry={dashboard.refetch}>
             {dashboard.data && <SummaryCard stats={dashboard.data} />}
+          </SectionState>
+        </DashboardCard>
+
+        <DashboardCard title="Insights">
+          <SectionState isLoading={insights.isLoading} error={insights.error} onRetry={insights.refetch}>
+            {insights.data && <Insights insights={insights.data.insights} />}
           </SectionState>
         </DashboardCard>
 

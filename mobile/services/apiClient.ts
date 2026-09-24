@@ -1,54 +1,29 @@
 import axios, { type InternalAxiosRequestConfig } from "axios";
 import { API_BASE_URL } from "../utils/apiBaseUrl";
-import {
-  clearTokens,
-  getAccessToken,
-  getRefreshToken,
-  setAccessToken,
-  setRefreshToken,
-} from "../utils/tokenStorage";
+import { getValidAccessToken, isSessionActive, refreshSession } from "./session";
 
 export { API_BASE_URL };
 
-export const apiClient = axios.create({ baseURL: API_BASE_URL });
+const REQUEST_TIMEOUT_MS = 20_000;
+
+export const apiClient = axios.create({ baseURL: API_BASE_URL, timeout: REQUEST_TIMEOUT_MS });
 
 interface RetryableRequestConfig extends InternalAxiosRequestConfig {
   _retry?: boolean;
 }
 
-type AuthFailureHandler = () => void;
-let onAuthFailure: AuthFailureHandler | null = null;
-
-export function setOnAuthFailure(handler: AuthFailureHandler): void {
-  onAuthFailure = handler;
-}
-
+// Proactive: attach a token that is guaranteed not to expire mid-flight.
 apiClient.interceptors.request.use(async (config) => {
-  const token = await getAccessToken();
+  const token = await getValidAccessToken();
   if (token) {
     config.headers.set("Authorization", `Bearer ${token}`);
   }
   return config;
 });
 
-let refreshPromise: Promise<string> | null = null;
-
-async function refreshAccessToken(): Promise<string> {
-  const refresh = await getRefreshToken();
-  if (!refresh) {
-    throw new Error("No refresh token available");
-  }
-  const response = await axios.post<{ access: string; refresh?: string }>(
-    `${API_BASE_URL}/auth/refresh/`,
-    { refresh }
-  );
-  await setAccessToken(response.data.access);
-  if (response.data.refresh) {
-    await setRefreshToken(response.data.refresh);
-  }
-  return response.data.access;
-}
-
+// Reactive fallback: the server can still reject a token the client thought
+// was valid (clock skew, server-side revocation) — refresh once and retry.
+// If the refresh itself is rejected, session.ts signs the user out.
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: unknown) => {
@@ -57,24 +32,13 @@ apiClient.interceptors.response.use(
     }
 
     const originalRequest = error.config as RetryableRequestConfig;
-    const isRefreshCall = originalRequest.url?.includes("/auth/refresh/");
-
-    if (error.response?.status === 401 && !originalRequest._retry && !isRefreshCall) {
-      originalRequest._retry = true;
-      try {
-        refreshPromise ??= refreshAccessToken().finally(() => {
-          refreshPromise = null;
-        });
-        const newAccessToken = await refreshPromise;
-        originalRequest.headers.set("Authorization", `Bearer ${newAccessToken}`);
-        return await apiClient(originalRequest);
-      } catch (refreshError) {
-        await clearTokens();
-        onAuthFailure?.();
-        return Promise.reject(refreshError);
-      }
+    if (error.response?.status !== 401 || originalRequest._retry || !isSessionActive()) {
+      return Promise.reject(error);
     }
 
-    return Promise.reject(error);
+    originalRequest._retry = true;
+    const newAccessToken = await refreshSession();
+    originalRequest.headers.set("Authorization", `Bearer ${newAccessToken}`);
+    return apiClient(originalRequest);
   }
 );

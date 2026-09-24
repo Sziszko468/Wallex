@@ -4,6 +4,8 @@ import type {
   CategoryAnalyticsParams,
   DashboardParams,
   DashboardStats,
+  InsightsParams,
+  InsightsResponse,
   MonthlyAnalytics,
   MonthlyAnalyticsParams,
 } from "../types/dashboard";
@@ -24,5 +26,10 @@ export async function getCategoryAnalytics(
   params?: CategoryAnalyticsParams
 ): Promise<CategoryAnalytics> {
   const response = await apiClient.get<CategoryAnalytics>("/analytics/categories/", { params });
+  return response.data;
+}
+
+export async function getInsights(params?: InsightsParams): Promise<InsightsResponse> {
+  const response = await apiClient.get<InsightsResponse>("/analytics/insights/", { params });
   return response.data;
 }

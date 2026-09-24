@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Link } from "expo-router";
-import { useAuth } from "../hooks/useAuth";
+import { useAuth, type SignOutReason } from "../hooks/useAuth";
 import { extractErrorMessage } from "../utils/errors";
 import { Button } from "../components/Button";
 import { TextField } from "../components/TextField";
@@ -9,8 +9,15 @@ import { ErrorBanner } from "../components/ErrorBanner";
 import { Screen } from "../components/Screen";
 import { colors, fontSize, spacing } from "../utils/theme";
 
+const SIGN_OUT_NOTICES: Record<SignOutReason, string> = {
+  expired: "Your session has expired. Please sign in again.",
+  biometricsUnavailable:
+    "Biometric unlock is no longer available on this device, so you were signed out for your security. Please sign in again.",
+  storageError: "We couldn't read your saved session. Please sign in again.",
+};
+
 export function LoginScreen() {
-  const { login } = useAuth();
+  const { login, signOutReason } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -35,7 +42,7 @@ export function LoginScreen() {
     <Screen scroll>
       <Text style={styles.brand}>Spendly</Text>
       <Text style={styles.heading}>Log in</Text>
-      <ErrorBanner message={errorMessage} />
+      <ErrorBanner message={errorMessage ?? (signOutReason ? SIGN_OUT_NOTICES[signOutReason] : null)} />
 
       <TextField
         label="Email"

@@ -40,3 +40,18 @@ def auth_client(user):
 @pytest.fixture
 def other_auth_client(other_user):
     return _authenticated_client(other_user)
+
+
+@pytest.fixture(autouse=True)
+def push_outbox(monkeypatch):
+    """No test may reach the real Expo push service: every push is recorded here instead."""
+    from apps.notifications import expo
+
+    sent: list[dict] = []
+
+    def fake_send(messages):
+        sent.extend(messages)
+        return [expo.PushTicket(ok=True, ticket_id=f"ticket-{len(sent)}-{i}") for i, _ in enumerate(messages)]
+
+    monkeypatch.setattr(expo, "send_push_messages", fake_send)
+    return sent

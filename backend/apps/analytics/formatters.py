@@ -87,3 +87,18 @@ def format_comparison(comparison):
         "difference": {k: money(v) for k, v in comparison["difference"].items()},
         "percentage_difference": {k: percent(v) for k, v in comparison["percentage_difference"].items()},
     }
+
+
+def format_insights(insights):
+    return [
+        {
+            "id": insight.id,
+            "type": insight.type.value,
+            "severity": insight.severity.value,
+            "message": insight.message,
+            "category_id": insight.category_id,
+            "amount": None if insight.amount is None else money(insight.amount),
+            "percentage": percent(insight.percentage),
+        }
+        for insight in insights
+    ]

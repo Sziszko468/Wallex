@@ -1,13 +1,47 @@
 import { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Switch, Text, View } from "react-native";
+import { router } from "expo-router";
 import { useAuth } from "../hooks/useAuth";
 import { Button } from "../components/Button";
+import { ErrorBanner } from "../components/ErrorBanner";
+import { extractErrorMessage } from "../utils/errors";
 import { Screen } from "../components/Screen";
 import { colors, fontSize, radius, spacing } from "../utils/theme";
 
 export function SettingsScreen() {
-  const { user, logout } = useAuth();
+  const {
+    user,
+    logout,
+    biometricCapability,
+    isBiometricLockEnabled,
+    enableBiometricLock,
+    disableBiometricLock,
+  } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isUpdatingLock, setIsUpdatingLock] = useState(false);
+  const [lockError, setLockError] = useState<string | null>(null);
+
+  const biometricLabel = biometricCapability?.label ?? "Biometrics";
+  const isBiometricSupported =
+    biometricCapability !== null &&
+    (biometricCapability.isAvailable || biometricCapability.reason !== "unsupported_platform");
+
+  async function handleBiometricToggle(enabled: boolean) {
+    setLockError(null);
+    setIsUpdatingLock(true);
+    try {
+      if (enabled) {
+        const result = await enableBiometricLock();
+        if (!result.success) setLockError(result.message);
+      } else {
+        await disableBiometricLock();
+      }
+    } catch (error) {
+      setLockError(extractErrorMessage(error));
+    } finally {
+      setIsUpdatingLock(false);
+    }
+  }
 
   async function handleLogout() {
     setIsLoggingOut(true);
@@ -21,7 +55,7 @@ export function SettingsScreen() {
   }
 
   return (
-    <Screen>
+    <Screen scroll>
       <Text style={styles.heading}>Settings</Text>
 
       <View style={styles.card}>
@@ -34,6 +68,40 @@ export function SettingsScreen() {
           value={user ? new Date(user.date_joined).toLocaleDateString() : "—"}
         />
       </View>
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Notifications</Text>
+        <Text style={styles.cardText}>Budget alerts, payment reminders and important insights.</Text>
+        <Button
+          title="Notification settings"
+          variant="secondary"
+          onPress={() => router.push("/notification-settings")}
+        />
+      </View>
+
+      {isBiometricSupported && (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Security</Text>
+          <ErrorBanner message={lockError} />
+          <View style={styles.switchRow}>
+            <View style={styles.switchText}>
+              <Text style={styles.switchLabel}>Unlock with {biometricLabel}</Text>
+              <Text style={styles.switchHint}>
+                {biometricCapability?.isAvailable
+                  ? "Require it to open Spendly, and after 1 minute in the background."
+                  : `Set up ${biometricLabel} in your device settings to use this.`}
+              </Text>
+            </View>
+            <Switch
+              accessibilityLabel={`Unlock with ${biometricLabel}`}
+              value={isBiometricLockEnabled}
+              onValueChange={handleBiometricToggle}
+              disabled={isUpdatingLock || !biometricCapability?.isAvailable}
+              trackColor={{ true: colors.primary, false: colors.border }}
+            />
+          </View>
+        </View>
+      )}
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Session</Text>
@@ -78,6 +146,24 @@ const styles = StyleSheet.create({
     fontSize: fontSize.base,
     color: colors.textMuted,
     marginBottom: spacing.md,
+  },
+  switchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  switchText: {
+    flex: 1,
+  },
+  switchLabel: {
+    fontSize: fontSize.base,
+    fontWeight: "600",
+    color: colors.text,
+  },
+  switchHint: {
+    marginTop: 2,
+    fontSize: fontSize.sm,
+    color: colors.textMuted,
   },
   row: {
     flexDirection: "row",

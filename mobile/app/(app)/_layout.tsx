@@ -1,7 +1,10 @@
 import { Stack } from "expo-router";
 import { colors } from "../../utils/theme";
+import { usePushNotifications } from "../../hooks/usePushNotifications";
 
 export default function AppLayout() {
+  usePushNotifications();
+
   return (
     <Stack>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -33,6 +36,13 @@ export default function AppLayout() {
         options={{
           presentation: "modal",
           title: "Add recurring transaction",
+          headerStyle: { backgroundColor: colors.surface },
+        }}
+      />
+      <Stack.Screen
+        name="notification-settings"
+        options={{
+          title: "Notifications",
           headerStyle: { backgroundColor: colors.surface },
         }}
       />

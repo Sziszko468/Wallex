@@ -90,6 +90,8 @@ class ImportSummary:
     skipped: int = 0
     failed: int = 0
     details: list[RowResult] = field(default_factory=list)
+    # (year, month) pairs that received new expenses — budget checks run for these.
+    expense_months: set[tuple[int, int]] = field(default_factory=set)
 
 
 def _decode_csv_text(uploaded_file) -> str:
@@ -234,6 +236,8 @@ def import_transactions_from_csv(user, uploaded_file) -> ImportSummary:
             )
         )
         summary.imported += 1
+        if transaction_type == TransactionType.EXPENSE:
+            summary.expense_months.add((parsed_date.year, parsed_date.month))
 
     if to_create:
         Transaction.objects.bulk_create(to_create)

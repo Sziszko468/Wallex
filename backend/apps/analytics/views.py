@@ -1,8 +1,9 @@
+from django.utils import timezone
 from rest_framework import permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from . import formatters, services
+from . import formatters, insights, services
 from .serializers import MonthQuerySerializer, YearQuerySerializer
 
 
@@ -53,3 +54,15 @@ class ComparisonView(APIView):
             request.user, query.validated_data["year"], query.validated_data["month"]
         )
         return Response(formatters.format_comparison(comparison))
+
+
+class InsightsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        query = MonthQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        year = query.validated_data["year"]
+        month = query.validated_data["month"]
+        generated = insights.generate_insights(request.user, year, month, today=timezone.now().date())
+        return Response({"year": year, "month": month, "insights": formatters.format_insights(generated)})

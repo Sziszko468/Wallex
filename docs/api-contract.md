@@ -485,6 +485,137 @@ Income categories never appear here (the endpoint only aggregates expense transa
 
 ---
 
+## `GET /api/analytics/insights/`
+
+Rule-based financial insights for one month (no AI/ML — see `apps/analytics/insights.py`). The
+backend produces the finished `message` text plus the underlying `amount`/`percentage`, so
+clients only render; they never evaluate the rules themselves.
+
+**Query params:** `year`, `month` (both optional, default to the current month).
+
+**Response** `200 OK` — `InsightsResponse`, sorted by severity (`alert` → `warning` →
+`positive` → `info`), empty `insights` array when nothing applies:
+
+```json
+{
+  "year": 2026,
+  "month": 9,
+  "insights": [
+    {
+      "id": "budget_exceeded:3",
+      "type": "budget_exceeded",
+      "severity": "alert",
+      "message": "Shopping exceeded its budget by 20%.",
+      "category_id": 7,
+      "amount": "20.00",
+      "percentage": 120.0
+    },
+    {
+      "id": "category_increase:4",
+      "type": "category_increase",
+      "severity": "warning",
+      "message": "Food spending increased by 14% compared to last month.",
+      "category_id": 4,
+      "amount": "14.00",
+      "percentage": 14.0
+    }
+  ]
+}
+```
+
+| `type` | Severity | Rule | `amount` | `percentage` |
+|---|---|---|---|---|
+| `budget_exceeded` | alert | spent > budget (category or overall) | overspent amount | budget usage % |
+| `budget_warning` | warning | budget usage ≥ 80% | remaining amount | budget usage % |
+| `overspending` | alert | expenses > income (needs income) | deficit | deficit as % of income |
+| `savings` | positive | income > expenses | amount saved | savings rate |
+| `category_increase` / `category_decrease` | warning / positive | change vs. previous month ≥ 10% **and** ≥ 10.00; top 3 by absolute change; categories with no spending last month are skipped | absolute change | absolute change % |
+| `recurring_share` | warning if ≥ 50%, else info | active recurring **expense** templates normalized to a monthly amount (weekly × 52/12, yearly ÷ 12) vs. the month's income | monthly recurring total | share of income |
+| `top_category` | info | highest-spending expense category | category total | share of expenses |
+
+When the requested month is the **current** month, the category comparison uses month-to-date
+periods on both sides (1st → today vs. 1st → same day last month); the message then says
+"compared to the same period last month". `id` is stable per rule + subject, usable as a list key.
+`category_id` is `null` for overall/non-category insights.
+
+**Client function:** `getInsights(params?: InsightsParams): Promise<InsightsResponse>`.
+
+---
+
+## Push notifications — `/api/devices/`, `/api/notifications/preferences/`
+
+**Mobile only.** The web client never registers a device, so it never receives push
+notifications. Delivery goes through the Expo push service; see
+`apps/notifications/services.py` for when notifications are created.
+
+### `POST /api/devices/`
+
+Registers the calling app installation for the signed-in user. Idempotent on the token:
+re-registering refreshes `last_seen_at` (the app does this on every signed-in launch) and
+re-activates the device. A token registered to another user **moves** to the caller (same
+phone, different account).
+
+```json
+{"expo_push_token": "ExponentPushToken[xxxxxxxx]", "platform": "ios", "name": "Szilárd's iPhone"}
+```
+
+`platform` is `ios` or `android`. **Response:** `201 Created` (new) or `200 OK` (existing),
+with the `Device`:
+
+```json
+{"id": 4, "expo_push_token": "ExponentPushToken[xxxxxxxx]", "platform": "ios", "name": "Szilárd's iPhone",
+ "is_active": true, "last_seen_at": "2026-09-24T17:02:11Z", "created_at": "2026-09-24T17:02:11Z"}
+```
+
+`400` for a malformed token (`{"expo_push_token": ["Not a valid Expo push token."]}`) or an
+unknown platform.
+
+### `GET /api/devices/`, `DELETE /api/devices/{id}/`
+
+List the user's own devices (plain array); delete one (`204`, `404` for another user's).
+The app deletes its device on logout and when push is turned off on that phone.
+
+Devices that haven't re-registered for longer than the refresh-token lifetime (7 days) are
+not sent to — the session on them can no longer be valid.
+
+### `GET /api/notifications/preferences/`, `PATCH /api/notifications/preferences/`
+
+What the user wants to be notified about; applies to **all** of their devices. Created
+with the defaults below on first access. `PUT` → `405`.
+
+```json
+{
+  "budget_warnings": true,
+  "budget_exceeded": true,
+  "recurring_reminders": true,
+  "insights": true,
+  "recurring_reminder_days": 2,
+  "updated_at": "2026-09-24T17:02:11Z"
+}
+```
+
+`recurring_reminder_days` must be 1–7.
+
+### Notification kinds (push payload)
+
+Every push carries `data` with `kind`, `notification_id` and a `screen` the app opens on tap.
+
+| `kind` | Trigger | Deduplicated per | `data.screen` |
+|---|---|---|---|
+| `budget_warning` | an expense or budget change brings a budget to ≥ 80% (and ≤ 100%) | budget | `budgets` |
+| `budget_exceeded` | … above 100% (the warning is skipped if both happen at once) | budget | `budgets` |
+| `recurring_due` | scheduled job: an active recurring expense is due within `recurring_reminder_days` | recurring item + date | `recurring` |
+| `insight` | scheduled job: an `alert`-severity insight other than a budget one (e.g. `overspending`) | insight + month | `dashboard` |
+
+The scheduled job is `python manage.py send_scheduled_notifications` (idempotent; run
+hourly from cron). It also retries failed deliveries (up to 3 attempts within 24 h).
+
+**Client functions (mobile only):** `registerDevice`, `deleteDevice`,
+`getNotificationPreferences`, `updateNotificationPreferences` in
+`mobile/services/notificationsService.ts`.
+
+---
+
 ## Client consistency
 
 Both `web/src/services/` and `mobile/services/` implement this contract with the same file
