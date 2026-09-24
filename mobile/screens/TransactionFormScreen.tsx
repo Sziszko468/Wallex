@@ -2,6 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useAsyncData } from "../hooks/useAsyncData";
+import * as Crypto from "expo-crypto";
+import { useOffline } from "../hooks/useOffline";
+import { isOfflineError } from "../utils/network";
 import { listCategories } from "../services/categoriesService";
 import { createTransaction, getTransaction, updateTransaction } from "../services/transactionsService";
 import { extractErrorMessage, extractFieldErrors, type FieldErrors } from "../utils/errors";
@@ -31,6 +34,11 @@ export function TransactionFormScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const transactionId = id ? Number(id) : null;
   const isEditMode = transactionId !== null;
+  const { isOffline, saveOffline } = useOffline();
+  // One idempotency key per new transaction, reused by every save attempt
+  // (double tap, retry after an error, offline fallback): the backend creates
+  // it at most once whichever attempt gets through.
+  const [clientId] = useState(() => Crypto.randomUUID());
 
   const existingTransaction = useAsyncData(
     useCallback(() => {
@@ -47,6 +55,7 @@ export function TransactionFormScreen() {
   const [date, setDate] = useState(() => toIsoDate(new Date()));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
+  const [savedOffline, setSavedOffline] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
@@ -102,6 +111,13 @@ export function TransactionFormScreen() {
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) return;
 
+    // Only new transactions can be recorded offline; changing an existing one
+    // needs the server (it may have changed there meanwhile).
+    if (isEditMode && isOffline) {
+      setErrorMessage("You're offline. Editing needs a connection — try again once you're back online.");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const payload = {
@@ -113,8 +129,20 @@ export function TransactionFormScreen() {
       };
       if (transactionId !== null) {
         await updateTransaction(transactionId, payload);
+      } else if (isOffline) {
+        await saveOffline({ ...payload, client_id: clientId });
+        setSavedOffline(true);
       } else {
-        await createTransaction(payload);
+        try {
+          await createTransaction({ ...payload, client_id: clientId });
+        } catch (error) {
+          // The connection dropped mid-request: keep it locally instead of losing
+          // it. If the request did reach the server, syncing the same client_id
+          // returns the existing transaction instead of creating a second one.
+          if (!isOfflineError(error)) throw error;
+          await saveOffline({ ...payload, client_id: clientId });
+          setSavedOffline(true);
+        }
       }
       setIsSubmitting(false);
       setJustSaved(true);
@@ -175,7 +203,17 @@ export function TransactionFormScreen() {
         <QuickDateField value={date} onChange={setDate} error={fieldErrors.date} />
 
         <Button
-          title={justSaved ? "Saved ✓" : isEditMode ? "Save changes" : "Save"}
+          title={
+            justSaved
+              ? savedOffline
+                ? "Saved offline — will sync ✓"
+                : "Saved ✓"
+              : isEditMode
+                ? "Save changes"
+                : isOffline
+                  ? "Save offline"
+                  : "Save"
+          }
           variant={justSaved ? "success" : "primary"}
           size="large"
           onPress={handleSave}

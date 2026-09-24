@@ -15,6 +15,8 @@ export interface Transaction {
   description: string;
   /** ISO date, "YYYY-MM-DD". */
   date: string;
+  /** Set only for transactions that were recorded offline in the mobile app. */
+  client_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -26,9 +28,11 @@ export interface CreateTransactionPayload {
   category: number;
   description?: string;
   date: string;
+  /** Idempotency key for offline-recorded transactions (see services/outbox.ts). */
+  client_id?: string;
 }
 
-export type UpdateTransactionPayload = Partial<CreateTransactionPayload>;
+export type UpdateTransactionPayload = Partial<Omit<CreateTransactionPayload, "client_id">>;
 
 /** Query params accepted by GET /api/transactions/. */
 export interface TransactionListParams {

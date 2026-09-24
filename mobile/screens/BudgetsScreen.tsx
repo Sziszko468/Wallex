@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { RefreshControl, StyleSheet, Text } from "react-native";
 import { useAsyncData } from "../hooks/useAsyncData";
+import { useRefetchOnDataChange } from "../hooks/useOffline";
 import { listBudgets } from "../services/budgetsService";
 import { listCategories } from "../services/categoriesService";
 import type { Category } from "../types/category";
@@ -20,6 +21,11 @@ export function BudgetsScreen() {
   // selected month on the client (pure row selection, no recalculation).
   const budgets = useAsyncData(useCallback(() => listBudgets(), []));
   const categories = useAsyncData(useCallback(() => listCategories(), []));
+  // Synced offline expenses change "spent" — reload it from the backend.
+  useRefetchOnDataChange(() => {
+    budgets.refetch();
+    categories.refetch();
+  });
 
   const categoriesById = useMemo(() => {
     const map = new Map<number, Category>();

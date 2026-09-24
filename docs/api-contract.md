@@ -59,6 +59,7 @@ export interface Transaction {
   category: number;      // Category id
   description: string;
   date: string;           // "YYYY-MM-DD"
+  client_id: string | null; // UUID; set only for transactions recorded offline (mobile)
   created_at: string;
   updated_at: string;
 }
@@ -180,10 +181,18 @@ interface CreateTransactionPayload {
   category: number;      // required, must be one of the user's own categories
   description?: string;
   date: string;           // required, "YYYY-MM-DD"
+  client_id?: string;     // optional UUID idempotency key (mobile offline sync)
 }
 ```
 
-**Response** `201 Created` — a `Transaction`. **Validation errors** `400`:
+**Idempotency (`client_id`):** the mobile app generates a UUID per new transaction and sends it
+with every attempt. If a transaction with the same `client_id` already exists for this user,
+the endpoint returns it with **`200 OK`** instead of creating a duplicate — so an offline sync
+can safely re-send an item whose earlier attempt reached the server but whose response was
+lost. `client_id` is unique per user, can't be changed later (ignored on `PATCH`), and is
+optional — the web client never sends it.
+
+**Response** `201 Created` — a `Transaction` (`200 OK` for an idempotent repeat, see above). **Validation errors** `400`:
 
 ```json
 {"category": ["Invalid pk \"999\" - object does not exist."]}

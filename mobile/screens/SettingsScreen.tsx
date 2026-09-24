@@ -2,6 +2,7 @@ import { useState } from "react";
 import { StyleSheet, Switch, Text, View } from "react-native";
 import { router } from "expo-router";
 import { useAuth } from "../hooks/useAuth";
+import { useOffline } from "../hooks/useOffline";
 import { Button } from "../components/Button";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { extractErrorMessage } from "../utils/errors";
@@ -17,6 +18,8 @@ export function SettingsScreen() {
     enableBiometricLock,
     disableBiometricLock,
   } = useAuth();
+  const { pendingTransactions } = useOffline();
+  const unsyncedCount = pendingTransactions.length;
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isUpdatingLock, setIsUpdatingLock] = useState(false);
   const [lockError, setLockError] = useState<string | null>(null);
@@ -106,6 +109,13 @@ export function SettingsScreen() {
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Session</Text>
         <Text style={styles.cardText}>Log out of Spendly on this device.</Text>
+        <ErrorBanner
+          message={
+            unsyncedCount > 0
+              ? `${unsyncedCount} transaction${unsyncedCount === 1 ? " hasn't" : "s haven't"} been synced yet. Logging out now discards ${unsyncedCount === 1 ? "it" : "them"} — connect to the internet first to keep ${unsyncedCount === 1 ? "it" : "them"}.`
+              : null
+          }
+        />
         <Button title="Log out" variant="danger" onPress={handleLogout} isLoading={isLoggingOut} />
       </View>
     </Screen>

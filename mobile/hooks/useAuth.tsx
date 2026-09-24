@@ -34,6 +34,17 @@ import {
   removeLegacyAccessToken,
   setBiometricLockEnabled,
 } from "../utils/tokenStorage";
+import {
+  clearOtherUsersData,
+  clearUserData,
+  forgetLastUser,
+  getLastUser,
+  getOfflineUser,
+  rememberLastUser,
+  setOfflineUser,
+} from "../utils/offlineStore";
+import { getTokenUserId } from "../utils/jwt";
+import { isOfflineError } from "../utils/network";
 import type { LoginPayload, RegisterPayload, User } from "../types/auth";
 
 /**
@@ -76,6 +87,37 @@ function isRejectedByServer(error: unknown): boolean {
   return status === 401 || status === 403;
 }
 
+function warnOnFailure(label: string) {
+  return (error: unknown) => console.warn(label, error);
+}
+
+/**
+ * The profile to open the app with when it starts without a connection — only
+ * if it belongs to the stored session, never another account's saved data.
+ */
+async function getOfflineStartUser(): Promise<User | null> {
+  try {
+    const [lastUser, refresh] = await Promise.all([getLastUser(), getRefreshToken()]);
+    if (!lastUser || !refresh || getTokenUserId(refresh) !== String(lastUser.id)) return null;
+    return lastUser;
+  } catch {
+    return null;
+  }
+}
+
+/** Whose offline data to delete on logout — also works from the lock screen, before any user is loaded. */
+async function getSessionUserId(): Promise<number | null> {
+  const loaded = getOfflineUser();
+  if (loaded !== null) return loaded;
+  try {
+    const refresh = await getRefreshToken();
+    const fromToken = refresh ? getTokenUserId(refresh) : null;
+    return fromToken === null ? null : Number(fromToken);
+  } catch {
+    return null;
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>("loading");
   const [user, setUser] = useState<User | null>(null);
@@ -84,6 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isBiometricLockEnabled, setIsBiometricLockEnabled] = useState(false);
 
   const markSignedOut = useCallback((reason: SignOutReason | null) => {
+    setOfflineUser(null);
     setUser(null);
     setIsBiometricLockEnabled(false);
     setSignOutReason(reason);
@@ -91,18 +134,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    setOnSessionExpired(() => markSignedOut("expired"));
+    setOnSessionExpired(() => {
+      // Pending transactions and cached data stay (per user) so they're still
+      // there if the same user signs back in; the offline-start profile goes.
+      void forgetLastUser().catch(warnOnFailure("Failed to forget last user"));
+      markSignedOut("expired");
+    });
     return () => setOnSessionExpired(null);
   }, [markSignedOut]);
+
+  const enterSignedIn = useCallback((currentUser: User) => {
+    setOfflineUser(currentUser.id);
+    // Best-effort bookkeeping for offline use; must never block signing in.
+    void rememberLastUser(currentUser).catch(warnOnFailure("Failed to remember user"));
+    void clearOtherUsersData(currentUser.id).catch(warnOnFailure("Failed to clear old offline data"));
+    setUser(currentUser);
+    setSignOutReason(null);
+    setStatus("signedIn");
+  }, []);
 
   /** Uses the stored refresh token (the request interceptor refreshes on the way) and loads the user. */
   const resume = useCallback(async () => {
     activateSession();
     try {
-      const currentUser = await authService.getCurrentUser();
-      setUser(currentUser);
-      setSignOutReason(null);
-      setStatus("signedIn");
+      enterSignedIn(await authService.getCurrentUser());
     } catch (error) {
       if (error instanceof SessionExpiredError || error instanceof SessionClosedError) {
         return; // session.ts already signed out / the session was ended meanwhile
@@ -112,11 +167,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         markSignedOut("expired");
         return;
       }
-      // Offline, timeout, 5xx: keep the stored session and let the user retry.
+      if (isOfflineError(error)) {
+        // Offline start: open with the saved profile and cached data. The
+        // session stays active and is verified by the first request that
+        // reaches the backend (an expired session then signs out as usual).
+        const offlineUser = await getOfflineStartUser();
+        if (offlineUser) {
+          enterSignedIn(offlineUser);
+          return;
+        }
+      }
+      // Nothing saved to show (or a 5xx): keep the stored session and let the user retry.
       suspendSession();
       setStatus("unavailable");
     }
-  }, [markSignedOut]);
+  }, [enterSignedIn, markSignedOut]);
 
   useEffect(() => {
     async function bootstrap() {
@@ -186,16 +251,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (payload: LoginPayload) => {
     const tokens = await authService.login(payload);
     await startSession(tokens);
+    let currentUser: User;
     try {
-      const currentUser = await authService.getCurrentUser();
-      setUser(currentUser);
+      currentUser = await authService.getCurrentUser();
     } catch (error) {
       await clearSession();
       throw error;
     }
-    setSignOutReason(null);
-    setStatus("signedIn");
-  }, []);
+    enterSignedIn(currentUser);
+  }, [enterSignedIn]);
 
   const register = useCallback(
     async (payload: RegisterPayload) => {
@@ -206,6 +270,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(async () => {
+    const userId = await getSessionUserId();
     try {
       // Also from the lock screen ("Sign in with password"): the stored token
       // is used one last time only to blacklist it, so a leaked copy is useless.
@@ -225,6 +290,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.warn("Server-side logout failed", error);
     } finally {
       await clearSession();
+      // Cached data and unsynced transactions of this user (the UI warns first).
+      if (userId !== null) await clearUserData(userId).catch(warnOnFailure("Failed to clear offline data"));
+      await forgetLastUser().catch(warnOnFailure("Failed to forget last user"));
       markSignedOut(null);
     }
   }, [markSignedOut]);

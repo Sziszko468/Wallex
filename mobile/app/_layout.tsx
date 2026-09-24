@@ -1,6 +1,7 @@
 import { Stack } from "expo-router";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider, useAuth } from "../hooks/useAuth";
+import { OfflineProvider } from "../hooks/useOffline";
 import { LoadingScreen } from "../components/LoadingScreen";
 import { SessionUnavailableScreen } from "../screens/SessionUnavailableScreen";
 
@@ -34,7 +35,9 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <RootNavigator />
+        <OfflineProvider>
+          <RootNavigator />
+        </OfflineProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );

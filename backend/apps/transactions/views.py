@@ -1,3 +1,6 @@
+import uuid
+
+from django.db import IntegrityError
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -26,6 +29,31 @@ class TransactionViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return Transaction.objects.filter(user=self.request.user).select_related("category")
+
+    def create(self, request, *args, **kwargs):
+        # Offline sync may re-send a transaction the server already stored (the
+        # response was lost on the way back). Same client_id = same transaction:
+        # answer 200 with the existing row instead of creating a duplicate.
+        existing = self._find_by_client_id(request.data.get("client_id"))
+        if existing is not None:
+            return Response(self.get_serializer(existing).data, status=status.HTTP_200_OK)
+        try:
+            return super().create(request, *args, **kwargs)
+        except IntegrityError:
+            # Two concurrent requests with the same client_id: the other one won.
+            existing = self._find_by_client_id(request.data.get("client_id"))
+            if existing is None:
+                raise
+            return Response(self.get_serializer(existing).data, status=status.HTTP_200_OK)
+
+    def _find_by_client_id(self, raw_client_id):
+        if not raw_client_id:
+            return None
+        try:
+            client_id = uuid.UUID(str(raw_client_id))
+        except ValueError:
+            return None  # the serializer reports the invalid value
+        return self.get_queryset().filter(client_id=client_id).first()
 
     def perform_create(self, serializer):
         self._check_budgets(serializer.save(user=self.request.user))

@@ -15,6 +15,8 @@ export interface Transaction {
   description: string;
   /** ISO date, "YYYY-MM-DD". */
   date: string;
+  /** Set only for transactions recorded offline in the mobile app. */
+  client_id: string | null;
   created_at: string;
   updated_at: string;
 }

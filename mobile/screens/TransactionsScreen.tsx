@@ -12,6 +12,7 @@ import { router, useFocusEffect } from "expo-router";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import { usePaginatedTransactions } from "../hooks/usePaginatedTransactions";
+import { useOffline, useRefetchOnDataChange } from "../hooks/useOffline";
 import { listCategories } from "../services/categoriesService";
 import type { Category } from "../types/category";
 import { getMonthRange } from "../utils/date";
@@ -23,6 +24,7 @@ import { SearchBar } from "../components/transactions/SearchBar";
 import { CategoryFilterChips } from "../components/transactions/CategoryFilterChips";
 import { DateRangeFilterChips, type DatePreset } from "../components/transactions/DateRangeFilterChips";
 import { TransactionListItem } from "../components/transactions/TransactionListItem";
+import { PendingTransactionsList } from "../components/transactions/PendingTransactionsList";
 import { colors, fontSize, spacing } from "../utils/theme";
 
 export function TransactionsScreen() {
@@ -52,9 +54,15 @@ export function TransactionsScreen() {
     return map;
   }, [categories.data]);
 
+  const { pendingTransactions, retry, discard, syncNow } = useOffline();
+  useRefetchOnDataChange(() => {
+    void refetch();
+    void categories.refetch();
+  });
+
   async function handleRefresh() {
     setIsRefreshing(true);
-    await refetch();
+    await Promise.all([refetch(), syncNow()]);
     setIsRefreshing(false);
   }
 
@@ -84,6 +92,13 @@ export function TransactionsScreen() {
           />
           <DateRangeFilterChips value={datePreset} onChange={setDatePreset} />
         </View>
+
+        <PendingTransactionsList
+          items={pendingTransactions}
+          categoriesById={categoriesById}
+          onRetry={(clientId) => void retry(clientId)}
+          onDiscard={(clientId) => void discard(clientId)}
+        />
 
         <View style={styles.listArea}>
           {isLoading ? (

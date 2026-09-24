@@ -1,6 +1,9 @@
-import axios, { type InternalAxiosRequestConfig } from "axios";
+import axios, { type AxiosResponse, type InternalAxiosRequestConfig } from "axios";
 import { API_BASE_URL } from "../utils/apiBaseUrl";
+import { isOfflineError } from "../utils/network";
 import { getValidAccessToken, isSessionActive, refreshSession } from "./session";
+import { cacheKeyFor, readResponse, storeResponse } from "./responseCache";
+import { reportApiReachable, reportApiUnreachable, reportServedFromCache } from "./connectivity";
 
 export { API_BASE_URL };
 
@@ -14,24 +17,60 @@ interface RetryableRequestConfig extends InternalAxiosRequestConfig {
 
 // Proactive: attach a token that is guaranteed not to expire mid-flight.
 apiClient.interceptors.request.use(async (config) => {
-  const token = await getValidAccessToken();
+  let token: string | null = null;
+  try {
+    token = await getValidAccessToken();
+  } catch (error) {
+    // Offline, so the token can't be refreshed right now. Send the request
+    // anyway: it fails as offline too, and the response interceptor can then
+    // answer it from the cache (with this request's own config/cache key).
+    if (!isOfflineError(error)) throw error;
+  }
   if (token) {
     config.headers.set("Authorization", `Bearer ${token}`);
   }
   return config;
 });
 
-// Reactive fallback: the server can still reject a token the client thought
-// was valid (clock skew, server-side revocation) — refresh once and retry.
-// If the refresh itself is rejected, session.ts signs the user out.
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    reportApiReachable();
+    if (response.config.method === "get") {
+      storeResponse(cacheKeyFor(response.config), response.data);
+    }
+    return response;
+  },
   async (error: unknown) => {
     if (!axios.isAxiosError(error) || !error.config) {
       return Promise.reject(error);
     }
-
     const originalRequest = error.config as RetryableRequestConfig;
+
+    // Offline: show the last data loaded for this exact request, if any.
+    if (isOfflineError(error)) {
+      reportApiUnreachable();
+      if (originalRequest.method === "get") {
+        const cached = await readResponse(cacheKeyFor(originalRequest));
+        if (cached) {
+          reportServedFromCache(cached.storedAt);
+          const response: AxiosResponse = {
+            data: cached.data,
+            status: 200,
+            statusText: "OK",
+            headers: {},
+            config: originalRequest,
+          };
+          return response;
+        }
+      }
+      return Promise.reject(error);
+    }
+
+    reportApiReachable();
+
+    // Reactive fallback: the server can still reject a token the client thought
+    // was valid (clock skew, server-side revocation) — refresh once and retry.
+    // If the refresh itself is rejected, session.ts signs the user out.
     if (error.response?.status !== 401 || originalRequest._retry || !isSessionActive()) {
       return Promise.reject(error);
     }

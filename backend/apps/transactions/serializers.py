@@ -6,6 +6,9 @@ from .models import RecurringTransaction, Transaction
 
 
 class TransactionSerializer(serializers.ModelSerializer):
+    # Optional idempotency key (see Transaction.client_id); settable on create only.
+    client_id = serializers.UUIDField(required=False, allow_null=True)
+
     class Meta:
         model = Transaction
         fields = [
@@ -15,6 +18,7 @@ class TransactionSerializer(serializers.ModelSerializer):
             "category",
             "description",
             "date",
+            "client_id",
             "created_at",
             "updated_at",
         ]
@@ -25,6 +29,8 @@ class TransactionSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         if request is not None:
             self.fields["category"].queryset = Category.objects.filter(user=request.user)
+        if self.instance is not None:
+            self.fields["client_id"].read_only = True
 
     def validate(self, attrs):
         category = attrs.get("category", getattr(self.instance, "category", None))

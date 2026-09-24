@@ -3,6 +3,7 @@ import { RefreshControl, StyleSheet, Text, View } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { useAuth } from "../hooks/useAuth";
 import { useAsyncData } from "../hooks/useAsyncData";
+import { useRefetchOnDataChange } from "../hooks/useOffline";
 import { Screen } from "../components/Screen";
 import { Fab } from "../components/Fab";
 import { SectionState } from "../components/SectionState";
@@ -60,6 +61,16 @@ export function DashboardScreen() {
     categories.data?.forEach((category) => map.set(category.id, category.name));
     return map;
   }, [categories.data]);
+
+  // Pending transactions were synced, or the connection came back: reload from the backend.
+  useRefetchOnDataChange(() => {
+    dashboard.refetch();
+    monthly.refetch();
+    categoryBreakdown.refetch();
+    insights.refetch();
+    recentTransactions.refetch();
+    categories.refetch();
+  });
 
   async function handleRefresh() {
     setIsRefreshing(true);
