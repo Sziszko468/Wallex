@@ -1,15 +1,31 @@
 from rest_framework import generics, permissions, status
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from .serializers import RegisterSerializer, UserSerializer
 
 
+# Public auth endpoints are rate-limited per client IP against brute force and
+# credential stuffing (rates: DEFAULT_THROTTLE_RATES in settings).
 class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "auth_register"
+
+
+class LoginView(TokenObtainPairView):
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "auth_login"
+
+
+class RefreshView(TokenRefreshView):
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "auth_refresh"
 
 
 class MeView(generics.RetrieveAPIView):

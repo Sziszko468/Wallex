@@ -2,27 +2,39 @@ import Constants from "expo-constants";
 
 const PORT = "8000";
 
-/**
- * Resolves the Django API base URL for the current run target.
- *
- * - `EXPO_PUBLIC_API_BASE_URL` always wins when set (e.g. for the Android
- *   emulator, which needs `http://10.0.2.2:8000/api` instead of localhost).
- * - Otherwise, derive the dev machine's LAN IP from Expo's own dev-server
- *   connection info. This is what lets Expo Go on a *physical* phone reach
- *   the backend without hand-editing an IP every time it changes.
- * - Final fallback is localhost, which is correct for the iOS simulator.
- */
-function resolveApiBaseUrl(): string {
-  const explicit = process.env.EXPO_PUBLIC_API_BASE_URL;
-  if (explicit) return explicit;
-
-  const hostUri = Constants.expoConfig?.hostUri;
-  const host = hostUri?.split(":")[0];
-  if (host) {
-    return `http://${host}:${PORT}/api`;
-  }
-
-  return `http://localhost:${PORT}/api`;
+interface ApiBaseUrlInput {
+  isDev: boolean;
+  /** EXPO_PUBLIC_API_BASE_URL — always wins when set. */
+  explicit: string | undefined;
+  /** Expo dev-server host ("192.168.1.20:8081"): reaches the dev machine from a physical phone. */
+  hostUri: string | undefined;
 }
 
-export const API_BASE_URL = resolveApiBaseUrl();
+/**
+ * Resolves the Django API base URL.
+ *
+ * Development may use plain http to reach the local backend (LAN IP, Android
+ * emulator's 10.0.2.2, iOS simulator's localhost). A release build must talk
+ * https: every request carries a bearer token, and /auth/refresh/ carries the
+ * refresh token in its body — over http anyone on the network could read them.
+ */
+export function resolveApiBaseUrl({ isDev, explicit, hostUri }: ApiBaseUrlInput): string {
+  let url: string;
+  if (explicit) {
+    url = explicit;
+  } else {
+    const host = hostUri?.split(":")[0];
+    url = host ? `http://${host}:${PORT}/api` : `http://localhost:${PORT}/api`;
+  }
+
+  if (!isDev && !url.startsWith("https://")) {
+    throw new Error(`Release builds must use an https API URL (got "${url}"). Set EXPO_PUBLIC_API_BASE_URL.`);
+  }
+  return url;
+}
+
+export const API_BASE_URL = resolveApiBaseUrl({
+  isDev: __DEV__,
+  explicit: process.env.EXPO_PUBLIC_API_BASE_URL,
+  hostUri: Constants.expoConfig?.hostUri,
+});

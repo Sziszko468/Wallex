@@ -1,5 +1,6 @@
 import type { InternalAxiosRequestConfig } from "axios";
 import { getOfflineUser, readUserJson, removeUserKeys, writeUserJson } from "../utils/offlineStore";
+import { logWarning } from "../utils/logging";
 
 /**
  * Last successful response of each GET request, so screens can still show
@@ -52,7 +53,7 @@ export function storeResponse(key: string, data: unknown): void {
     })
     .catch((error: unknown) => {
       // Caching is best-effort; a full disk must never break a successful request.
-      console.warn("Failed to cache response", error);
+      logWarning("Failed to cache response", error);
     });
 }
 
@@ -60,7 +61,7 @@ export async function readResponse(key: string): Promise<CachedResponse | null> 
   try {
     return await readUserJson<CachedResponse>(ENTRY_PREFIX + key);
   } catch (error) {
-    console.warn("Failed to read cached response", error);
+    logWarning("Failed to read cached response", error);
     return null;
   }
 }

@@ -15,6 +15,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+# Never run the app as root: a compromised process can't touch the rest of the image.
+RUN useradd --create-home --uid 1000 spendly && chown -R spendly /app
+USER spendly
+
 EXPOSE 8000
 
 CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]

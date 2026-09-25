@@ -19,6 +19,8 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
+from django.conf import settings
+
 from apps.categories.models import Category, TransactionType
 from apps.categories.rules import match_category_name
 
@@ -28,6 +30,7 @@ REQUIRED_COLUMNS = {"date", "description", "amount"}
 DATE_FORMATS = ["%Y-%m-%d", "%d/%m/%Y"]
 
 EXPENSE_FALLBACK_CATEGORY = "Other"
+DESCRIPTION_MAX_LENGTH = Transaction._meta.get_field("description").max_length
 # No income fallback exists (unlike "Other" for expenses) — an unmatched
 # income row fails rather than being silently miscategorized.
 
@@ -53,10 +56,20 @@ class ImportSummary:
     expense_months: set[tuple[int, int]] = field(default_factory=set)
 
 
+def _rows(reader):
+    """(line number, row) pairs; malformed CSV becomes a clean validation error, not a 500."""
+    try:
+        yield from enumerate(reader, start=2)  # header is line 1
+    except csv.Error as error:
+        raise CsvValidationError(f"This file is not valid CSV ({error}).") from error
+
+
 def _decode_csv_text(uploaded_file) -> str:
     raw = uploaded_file.read()
     if not raw:
         raise CsvValidationError("The uploaded file is empty.")
+    if b"\x00" in raw:
+        raise CsvValidationError("This doesn't look like a CSV file (it contains binary data).")
     for encoding in ("utf-8-sig", "latin-1"):
         try:
             return raw.decode(encoding)
@@ -121,9 +134,16 @@ def import_transactions_from_csv(user, uploaded_file) -> ImportSummary:
     seen_in_file: set[tuple[date, Decimal, str]] = set()
     to_create: list[Transaction] = []
 
-    for line_number, raw_row in enumerate(reader, start=2):  # header is line 1
+    max_rows = settings.CSV_IMPORT_MAX_ROWS
+    data_rows = 0
+    for line_number, raw_row in _rows(reader):
         if not any((value or "").strip() for value in raw_row.values()):
             continue  # blank line — not an error, not counted at all
+
+        data_rows += 1
+        if data_rows > max_rows:
+            # Refuse the whole file before anything is saved (bulk_create runs last).
+            raise CsvValidationError(f"Too many rows — at most {max_rows} per import.")
 
         row = {key: (raw_row.get(header_lookup[key]) or "").strip() for key in REQUIRED_COLUMNS}
 
@@ -151,6 +171,16 @@ def import_transactions_from_csv(user, uploaded_file) -> ImportSummary:
         transaction_type = TransactionType.EXPENSE if signed_amount < 0 else TransactionType.INCOME
         amount = abs(signed_amount)
         description = row["description"]
+        if len(description) > DESCRIPTION_MAX_LENGTH:
+            summary.failed += 1
+            summary.details.append(
+                RowResult(
+                    line_number,
+                    "failed",
+                    f"Description is too long (max {DESCRIPTION_MAX_LENGTH} characters).",
+                )
+            )
+            continue
 
         dedupe_key = (parsed_date, amount, description.lower())
         if dedupe_key in seen_in_file or Transaction.objects.filter(

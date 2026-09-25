@@ -55,3 +55,11 @@ def push_outbox(monkeypatch):
 
     monkeypatch.setattr(expo, "send_push_messages", fake_send)
     return sent
+
+
+@pytest.fixture(autouse=True)
+def reset_throttle_counters():
+    """Rate-limit counters live in the cache; never let one test's requests throttle another's."""
+    from django.core.cache import cache
+
+    cache.clear()

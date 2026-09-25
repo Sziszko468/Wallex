@@ -1,5 +1,6 @@
 import uuid
 
+from django.conf import settings
 from django.db import IntegrityError, transaction
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
@@ -8,6 +9,7 @@ from rest_framework.response import Response
 
 from apps.categories.models import TransactionType
 from apps.common.permissions import IsOwner
+from apps.common.uploads import declared_body_exceeds, file_too_large
 from apps.notifications.services import check_budget_thresholds
 
 from .filters import TransactionFilter
@@ -78,9 +80,15 @@ class TransactionViewSet(viewsets.ModelViewSet):
         """POST /api/transactions/import/ — see apps/transactions/services.py
         for the full pipeline (file validation, parsing, dedup, category
         detection) and docs/api-contract.md for the expected CSV format."""
+        limit = settings.CSV_IMPORT_MAX_BYTES
+        if declared_body_exceeds(request, limit):
+            return file_too_large("file", limit)
+
         uploaded_file = request.FILES.get("file")
         if uploaded_file is None:
             return Response({"file": ["This field is required."]}, status=status.HTTP_400_BAD_REQUEST)
+        if uploaded_file.size > limit:
+            return file_too_large("file", limit)
         if not uploaded_file.name.lower().endswith(".csv"):
             return Response(
                 {"file": ["Please upload a .csv file."]}, status=status.HTTP_400_BAD_REQUEST

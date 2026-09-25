@@ -76,6 +76,7 @@ DATABASES = {
 }
 
 AUTH_USER_MODEL = "users.User"
+AUTHENTICATION_BACKENDS = ["apps.users.backends.CaseInsensitiveEmailBackend"]
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
@@ -105,10 +106,19 @@ REST_FRAMEWORK = {
         "rest_framework.filters.SearchFilter",
         "rest_framework.filters.OrderingFilter",
     ),
-    # Only views that opt in with `throttle_scope` are throttled.
+    # A generous ceiling for every authenticated user, plus stricter per-view scopes.
+    "DEFAULT_THROTTLE_CLASSES": ("rest_framework.throttling.UserRateThrottle",),
     "DEFAULT_THROTTLE_RATES": {
+        "user": env("API_USER_RATE", default="2000/hour"),
+        "auth_login": env("AUTH_LOGIN_RATE", default="10/minute"),
+        "auth_register": env("AUTH_REGISTER_RATE", default="10/hour"),
+        "auth_refresh": env("AUTH_REFRESH_RATE", default="30/minute"),
         "receipt_scan": env("RECEIPT_SCAN_RATE", default="30/hour"),
     },
+    # How many reverse proxies sit in front of Django. Throttling identifies
+    # clients by IP; with None, DRF trusts X-Forwarded-For as sent, which an
+    # attacker can rotate freely. 0 = the socket address (no proxy, local dev).
+    "NUM_PROXIES": env.int("DRF_NUM_PROXIES", default=0),
 }
 
 CORS_ALLOWED_ORIGINS = env.list(
@@ -123,6 +133,11 @@ RECEIPT_OCR_PROVIDER = env(
 RECEIPT_OCR_LANGUAGES = env("RECEIPT_OCR_LANGUAGES", default="hun+eng")
 RECEIPT_MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
+# CSV import limits: a bank export for a few years fits easily; anything bigger
+# is refused instead of tying up a worker (every row costs a duplicate check).
+CSV_IMPORT_MAX_BYTES = 2 * 1024 * 1024
+CSV_IMPORT_MAX_ROWS = 5000
+
 # Optional: only needed once "Enhanced push security" is enabled for the Expo project.
 EXPO_PUSH_ACCESS_TOKEN = env("EXPO_PUSH_ACCESS_TOKEN", default="")
 
@@ -133,4 +148,7 @@ SIMPLE_JWT = {
     "BLACKLIST_AFTER_ROTATION": True,
     "UPDATE_LAST_LOGIN": True,
     "AUTH_HEADER_TYPES": ("Bearer",),
+    # A separate key can be rotated (signing everyone out) without touching SECRET_KEY.
+    "SIGNING_KEY": env("JWT_SIGNING_KEY", default=SECRET_KEY),
+    "TOKEN_REFRESH_SERIALIZER": "apps.users.serializers.SafeTokenRefreshSerializer",
 }

@@ -1,5 +1,6 @@
 import { Platform } from "react-native";
 import * as LocalAuthentication from "expo-local-authentication";
+import { logWarning } from "../utils/logging";
 
 /**
  * Device-local biometric check (Face ID, Touch ID, Android biometrics).
@@ -60,7 +61,7 @@ export async function getBiometricCapability(): Promise<BiometricCapability> {
     }
     return { isAvailable: true, label };
   } catch (error) {
-    console.warn("Failed to query biometric capability", error);
+    logWarning("Failed to query biometric capability", error);
     return { isAvailable: false, label: "Biometrics", reason: "no_hardware" };
   }
 }
@@ -115,7 +116,7 @@ export async function authenticateWithBiometrics(
     });
     return result.success ? { success: true } : toFailure(result.error, label);
   } catch (error) {
-    console.warn("Biometric authentication threw", error);
+    logWarning("Biometric authentication threw", error);
     return toFailure("unknown", label);
   }
 }

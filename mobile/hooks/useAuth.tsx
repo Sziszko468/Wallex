@@ -46,6 +46,7 @@ import {
 import { getTokenUserId } from "../utils/jwt";
 import { isOfflineError } from "../utils/network";
 import type { LoginPayload, RegisterPayload, User } from "../types/auth";
+import { logWarning } from "../utils/logging";
 
 /**
  * - loading:     reading the stored session on launch
@@ -88,7 +89,7 @@ function isRejectedByServer(error: unknown): boolean {
 }
 
 function warnOnFailure(label: string) {
-  return (error: unknown) => console.warn(label, error);
+  return (error: unknown) => logWarning(label, error);
 }
 
 /**
@@ -281,13 +282,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (error) {
         // The backend also stops pushing to devices that haven't checked in for
         // longer than a session can last, so this is not a lasting leak.
-        console.warn("Failed to unregister push device", error);
+        logWarning("Failed to unregister push device", error);
       }
       await revokeSession();
     } catch (error) {
       // Offline or already invalid: the local session is removed regardless,
       // and the refresh token expires on its own server-side.
-      console.warn("Server-side logout failed", error);
+      logWarning("Server-side logout failed", error);
     } finally {
       await clearSession();
       // Cached data and unsynced transactions of this user (the UI warns first).

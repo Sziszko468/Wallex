@@ -6,6 +6,10 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
+from django.conf import settings
+
+from apps.common.uploads import declared_body_exceeds, file_too_large
+
 from .ocr import OcrUnavailableError
 from .services import InvalidReceiptImageError, scan_receipt
 
@@ -29,6 +33,9 @@ class ReceiptScanView(APIView):
     throttle_scope = "receipt_scan"
 
     def post(self, request):
+        if declared_body_exceeds(request, settings.RECEIPT_MAX_UPLOAD_BYTES):
+            return file_too_large("image", settings.RECEIPT_MAX_UPLOAD_BYTES, noun="photo")
+
         image = request.FILES.get("image")
         if image is None:
             return Response({"image": ["This field is required."]}, status=status.HTTP_400_BAD_REQUEST)

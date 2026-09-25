@@ -11,6 +11,7 @@ import {
   setPushOptOut,
 } from "../utils/tokenStorage";
 import type { DevicePlatform } from "../types/notification";
+import { logWarning } from "../utils/logging";
 
 /**
  * Push registration of this app installation.
@@ -96,7 +97,7 @@ export async function syncPushRegistration({ askPermission }: { askPermission: b
       token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
     } catch (error) {
       // Simulators, and Expo Go on Android since SDK 53, can't get a push token.
-      console.warn("Could not get an Expo push token", error);
+      logWarning("Could not get an Expo push token", error);
       return {
         state: "unsupported",
         message: "This build can't receive push notifications. Use a development build on a real device.",

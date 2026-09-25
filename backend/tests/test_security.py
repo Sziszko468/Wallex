@@ -140,3 +140,115 @@ def test_analytics_never_include_other_users_money(auth_client, other_user):
     assert auth_client.get(reverse("analytics-insights"), params).data["insights"] == []
     monthly = auth_client.get(reverse("analytics-monthly"), {"year": 2026}).data["months"]
     assert {month["expenses"] for month in monthly} == {"0.00"}
+
+
+# --- User isolation: indirect routes (filters, mass assignment, foreign keys) ------------
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("resource", ["category", "transaction", "budget", "recurringtransaction"])
+def test_owner_cannot_be_changed_by_mass_assignment(auth_client, user, other_user, resource):
+    obj = OWNED_RESOURCES[resource](user)
+
+    auth_client.patch(reverse(f"{resource}-detail", args=[obj.pk]), {"user": other_user.pk}, format="json")
+
+    obj.refresh_from_db()
+    assert obj.user_id == user.pk
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("resource", ["transaction", "budget", "recurringtransaction"])
+def test_cannot_point_own_object_at_another_users_category(auth_client, user, other_user, resource):
+    obj = OWNED_RESOURCES[resource](user)
+    foreign_category = _category(other_user)
+
+    response = auth_client.patch(
+        reverse(f"{resource}-detail", args=[obj.pk]), {"category": foreign_category.pk}, format="json"
+    )
+
+    assert response.status_code == 400
+    obj.refresh_from_db()
+    assert obj.category.user_id == user.pk
+
+
+@pytest.mark.django_db
+def test_filtering_by_another_users_category_reveals_nothing(auth_client, other_user):
+    theirs = _transaction(other_user)
+
+    response = auth_client.get(reverse("transaction-list"), {"category": theirs.category_id})
+
+    # Rejected as an invalid choice — never answered with their rows.
+    assert response.status_code == 400 or response.data["results"] == []
+
+
+@pytest.mark.django_db
+def test_user_query_parameter_is_ignored(auth_client, other_user):
+    _transaction(other_user)
+
+    response = auth_client.get(reverse("transaction-list"), {"user": other_user.pk, "user_id": other_user.pk})
+
+    assert response.data["results"] == []
+
+
+@pytest.mark.django_db
+def test_notification_preferences_are_per_user(auth_client, other_auth_client, other_user):
+    auth_client.patch(reverse("notification-preferences"), {"insights": False}, format="json")
+
+    theirs = other_auth_client.get(reverse("notification-preferences")).data
+
+    assert theirs["insights"] is True
+
+
+# --- CSRF / injection ---------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_api_ignores_session_cookies_so_csrf_cannot_apply(api_client, user):
+    """The API authenticates only with the Authorization header. A browser's session
+    cookie (e.g. from the Django admin) must not authenticate API calls — otherwise
+    a malicious site could make the browser send state-changing requests."""
+    api_client.force_login(user)  # session cookie, like a logged-in admin
+
+    assert api_client.get(reverse("category-list")).status_code == 401
+    assert api_client.post(reverse("category-list"), {"name": "x", "type": "expense"}).status_code == 401
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"search": "' OR 1=1 --"},
+        {"search": "%' UNION SELECT password FROM users_user --"},
+        {"ordering": "amount; DROP TABLE transactions_transaction"},
+        {"ordering": "user__password"},
+        {"category_name": "x' OR 'a'='a"},
+        {"date_from": "2026-01-01' OR '1'='1"},
+    ],
+)
+def test_query_parameters_cannot_inject_sql_or_leak_rows(auth_client, other_user, params):
+    _transaction(other_user)
+
+    response = auth_client.get(reverse("transaction-list"), params)
+
+    assert response.status_code in (200, 400)
+    if response.status_code == 200:
+        assert response.data["results"] == []
+    assert Transaction.objects.count() == 1  # nothing dropped
+
+
+@pytest.mark.django_db
+def test_markup_is_stored_verbatim_as_data(auth_client, user):
+    """The API stores text as-is (it doesn't render HTML); clients must render it as text.
+    See web/src/security/xss.test.tsx for the rendering side."""
+    category = _category(user)
+    payload = '<img src=x onerror="alert(document.cookie)">'
+
+    response = auth_client.post(
+        reverse("transaction-list"),
+        {"category": category.pk, "type": "expense", "amount": "1.00", "date": "2026-09-01", "description": payload},
+        format="json",
+    )
+
+    assert response.status_code == 201
+    assert response.data["description"] == payload
+    assert response["Content-Type"].startswith("application/json")

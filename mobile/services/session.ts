@@ -4,6 +4,7 @@ import { AppError } from "../utils/appError";
 import { expiresWithin } from "../utils/jwt";
 import * as tokenStorage from "../utils/tokenStorage";
 import type { AuthTokens } from "../types/auth";
+import { logWarning } from "../utils/logging";
 
 /**
  * Owns the token lifecycle, independent of React:
@@ -76,7 +77,7 @@ export async function clearSession(): Promise<void> {
   try {
     await tokenStorage.clearAll();
   } catch (error) {
-    console.warn("Failed to clear stored session", error);
+    logWarning("Failed to clear stored session", error);
   }
 }
 
@@ -123,7 +124,7 @@ async function performRefresh(): Promise<string> {
       // The old refresh token is already blacklisted server-side. Keep working
       // with the new access token for now; the next launch will ask the user to
       // sign in again instead of failing mid-session.
-      console.warn("Failed to persist rotated refresh token", error);
+      logWarning("Failed to persist rotated refresh token", error);
     }
   }
   return tokens.access;

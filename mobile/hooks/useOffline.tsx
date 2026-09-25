@@ -26,6 +26,7 @@ import {
   type PendingTransaction,
 } from "../services/outbox";
 import type { CreateTransactionPayload } from "../types/transaction";
+import { logWarning } from "../utils/logging";
 
 // While something is pending (or the backend was unreachable), check again this often.
 const RECHECK_INTERVAL_MS = 15_000;
@@ -78,7 +79,7 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
       // The backend is the source of truth: refetch so totals include the synced items.
       if (synced > 0) setDataVersion((version) => version + 1);
     } catch (error) {
-      console.warn("Sync failed", error);
+      logWarning("Sync failed", error);
     } finally {
       setIsSyncing(false);
     }
@@ -104,7 +105,7 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
     }
     loadOutbox()
       .then(() => syncNow())
-      .catch((error: unknown) => console.warn("Failed to load pending transactions", error));
+      .catch((error: unknown) => logWarning("Failed to load pending transactions", error));
   }, [isSignedIn, userId, syncNow]);
 
   // Sync whenever the app returns to the foreground.
