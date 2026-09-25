@@ -105,3 +105,26 @@ def test_client_id_cannot_be_changed_later(auth_client, expense_category):
 
     assert response.status_code == status.HTTP_200_OK
     assert response.data["client_id"] == CLIENT_ID
+
+
+@pytest.mark.django_db
+def test_concurrent_duplicate_is_answered_with_the_winner(auth_client, user, expense_category, monkeypatch):
+    """Two syncs of the same item race: the second passes the lookup before the first commits,
+    then hits the unique constraint — it must answer 200 with the stored row, not 500."""
+    from apps.transactions.views import TransactionViewSet
+
+    first = auth_client.post(reverse("transaction-list"), _payload(expense_category), format="json")
+    real_lookup = TransactionViewSet._find_by_client_id
+    calls = {"count": 0}
+
+    def lookup_misses_once(self, raw_client_id):
+        calls["count"] += 1
+        return None if calls["count"] == 1 else real_lookup(self, raw_client_id)
+
+    monkeypatch.setattr(TransactionViewSet, "_find_by_client_id", lookup_misses_once)
+
+    retry = auth_client.post(reverse("transaction-list"), _payload(expense_category), format="json")
+
+    assert retry.status_code == status.HTTP_200_OK
+    assert retry.data["id"] == first.data["id"]
+    assert Transaction.objects.count() == 1

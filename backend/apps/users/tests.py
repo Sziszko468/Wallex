@@ -164,3 +164,51 @@ def test_logout_requires_refresh_token(api_client, user):
     api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {access}")
     response = api_client.post(reverse("auth-logout"), {})
     assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+@pytest.mark.django_db
+def test_register_does_not_return_tokens(api_client):
+    response = api_client.post(
+        reverse("auth-register"),
+        {"email": "notokens@example.com", "password": "StrongPass!2024", "password_confirm": "StrongPass!2024"},
+    )
+    assert response.status_code == status.HTTP_201_CREATED
+    assert "access" not in response.data
+    assert "refresh" not in response.data
+
+
+@pytest.mark.django_db
+def test_rotated_refresh_token_cannot_be_reused(api_client, user):
+    """A stolen refresh token stops working as soon as the real client refreshes."""
+    old_refresh = str(RefreshToken.for_user(user))
+    assert api_client.post(reverse("auth-refresh"), {"refresh": old_refresh}).status_code == status.HTTP_200_OK
+
+    reuse = api_client.post(reverse("auth-refresh"), {"refresh": old_refresh})
+
+    assert reuse.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+@pytest.mark.django_db
+def test_refresh_token_is_not_accepted_as_access_token(api_client, user):
+    api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {RefreshToken.for_user(user)}")
+    assert api_client.get(reverse("auth-me")).status_code == status.HTTP_401_UNAUTHORIZED
+
+
+@pytest.mark.django_db
+def test_login_is_by_email_and_password_only(api_client, user):
+    response = api_client.post(reverse("auth-login"), {"email": user.email.upper(), "password": "wrong"})
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+@pytest.mark.django_db
+def test_cannot_log_out_another_users_session(api_client, user, other_user):
+    """Logout may only revoke the caller's own refresh token."""
+    victims_refresh = RefreshToken.for_user(other_user)
+    api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {RefreshToken.for_user(user).access_token}")
+
+    response = api_client.post(reverse("auth-logout"), {"refresh": str(victims_refresh)})
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    api_client.credentials()
+    still_valid = api_client.post(reverse("auth-refresh"), {"refresh": str(victims_refresh)})
+    assert still_valid.status_code == status.HTTP_200_OK

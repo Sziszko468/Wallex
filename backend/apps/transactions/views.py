@@ -1,6 +1,6 @@
 import uuid
 
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -38,7 +38,10 @@ class TransactionViewSet(viewsets.ModelViewSet):
         if existing is not None:
             return Response(self.get_serializer(existing).data, status=status.HTTP_200_OK)
         try:
-            return super().create(request, *args, **kwargs)
+            # Savepoint: if the unique constraint fires, only this insert is rolled
+            # back and the lookup below can still run inside an outer transaction.
+            with transaction.atomic():
+                return super().create(request, *args, **kwargs)
         except IntegrityError:
             # Two concurrent requests with the same client_id: the other one won.
             existing = self._find_by_client_id(request.data.get("client_id"))
@@ -61,9 +64,9 @@ class TransactionViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         self._check_budgets(serializer.save())
 
-    def _check_budgets(self, transaction):
-        if transaction.type == TransactionType.EXPENSE:
-            check_budget_thresholds(self.request.user, transaction.date.year, transaction.date.month)
+    def _check_budgets(self, saved):
+        if saved.type == TransactionType.EXPENSE:
+            check_budget_thresholds(self.request.user, saved.date.year, saved.date.month)
 
     @action(
         detail=False,

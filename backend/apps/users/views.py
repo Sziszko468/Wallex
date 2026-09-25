@@ -30,9 +30,16 @@ class LogoutView(APIView):
                 {"detail": "Refresh token is required."}, status=status.HTTP_400_BAD_REQUEST
             )
         try:
-            RefreshToken(refresh_token).blacklist()
+            token = RefreshToken(refresh_token)
         except TokenError:
             return Response(
                 {"detail": "Invalid or expired refresh token."}, status=status.HTTP_400_BAD_REQUEST
             )
+        # Only the caller's own session can be revoked; same response as an
+        # invalid token, so it doesn't reveal whose token it was.
+        if str(token.get("user_id")) != str(request.user.pk):
+            return Response(
+                {"detail": "Invalid or expired refresh token."}, status=status.HTTP_400_BAD_REQUEST
+            )
+        token.blacklist()
         return Response({"detail": "Logged out successfully."}, status=status.HTTP_200_OK)

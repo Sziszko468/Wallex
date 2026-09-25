@@ -6,8 +6,10 @@ export type FieldErrors = Record<string, string>;
 
 function getErrorBody(error: unknown): ApiErrorBody | null {
   if (!axios.isAxiosError(error)) return null;
-  const axiosError = error as AxiosError<ApiErrorBody>;
-  return axiosError.response?.data ?? null;
+  const data: unknown = (error as AxiosError<ApiErrorBody>).response?.data;
+  // DRF errors are JSON objects; an HTML error page (500 in DEBUG, a proxy's
+  // 502) arrives as a string and must not be parsed as field errors.
+  return typeof data === "object" && data !== null && !Array.isArray(data) ? (data as ApiErrorBody) : null;
 }
 
 export function extractFieldErrors(error: unknown): FieldErrors {
