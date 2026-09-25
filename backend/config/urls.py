@@ -21,5 +21,6 @@ urlpatterns = [
     path("api/auth/", include("apps.users.urls")),
     path("api/analytics/", include("apps.analytics.urls")),
     path("api/notifications/", include("apps.notifications.urls")),
+    path("api/receipts/", include("apps.receipts.urls")),
     path("api/", include(router.urls)),
 ]

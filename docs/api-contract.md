@@ -551,6 +551,45 @@ periods on both sides (1st → today vs. 1st → same day last month); the messa
 
 ---
 
+## `POST /api/receipts/scan/`
+
+**Mobile only.** Reads a receipt photo and returns *suggested* transaction fields. It never
+creates anything: the app shows a confirmation screen and, after the user presses Save,
+creates the transaction with the normal `POST /api/transactions/` (with a `client_id`, so it
+also works offline-queued). The image is processed in memory and not stored.
+
+**Request:** `multipart/form-data` with an `image` file (JPEG/PNG/WebP, max 10 MB). The app
+downsizes photos to ~1800 px JPEG before uploading.
+
+**Response** `200 OK` — `ReceiptScan`. Every field has a `confidence`: `"high"` (found by a
+specific rule, e.g. the TOTAL line) or `"low"` (best guess, or `value: null` = not found) —
+the app highlights `low` fields for the user to check.
+
+```json
+{
+  "merchant": {"value": "TESCO Global Aruhazak Zrt", "confidence": "high"},
+  "amount":   {"value": "2142.00", "confidence": "high"},
+  "date":     {"value": "2026-09-25", "confidence": "high"},
+  "category": {"id": 186, "name": "Food", "source": "rules"},
+  "text_found": true
+}
+```
+
+`category` is `null` when nothing matches; `source` is `"history"` (the category the user chose
+last time for the same merchant) or `"rules"` (keyword rules shared with the CSV import).
+`text_found: false` means the OCR read no text at all (blurry/dark photo) — all values are null.
+
+**Errors:** `400 {"image": [...]}` (missing, too large, not a readable image) ·
+`429` (rate limit, default 30 scans/hour per user) · `503 {"detail": ...}` (OCR engine down —
+add the transaction manually).
+
+The OCR engine is configurable (`RECEIPT_OCR_PROVIDER`, default self-hosted Tesseract with
+`hun+eng`); any class implementing `apps.receipts.ocr.OcrProvider` can replace it.
+
+**Client function (mobile only):** `scanReceipt(photo)` in `mobile/services/receiptService.ts`.
+
+---
+
 ## Push notifications — `/api/devices/`, `/api/notifications/preferences/`
 
 **Mobile only.** The web client never registers a device, so it never receives push

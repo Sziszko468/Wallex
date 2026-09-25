@@ -62,6 +62,14 @@ function AppStack() {
         }}
       />
       <Stack.Screen
+        name="scan-receipt"
+        options={{
+          presentation: "modal",
+          title: "Scan receipt",
+          headerStyle: { backgroundColor: colors.surface },
+        }}
+      />
+      <Stack.Screen
         name="notification-settings"
         options={{
           title: "Notifications",

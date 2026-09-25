@@ -36,6 +36,13 @@
         {
           "defaultChannel": "default"
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to use the camera to scan your receipts.",
+          "photosPermission": "Allow $(PRODUCT_NAME) to open receipt photos from your library."
+        }
       ]
     ],
     "experiments": {

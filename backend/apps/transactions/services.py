@@ -20,57 +20,16 @@ from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
 from apps.categories.models import Category, TransactionType
+from apps.categories.rules import match_category_name
 
 from .models import Transaction
 
 REQUIRED_COLUMNS = {"date", "description", "amount"}
 DATE_FORMATS = ["%Y-%m-%d", "%d/%m/%Y"]
 
-# keyword(s) -> category name, matched case-insensitively against the
-# description; first match wins. Deliberately a flat hardcoded table for
-# now ("kezdetben rule-based") — a per-user, DB-backed rule editor is a
-# natural later step (the project's own "auto-categorization" roadmap item),
-# not built here.
-EXPENSE_CATEGORY_RULES: list[tuple[tuple[str, ...], str]] = [
-    (("albert heijn", "jumbo", "lidl", "aldi", "tesco", "supermarket", "grocery"), "Food"),
-    (
-        ("shell", " bp ", "esso", "uber", "taxi", "parking", "metro", "ns.nl", "fuel"),
-        "Transport",
-    ),
-    (
-        ("netflix", "spotify", "disney", "hbo", "cinema", "pathe", "steam", "playstation"),
-        "Entertainment",
-    ),
-    (("rent", "mortgage", "huur"), "Housing"),
-    (
-        (
-            "kpn",
-            "ziggo",
-            "vodafone",
-            "t-mobile",
-            "electricity",
-            "energie",
-            "water bill",
-            "gas bill",
-            "internet",
-            "phone bill",
-        ),
-        "Bills",
-    ),
-    (
-        ("pharmacy", "apotheek", "doctor", "huisarts", "hospital", "dentist", "tandarts"),
-        "Health",
-    ),
-    (("amazon", "zalando", "bol.com", "h&m", "ikea", "mediamarkt"), "Shopping"),
-    (("booking.com", "airbnb", "ryanair", "klm", "transavia", "hotel", "flight"), "Travel"),
-]
 EXPENSE_FALLBACK_CATEGORY = "Other"
-
-INCOME_CATEGORY_RULES: list[tuple[tuple[str, ...], str]] = [
-    (("salary", "payroll", "salaris"), "Salary"),
-]
-# No income fallback exists yet (unlike "Other" for expenses) — an
-# unmatched income row fails rather than being silently miscategorized.
+# No income fallback exists (unlike "Other" for expenses) — an unmatched
+# income row fails rather than being silently miscategorized.
 
 
 class CsvValidationError(Exception):
@@ -132,14 +91,10 @@ def _parse_amount(raw_value: str) -> Decimal:
 
 
 def _detect_category_name(description: str, transaction_type: str) -> str | None:
-    lowered = f" {description.lower()} "
-    rules = (
-        EXPENSE_CATEGORY_RULES if transaction_type == TransactionType.EXPENSE else INCOME_CATEGORY_RULES
-    )
-    for keywords, category_name in rules:
-        if any(keyword in lowered for keyword in keywords):
-            return category_name
-    return EXPENSE_FALLBACK_CATEGORY if transaction_type == TransactionType.EXPENSE else None
+    matched = match_category_name(description, transaction_type)
+    if matched is None and transaction_type == TransactionType.EXPENSE:
+        return EXPENSE_FALLBACK_CATEGORY
+    return matched
 
 
 def import_transactions_from_csv(user, uploaded_file) -> ImportSummary:

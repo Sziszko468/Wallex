@@ -2,11 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useAsyncData } from "../hooks/useAsyncData";
-import * as Crypto from "expo-crypto";
-import { useOffline } from "../hooks/useOffline";
-import { isOfflineError } from "../utils/network";
+import { useCreateTransaction } from "../hooks/useCreateTransaction";
 import { listCategories } from "../services/categoriesService";
-import { createTransaction, getTransaction, updateTransaction } from "../services/transactionsService";
+import { getTransaction, updateTransaction } from "../services/transactionsService";
 import { extractErrorMessage, extractFieldErrors, type FieldErrors } from "../utils/errors";
 import { toIsoDate, isValidIsoDate } from "../utils/date";
 import { Screen } from "../components/Screen";
@@ -34,11 +32,7 @@ export function TransactionFormScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const transactionId = id ? Number(id) : null;
   const isEditMode = transactionId !== null;
-  const { isOffline, saveOffline } = useOffline();
-  // One idempotency key per new transaction, reused by every save attempt
-  // (double tap, retry after an error, offline fallback): the backend creates
-  // it at most once whichever attempt gets through.
-  const [clientId] = useState(() => Crypto.randomUUID());
+  const { create, isOffline } = useCreateTransaction();
 
   const existingTransaction = useAsyncData(
     useCallback(() => {
@@ -129,20 +123,9 @@ export function TransactionFormScreen() {
       };
       if (transactionId !== null) {
         await updateTransaction(transactionId, payload);
-      } else if (isOffline) {
-        await saveOffline({ ...payload, client_id: clientId });
-        setSavedOffline(true);
       } else {
-        try {
-          await createTransaction({ ...payload, client_id: clientId });
-        } catch (error) {
-          // The connection dropped mid-request: keep it locally instead of losing
-          // it. If the request did reach the server, syncing the same client_id
-          // returns the existing transaction instead of creating a second one.
-          if (!isOfflineError(error)) throw error;
-          await saveOffline({ ...payload, client_id: clientId });
-          setSavedOffline(true);
-        }
+        const { savedOffline: queued } = await create(payload);
+        setSavedOffline(queued);
       }
       setIsSubmitting(false);
       setJustSaved(true);
@@ -164,6 +147,16 @@ export function TransactionFormScreen() {
         onRetry={existingTransaction.refetch}
       >
         <ErrorBanner message={errorMessage} />
+
+        {!isEditMode && (
+          <View style={styles.scanLink}>
+            <Button
+              title="📷  Scan a receipt instead"
+              variant="secondary"
+              onPress={() => router.replace("/scan-receipt")}
+            />
+          </View>
+        )}
 
         <TypeToggle value={type} onChange={handleTypeChange} />
 
@@ -226,6 +219,9 @@ export function TransactionFormScreen() {
 }
 
 const styles = StyleSheet.create({
+  scanLink: {
+    marginBottom: spacing.md,
+  },
   field: {
     marginBottom: spacing.md,
   },

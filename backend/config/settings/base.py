@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     "apps.budgets",
     "apps.analytics",
     "apps.notifications",
+    "apps.receipts",
 ]
 
 MIDDLEWARE = [
@@ -104,11 +105,23 @@ REST_FRAMEWORK = {
         "rest_framework.filters.SearchFilter",
         "rest_framework.filters.OrderingFilter",
     ),
+    # Only views that opt in with `throttle_scope` are throttled.
+    "DEFAULT_THROTTLE_RATES": {
+        "receipt_scan": env("RECEIPT_SCAN_RATE", default="30/hour"),
+    },
 }
 
 CORS_ALLOWED_ORIGINS = env.list(
     "CORS_ALLOWED_ORIGINS", default=["http://localhost:5173", "http://localhost:8081"]
 )
+
+# Receipt scanning. The OCR engine is swappable: any class implementing
+# apps.receipts.ocr.OcrProvider, e.g. a cloud OCR adapter.
+RECEIPT_OCR_PROVIDER = env(
+    "RECEIPT_OCR_PROVIDER", default="apps.receipts.ocr.tesseract.TesseractOcrProvider"
+)
+RECEIPT_OCR_LANGUAGES = env("RECEIPT_OCR_LANGUAGES", default="hun+eng")
+RECEIPT_MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
 # Optional: only needed once "Enhanced push security" is enabled for the Expo project.
 EXPO_PUSH_ACCESS_TOKEN = env("EXPO_PUSH_ACCESS_TOKEN", default="")
