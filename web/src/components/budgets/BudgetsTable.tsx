@@ -1,6 +1,7 @@
 import type { Budget } from "../../types/budget";
 import type { Category } from "../../types/category";
 import { formatCurrency, formatPercentage } from "../../utils/format";
+import { useBaseCurrency } from "../../hooks/useBaseCurrency";
 import { EmptyState } from "../EmptyState";
 import styles from "./BudgetsTable.module.scss";
 
@@ -10,6 +11,7 @@ interface BudgetsTableProps {
 }
 
 export function BudgetsTable({ budgets, categoriesById }: BudgetsTableProps) {
+  const baseCurrency = useBaseCurrency();
   if (budgets.length === 0) {
     return <EmptyState message="No budgets set for this month." />;
   }
@@ -52,12 +54,12 @@ export function BudgetsTable({ budgets, categoriesById }: BudgetsTableProps) {
                     {category?.name ?? "Overall"}
                   </span>
                 </td>
-                <td>{formatCurrency(budget.spent_amount)}</td>
-                <td>{formatCurrency(budget.amount)}</td>
+                <td>{formatCurrency(budget.spent_amount, baseCurrency)}</td>
+                <td>{formatCurrency(budget.amount, baseCurrency)}</td>
                 <td className={isOverBudget ? styles.overBudget : undefined}>
                   {isOverBudget
-                    ? `${formatCurrency(Math.abs(Number(budget.remaining_amount)))} over`
-                    : formatCurrency(budget.remaining_amount)}
+                    ? `${formatCurrency(Math.abs(Number(budget.remaining_amount)), baseCurrency)} over`
+                    : formatCurrency(budget.remaining_amount, baseCurrency)}
                 </td>
                 <td>
                   <div className={styles.usageCell}>

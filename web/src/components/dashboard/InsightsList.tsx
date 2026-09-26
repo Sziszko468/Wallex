@@ -1,5 +1,6 @@
 import type { Insight, InsightSeverity, InsightType } from "../../types/dashboard";
 import { formatCurrency } from "../../utils/format";
+import { useBaseCurrency } from "../../hooks/useBaseCurrency";
 import { EmptyState } from "../EmptyState";
 import styles from "./InsightsList.module.scss";
 
@@ -28,6 +29,7 @@ interface InsightsListProps {
 }
 
 export function InsightsList({ insights }: InsightsListProps) {
+  const baseCurrency = useBaseCurrency();
   if (insights.length === 0) {
     return <EmptyState message="No insights for this month yet — add some transactions to get started." />;
   }
@@ -43,7 +45,7 @@ export function InsightsList({ insights }: InsightsListProps) {
             <p className={styles.message}>{insight.message}</p>
             {insight.amount !== null && (
               <p className={styles.detail}>
-                {formatCurrency(insight.amount)} {AMOUNT_LABELS[insight.type]}
+                {formatCurrency(insight.amount, baseCurrency)} {AMOUNT_LABELS[insight.type]}
               </p>
             )}
           </div>

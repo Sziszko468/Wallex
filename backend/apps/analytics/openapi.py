@@ -11,10 +11,19 @@ from rest_framework import serializers
 from apps.common.openapi import validation_error
 
 from .insights import InsightType, Severity
-from .serializers import MonthQuerySerializer, YearQuerySerializer
+from .serializers import (
+    ComparisonQuerySerializer,
+    MerchantsQuerySerializer,
+    MonthQuerySerializer,
+    TrendsQuerySerializer,
+    YearQuerySerializer,
+)
+from .services import Against, BudgetStatus
 
 INSIGHT_TYPE_CHOICES = [(item.value, item.value) for item in InsightType]
 INSIGHT_SEVERITY_CHOICES = [(item.value, item.value) for item in Severity]
+COMPARISON_AGAINST_CHOICES = Against.CHOICES
+BUDGET_STATUS_CHOICES = BudgetStatus.CHOICES
 
 
 def _money(help_text: str, **kwargs) -> serializers.DecimalField:
@@ -44,6 +53,18 @@ class BudgetUsageSerializer(serializers.Serializer):
     spent_amount = _money("Spent so far this month.")
     remaining_amount = _money("Negative when over budget.")
     usage_percentage = serializers.FloatField(help_text="`spent / budget × 100`; above 100 when over budget.")
+    variance_percentage = serializers.FloatField(
+        help_text="Budget variance: how far spending is above (+) or below (−) the limit, in % of the limit."
+    )
+    expected_to_date = _money(
+        "What the budget allows by today when spread evenly over the month: the full limit for a past month, "
+        "0 for a future one."
+    )
+    status = serializers.ChoiceField(
+        choices=BUDGET_STATUS_CHOICES,
+        help_text="`over_budget`: above the limit. `ahead_of_pace`: above `expected_to_date` but not the limit yet. "
+        "`on_track`: otherwise.",
+    )
 
 
 class DashboardSerializer(MonthSummarySerializer):
@@ -91,12 +112,110 @@ class ComparisonPercentagesSerializer(serializers.Serializer):
     balance = serializers.FloatField(allow_null=True)
 
 
+class CategoryComparisonSerializer(serializers.Serializer):
+    category_id = serializers.IntegerField()
+    category_name = serializers.CharField()
+    current_amount = _money("Spent in the selected month.")
+    previous_amount = _money("Spent in the month compared against.")
+    change_amount = _money("`current_amount - previous_amount`.")
+    change_percentage = serializers.FloatField(allow_null=True, help_text="`null` when nothing was spent before.")
+
+
 class ComparisonSerializer(serializers.Serializer):
+    against = serializers.ChoiceField(choices=COMPARISON_AGAINST_CHOICES, help_text="What the month is compared with.")
     current_month = MonthSummarySerializer()
-    previous_month = MonthSummarySerializer()
+    previous_month = MonthSummarySerializer(
+        help_text="The month compared against: the previous month, or the same month a year earlier."
+    )
     difference = ComparisonValuesSerializer(help_text="Absolute change, current minus previous.")
     percentage_difference = ComparisonPercentagesSerializer(
-        help_text="Change relative to the previous month; `null` where the previous value was 0."
+        help_text="Change relative to the month compared against; `null` where its value was 0."
+    )
+    categories = CategoryComparisonSerializer(
+        many=True, help_text="Expense categories with spending in either month, largest current spending first."
+    )
+
+
+class TrendMonthSerializer(serializers.Serializer):
+    year = serializers.IntegerField()
+    month = serializers.IntegerField(help_text="1–12.")
+    month_name = serializers.CharField(help_text="English month name.")
+    income = _money("Income that month.")
+    expenses = _money("Expenses that month.")
+    balance = _money("`income - expenses`.")
+    expenses_change_percentage = serializers.FloatField(
+        allow_null=True, help_text="Expenses against the month before; `null` when that month had none."
+    )
+
+
+class CategoryTrendSerializer(serializers.Serializer):
+    category_id = serializers.IntegerField()
+    category_name = serializers.CharField()
+    amounts = serializers.ListField(
+        child=_money("Spent that month."), help_text="One amount per month of `months`, in the same order."
+    )
+    total = _money("Spent over the whole window.")
+    average = _money("`total / number of months`.")
+    change_amount = _money("The latest month minus the month before it.")
+    change_percentage = serializers.FloatField(
+        allow_null=True, help_text="The latest month against the month before it; `null` without spending before."
+    )
+
+
+class TrendsSerializer(serializers.Serializer):
+    year = serializers.IntegerField(help_text="Last month of the window.")
+    month = serializers.IntegerField()
+    months = TrendMonthSerializer(many=True, help_text="Oldest first; months without transactions are zero.")
+    average_monthly_expenses = _money("Average expenses per month of the window.")
+    categories = CategoryTrendSerializer(
+        many=True, help_text="Expense categories with spending in the window, largest first."
+    )
+
+
+class MerchantSerializer(serializers.Serializer):
+    merchant = serializers.CharField(help_text="The most frequent spelling of the description.")
+    transaction_count = serializers.IntegerField()
+    total = _money("Spent at this merchant this month.")
+    average = _money("Average per transaction.")
+    share_percentage = serializers.FloatField(allow_null=True, help_text="Share of the month's total expenses, 0–100.")
+    previous_total = _money("Spent at this merchant the month before.")
+    change_percentage = serializers.FloatField(
+        allow_null=True, help_text="Against the month before; `null` when nothing was spent there then."
+    )
+    last_date = serializers.DateField(help_text="Most recent transaction this month.")
+
+
+class MerchantsSerializer(serializers.Serializer):
+    year = serializers.IntegerField()
+    month = serializers.IntegerField()
+    total_expenses = _money("All expenses of the month, including those without a merchant.")
+    merchants = MerchantSerializer(many=True, help_text="Largest total first, at most `limit`.")
+
+
+class WeekdaySpendingSerializer(serializers.Serializer):
+    weekday = serializers.IntegerField(help_text="ISO weekday: 1 = Monday … 7 = Sunday.")
+    name = serializers.CharField(help_text="English weekday name.")
+    total = _money("Spent on this weekday.")
+    transaction_count = serializers.IntegerField()
+    days = serializers.IntegerField(help_text="How many times this weekday occurred in the counted days.")
+    average_per_day = _money("`total / days`; `null` if the weekday hasn't occurred yet.", allow_null=True)
+
+
+class SpendingPatternsSerializer(serializers.Serializer):
+    year = serializers.IntegerField()
+    month = serializers.IntegerField()
+    days_counted = serializers.IntegerField(
+        help_text="Days of the month included: all of a past month, 1st to today for the current month, "
+        "0 for a future one."
+    )
+    total_expenses = _money("Expenses of the counted days.")
+    average_daily_spending = _money("`total_expenses / days_counted`; `null` with no days counted.", allow_null=True)
+    weekdays = WeekdaySpendingSerializer(many=True, help_text="Always 7 entries, Monday first.")
+    fixed_expenses = _money("Expenses a recurring template accounts for (see the description).")
+    variable_expenses = _money("`total_expenses - fixed_expenses`.")
+    fixed_percentage = serializers.FloatField(allow_null=True, help_text="Share of fixed expenses; `null` without expenses.")
+    recurring_commitments = _money(
+        "What the active recurring expense templates add up to per month (weekly × 52 / 12, yearly / 12)."
     )
 
 
@@ -137,7 +256,8 @@ DASHBOARD_SCHEMA = extend_schema(
     summary="Monthly dashboard",
     description=(
         "Everything a dashboard needs for one month in a single call: income, expenses, balance, "
-        f"number of transactions, the top spending category and the usage of every budget. {_MONTH_NOTE}"
+        "number of transactions, the top spending category and the usage of every budget, with its variance "
+        f"(budget vs actual, and whether spending keeps pace with the month). {_MONTH_NOTE}"
     ),
     parameters=[MonthQuerySerializer],
     responses={
@@ -164,6 +284,9 @@ DASHBOARD_SCHEMA = extend_schema(
                                 "spent_amount": "45.90",
                                 "remaining_amount": "14.10",
                                 "usage_percentage": 76.5,
+                                "variance_percentage": -23.5,
+                                "expected_to_date": "40.00",
+                                "status": "ahead_of_pace",
                             },
                             {
                                 "budget_id": 22,
@@ -173,6 +296,9 @@ DASHBOARD_SCHEMA = extend_schema(
                                 "spent_amount": "845.90",
                                 "remaining_amount": "654.10",
                                 "usage_percentage": 56.39,
+                                "variance_percentage": -43.61,
+                                "expected_to_date": "1000.00",
+                                "status": "on_track",
                             },
                         ],
                     },
@@ -201,10 +327,154 @@ CATEGORIES_SCHEMA = extend_schema(
 
 COMPARISON_SCHEMA = extend_schema(
     tags=["Analytics"],
-    summary="Compare a month with the previous one",
-    description=f"Totals of the month and the month before, with absolute and relative differences. {_MONTH_NOTE}",
+    summary="Compare a month with the previous month or year",
+    description=(
+        "Totals of the month and of the month it is compared with, with absolute and relative differences, "
+        "plus the same comparison for every expense category.\n\n"
+        "- `against=previous_month` (default): month-over-month, e.g. September vs August.\n"
+        "- `against=previous_year`: year-over-year, e.g. September 2026 vs September 2025.\n\n"
+        f"The compared month is always under `previous_month`. {_MONTH_NOTE}"
+    ),
+    parameters=[ComparisonQuerySerializer],
+    responses={
+        200: ComparisonSerializer,
+        400: validation_error(
+            ("Unknown comparison", {"against": ['"week" is not a valid choice.']}),
+            ("Bad month", {"month": ["Ensure this value is less than or equal to 12."]}),
+            description="A query parameter is invalid.",
+        ),
+    },
+)
+
+TRENDS_SCHEMA = extend_schema(
+    tags=["Analytics"],
+    summary="Monthly and category spending trends",
+    description=(
+        "Income, expenses and balance for each of the last `months` months (ending with `year`/`month`, across "
+        "year boundaries), each month's change in expenses, and every expense category's spending per month "
+        f"with its latest change (e.g. Food: August 280.00, September 320.00, +14.29 %). {_MONTH_NOTE} "
+        "All amounts are in the user's base currency."
+    ),
+    parameters=[TrendsQuerySerializer],
+    responses={
+        200: OpenApiResponse(
+            TrendsSerializer,
+            description="The trends.",
+            examples=[
+                OpenApiExample(
+                    "Two months",
+                    value={
+                        "year": 2026,
+                        "month": 9,
+                        "months": [
+                            {
+                                "year": 2026,
+                                "month": 8,
+                                "month_name": "August",
+                                "income": "3000.00",
+                                "expenses": "1920.00",
+                                "balance": "1080.00",
+                                "expenses_change_percentage": 3.78,
+                            },
+                            {
+                                "year": 2026,
+                                "month": 9,
+                                "month_name": "September",
+                                "income": "3000.00",
+                                "expenses": "2100.00",
+                                "balance": "900.00",
+                                "expenses_change_percentage": 9.38,
+                            },
+                        ],
+                        "average_monthly_expenses": "2010.00",
+                        "categories": [
+                            {
+                                "category_id": 2,
+                                "category_name": "Food",
+                                "amounts": ["280.00", "320.00"],
+                                "total": "600.00",
+                                "average": "300.00",
+                                "change_amount": "40.00",
+                                "change_percentage": 14.29,
+                            }
+                        ],
+                    },
+                )
+            ],
+        ),
+        400: validation_error(
+            ("Out of range", {"months": ["Ensure this value is less than or equal to 24."]}),
+            ("Bad month", {"month": ["Ensure this value is less than or equal to 12."]}),
+            description="A query parameter is invalid.",
+        ),
+    },
+)
+
+MERCHANTS_SCHEMA = extend_schema(
+    tags=["Analytics"],
+    summary="Top merchants",
+    description=(
+        "The month's expenses grouped by merchant, largest first. The merchant is the transaction's description, "
+        "compared without letter case and surrounding spaces; expenses without a description belong to no "
+        f"merchant but count in `total_expenses`. Each merchant is compared with the month before. {_MONTH_NOTE}"
+    ),
+    parameters=[MerchantsQuerySerializer],
+    responses={
+        200: OpenApiResponse(
+            MerchantsSerializer,
+            description="The top merchants.",
+            examples=[
+                OpenApiExample(
+                    "September",
+                    value={
+                        "year": 2026,
+                        "month": 9,
+                        "total_expenses": "1950.00",
+                        "merchants": [
+                            {
+                                "merchant": "Albert Heijn",
+                                "transaction_count": 6,
+                                "total": "420.00",
+                                "average": "70.00",
+                                "share_percentage": 21.54,
+                                "previous_total": "380.00",
+                                "change_percentage": 10.53,
+                                "last_date": "2026-09-24",
+                            },
+                            {
+                                "merchant": "Shell",
+                                "transaction_count": 3,
+                                "total": "180.00",
+                                "average": "60.00",
+                                "share_percentage": 9.23,
+                                "previous_total": "0.00",
+                                "change_percentage": None,
+                                "last_date": "2026-09-20",
+                            },
+                        ],
+                    },
+                )
+            ],
+        ),
+        400: validation_error(
+            ("Too many", {"limit": ["Ensure this value is less than or equal to 50."]}),
+            description="A query parameter is invalid.",
+        ),
+    },
+)
+
+SPENDING_PATTERNS_SCHEMA = extend_schema(
+    tags=["Analytics"],
+    summary="Daily, weekday and fixed-vs-variable spending",
+    description=(
+        "How the month's spending is spread: the average per day, the total and daily average for each weekday, "
+        "and fixed vs variable expenses. For the current month everything is month-to-date.\n\n"
+        "**Fixed** expenses are the ones a recurring template accounts for: linked to a template, or in the same "
+        "category with exactly the template's amount while the template runs (a 600.00 rent, a 12.99 "
+        f"subscription). Everything else is **variable**. {_MONTH_NOTE}"
+    ),
     parameters=[MonthQuerySerializer],
-    responses={200: ComparisonSerializer, 400: _QUERY_ERRORS},
+    responses={200: SpendingPatternsSerializer, 400: _QUERY_ERRORS},
 )
 
 INSIGHTS_SCHEMA = extend_schema(

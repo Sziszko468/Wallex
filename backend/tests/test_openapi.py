@@ -18,6 +18,7 @@ from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.urls import reverse
+from django.utils import timezone
 from jsonschema import Draft7Validator
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
@@ -312,12 +313,55 @@ def test_analytics_and_insights_contract(auth_client, ledger, check):
     check("/api/analytics/monthly/", "get", auth_client.get("/api/analytics/monthly/", {"year": 2026}))
     check("/api/analytics/dashboard/", "get", auth_client.get("/api/analytics/dashboard/", {"year": 2030, "month": 1}))  # empty
 
+    # Trends, comparisons, merchants and spending patterns.
+    comparison = "/api/analytics/comparison/"
+    check(comparison, "get", auth_client.get(comparison, {**AUG, "against": "previous_year"}))
+    check(comparison, "get", auth_client.get(comparison, {**AUG, "against": "week"}))
+    for path, params in [("trends", {"months": 3}), ("merchants", {"limit": 5}), ("spending-patterns", {})]:
+        url = f"/api/analytics/{path}/"
+        check(url, "get", auth_client.get(url, {**AUG, **params}))
+        check(url, "get", auth_client.get(url, {"year": 2031, "month": 1}))  # no data at all
+        check(url, "get", auth_client.get(url, {"month": 13}))  # 400
+
     insights = auth_client.get("/api/analytics/insights/", AUG).json()["insights"]
     # The fixture is built to exercise every type the docs describe (nullable fields included).
     assert {i["type"] for i in insights} == {
         "budget_exceeded", "budget_warning", "savings", "category_increase", "category_decrease",
         "recurring_share", "top_category",
     }
+
+
+@pytest.mark.django_db
+def test_currencies_contract(auth_client, check, add_rates):
+    add_rates(date(2026, 9, 25), HUF="389.85")
+    convert = lambda **params: auth_client.get("/api/currencies/convert/", params)  # noqa: E731
+
+    check("/api/currencies/convert/", "get", convert(amount="15000", currency="HUF", date="2026-09-27"))
+    check("/api/currencies/convert/", "get", convert(amount="12.50", currency="EUR"))  # base currency: rate_date null
+    check("/api/currencies/convert/", "get", convert(amount="15000.50", currency="HUF"))  # 400
+    check("/api/currencies/convert/", "get", convert(amount="10", currency="USD", date="2026-09-25"))  # 400 no rate
+
+
+@pytest.mark.django_db
+def test_foreign_currency_transaction_contract(auth_client, ledger, check, add_rates):
+    add_rates(date(2026, 8, 18), HUF="390.10")
+    body = {"amount": "15000", "currency": "HUF", "type": "expense", "category": ledger["food"].id, "date": "2026-08-20"}
+
+    check("/api/transactions/", "post", auth_client.post("/api/transactions/", body, format="json"))
+    check("/api/transactions/", "post", auth_client.post("/api/transactions/", {**body, "currency": "GBP"}, format="json"))
+
+
+@pytest.mark.django_db
+def test_base_currency_contract(user, auth_client, ledger, check, add_rates):
+    for day in (date(2026, 7, 1), date(2026, 8, 1), timezone.localdate()):
+        add_rates(day, HUF="390.00")
+
+    check("/api/auth/me/", "patch", auth_client.patch("/api/auth/me/", {"base_currency": "HUF"}, format="json"))
+    check("/api/auth/me/", "patch", auth_client.patch("/api/auth/me/", {"base_currency": "XYZ"}, format="json"))
+    Transaction.objects.create(
+        user=user, category=ledger["food"], type="expense", amount=Decimal("1.00"), date=date(2019, 3, 4)
+    )
+    check("/api/auth/me/", "patch", auth_client.patch("/api/auth/me/", {"base_currency": "USD"}, format="json"))
 
 
 @pytest.mark.django_db

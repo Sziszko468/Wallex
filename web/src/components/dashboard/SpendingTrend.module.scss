@@ -1,0 +1,44 @@
+@use "../../styles/variables" as vars;
+
+.trend {
+  display: flex;
+  flex-direction: column;
+  gap: vars.$space-sm;
+}
+
+.average {
+  margin: 0;
+  font-size: vars.$font-size-sm;
+  color: vars.$color-text-muted;
+
+  strong {
+    color: vars.$color-text;
+  }
+}
+
+.months {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: vars.$space-xs vars.$space-md;
+}
+
+.month {
+  display: flex;
+  align-items: center;
+  gap: vars.$space-sm;
+  font-size: vars.$font-size-sm;
+}
+
+.monthName {
+  width: 4.5rem;
+  color: vars.$color-text-muted;
+}
+
+.amount {
+  flex: 1;
+  font-weight: 600;
+  color: vars.$color-text;
+}

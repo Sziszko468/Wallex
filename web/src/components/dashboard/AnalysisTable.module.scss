@@ -1,0 +1,64 @@
+@use "../../styles/variables" as vars;
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: vars.$font-size-sm;
+
+  th,
+  td {
+    padding: vars.$space-xs vars.$space-sm;
+    text-align: left;
+    border-bottom: 1px solid vars.$color-border;
+  }
+
+  thead th {
+    color: vars.$color-text-muted;
+    font-weight: 600;
+  }
+
+  tbody th {
+    font-weight: 600;
+    color: vars.$color-text;
+  }
+
+  tbody tr:last-child th,
+  tbody tr:last-child td {
+    border-bottom: none;
+  }
+}
+
+.scroll {
+  overflow-x: auto;
+}
+
+.number {
+  text-align: right !important;
+  white-space: nowrap;
+}
+
+.secondary {
+  display: block;
+  font-size: 0.75rem;
+  color: vars.$color-text-muted;
+}
+
+.dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: vars.$space-sm;
+  border-radius: 50%;
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

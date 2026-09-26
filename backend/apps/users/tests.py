@@ -136,6 +136,7 @@ def test_me_returns_authenticated_user(api_client, user):
     response = api_client.get(reverse("auth-me"))
     assert response.status_code == status.HTTP_200_OK
     assert response.data["email"] == user.email
+    assert response.data["base_currency"] == "EUR"  # every existing and new user starts in euros
 
 
 @pytest.mark.django_db

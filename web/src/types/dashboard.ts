@@ -4,6 +4,9 @@ export interface TopSpendingCategory {
   amount: string;
 }
 
+/** over_budget: above the limit; ahead_of_pace: above what the elapsed part of the month allows. */
+export type BudgetStatus = "on_track" | "ahead_of_pace" | "over_budget";
+
 export interface BudgetUsageEntry {
   budget_id: number;
   category_id: number | null;
@@ -12,6 +15,11 @@ export interface BudgetUsageEntry {
   spent_amount: string;
   remaining_amount: string;
   usage_percentage: number;
+  /** Budget variance: above (+) or below (−) the limit, in % of the limit. */
+  variance_percentage: number;
+  /** What the budget allows by today, spread evenly over the month. */
+  expected_to_date: string;
+  status: BudgetStatus;
 }
 
 /**
@@ -113,4 +121,132 @@ export interface InsightsResponse {
 export interface InsightsParams {
   year?: number;
   month?: number;
+}
+
+// --- Trends, comparisons, merchants, spending patterns -------------------------------------
+// Every amount is a decimal string in the user's base currency, computed by the backend.
+
+export interface MonthSummary {
+  year: number;
+  month: number;
+  total_income: string;
+  total_expenses: string;
+  balance: string;
+  transaction_count: number;
+}
+
+export type ComparisonAgainst = "previous_month" | "previous_year";
+
+export interface CategoryComparison {
+  category_id: number;
+  category_name: string;
+  current_amount: string;
+  previous_amount: string;
+  change_amount: string;
+  /** null when nothing was spent in the compared month. */
+  change_percentage: number | null;
+}
+
+/** Shape of GET /api/analytics/comparison/ — `previous_month` is the month compared against. */
+export interface Comparison {
+  against: ComparisonAgainst;
+  current_month: MonthSummary;
+  previous_month: MonthSummary;
+  difference: { total_income: string; total_expenses: string; balance: string };
+  percentage_difference: { total_income: number | null; total_expenses: number | null; balance: number | null };
+  categories: CategoryComparison[];
+}
+
+export interface ComparisonParams {
+  year?: number;
+  month?: number;
+  against?: ComparisonAgainst;
+}
+
+export interface TrendMonth {
+  year: number;
+  month: number;
+  month_name: string;
+  income: string;
+  expenses: string;
+  balance: string;
+  expenses_change_percentage: number | null;
+}
+
+export interface CategoryTrend {
+  category_id: number;
+  category_name: string;
+  /** One amount per entry of `Trends.months`, same order. */
+  amounts: string[];
+  total: string;
+  average: string;
+  /** The latest month minus the month before it. */
+  change_amount: string;
+  change_percentage: number | null;
+}
+
+/** Shape of GET /api/analytics/trends/ — the last `months` months, oldest first. */
+export interface Trends {
+  year: number;
+  month: number;
+  months: TrendMonth[];
+  average_monthly_expenses: string;
+  categories: CategoryTrend[];
+}
+
+export interface TrendsParams {
+  year?: number;
+  month?: number;
+  /** 2–24, default 6. */
+  months?: number;
+}
+
+export interface Merchant {
+  merchant: string;
+  transaction_count: number;
+  total: string;
+  average: string;
+  share_percentage: number | null;
+  previous_total: string;
+  change_percentage: number | null;
+  last_date: string;
+}
+
+/** Shape of GET /api/analytics/merchants/ — largest first. */
+export interface Merchants {
+  year: number;
+  month: number;
+  total_expenses: string;
+  merchants: Merchant[];
+}
+
+export interface MerchantsParams {
+  year?: number;
+  month?: number;
+  /** 1–50, default 10. */
+  limit?: number;
+}
+
+export interface WeekdaySpending {
+  /** ISO weekday: 1 = Monday … 7 = Sunday. */
+  weekday: number;
+  name: string;
+  total: string;
+  transaction_count: number;
+  days: number;
+  average_per_day: string | null;
+}
+
+/** Shape of GET /api/analytics/spending-patterns/ — month-to-date for the current month. */
+export interface SpendingPatterns {
+  year: number;
+  month: number;
+  days_counted: number;
+  total_expenses: string;
+  average_daily_spending: string | null;
+  weekdays: WeekdaySpending[];
+  fixed_expenses: string;
+  variable_expenses: string;
+  fixed_percentage: number | null;
+  recurring_commitments: string;
 }

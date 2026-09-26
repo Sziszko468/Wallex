@@ -2,6 +2,7 @@ import { StyleSheet, Text, View } from "react-native";
 import type { Budget } from "../../types/budget";
 import type { Category } from "../../types/category";
 import { formatCurrency, formatPercentage } from "../../utils/format";
+import { useBaseCurrency } from "../../hooks/useBaseCurrency";
 import { colors, fontSize, radius, spacing } from "../../utils/theme";
 
 interface BudgetCardProps {
@@ -10,6 +11,7 @@ interface BudgetCardProps {
 }
 
 export function BudgetCard({ budget, category }: BudgetCardProps) {
+  const baseCurrency = useBaseCurrency();
   const isOverBudget = budget.usage_percentage > 100;
   const isNearLimit = !isOverBudget && budget.usage_percentage >= 80;
   const barColor = isOverBudget ? colors.danger : isNearLimit ? colors.warning : colors.success;
@@ -22,7 +24,7 @@ export function BudgetCard({ budget, category }: BudgetCardProps) {
           <Text style={styles.categoryName}>{category?.name ?? "Overall"}</Text>
         </View>
         <Text style={styles.amountText}>
-          {formatCurrency(budget.spent_amount)} / {formatCurrency(budget.amount)}
+          {formatCurrency(budget.spent_amount, baseCurrency)} / {formatCurrency(budget.amount, baseCurrency)}
         </Text>
       </View>
 
@@ -41,8 +43,8 @@ export function BudgetCard({ budget, category }: BudgetCardProps) {
         </Text>
         <Text style={[styles.footerText, isOverBudget && styles.overBudgetText]}>
           {isOverBudget
-            ? `Over by ${formatCurrency(Math.abs(Number(budget.remaining_amount)))}`
-            : `${formatCurrency(budget.remaining_amount)} left`}
+            ? `Over by ${formatCurrency(Math.abs(Number(budget.remaining_amount)), baseCurrency)}`
+            : `${formatCurrency(budget.remaining_amount, baseCurrency)} left`}
         </Text>
       </View>
 

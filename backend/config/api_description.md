@@ -48,6 +48,7 @@ JSON Web Tokens, sent as `Authorization: Bearer <access token>`.
 | Base path | Everything is under `/api/`. URLs end with a slash. |
 | Content type | `application/json`, except the two uploads (`multipart/form-data`). |
 | Money | Decimal **strings** with two decimals: `"1234.50"`. Send strings (numbers are accepted); never do money arithmetic with floats on the client — the API returns every total. |
+| Currencies | EUR, HUF, USD, GBP, JPY, CHF (whole numbers for HUF and JPY). A transaction keeps `amount` in its own `currency`; its `base_amount` is the same value in the user's **base currency** (`GET /api/auth/me/` → `base_currency`). Every total — analytics, budgets, recurring amounts — is in the base currency. Conversions use ECB reference rates, fixed when the transaction is saved. |
 | Amount sign | Amounts are always positive. `type` (`income` / `expense`) says which way the money went. A transaction's `type` must equal its category's `type`. |
 | Dates | `YYYY-MM-DD`. Timestamps: ISO 8601 in UTC (`2026-09-26T09:49:57.360831Z`). |
 | Percentages | JSON numbers (`76.5`), or `null` where they are undefined (division by zero). |

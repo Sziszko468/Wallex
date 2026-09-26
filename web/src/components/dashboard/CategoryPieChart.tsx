@@ -1,6 +1,7 @@
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import type { CategoryBreakdownEntry } from "../../types/dashboard";
 import { formatCurrency } from "../../utils/format";
+import { useBaseCurrency } from "../../hooks/useBaseCurrency";
 import { EmptyState } from "../EmptyState";
 
 interface CategoryPieChartProps {
@@ -9,6 +10,7 @@ interface CategoryPieChartProps {
 }
 
 export function CategoryPieChart({ data, colorFor }: CategoryPieChartProps) {
+  const baseCurrency = useBaseCurrency();
   if (data.length === 0) {
     return <EmptyState message="No expenses recorded this month yet." />;
   }
@@ -36,7 +38,7 @@ export function CategoryPieChart({ data, colorFor }: CategoryPieChartProps) {
             <Cell key={entry.id} fill={colorFor(entry.id)} />
           ))}
         </Pie>
-        <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+        <Tooltip formatter={(value) => formatCurrency(Number(value), baseCurrency)} />
       </PieChart>
     </ResponsiveContainer>
   );

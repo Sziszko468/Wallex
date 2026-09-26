@@ -73,6 +73,14 @@ export function SettingsScreen() {
       </View>
 
       <View style={styles.card}>
+        <Text style={styles.cardTitle}>Currency</Text>
+        <Row label="Base currency" value={user?.base_currency} />
+        <Text style={styles.cardText}>
+          Totals, budgets and recurring amounts are shown in this currency. You can change it in the Spendly web app.
+        </Text>
+      </View>
+
+      <View style={styles.card}>
         <Text style={styles.cardTitle}>Notifications</Text>
         <Text style={styles.cardText}>Budget alerts, payment reminders and important insights.</Text>
         <Button

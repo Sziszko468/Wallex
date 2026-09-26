@@ -14,7 +14,11 @@ from apps.transactions.models import Transaction
 
 MONEY_KEYS = {
     "amount", "total_income", "total_expenses", "balance", "income", "expenses",
-    "budget_amount", "spent_amount", "remaining_amount",
+    "budget_amount", "spent_amount", "remaining_amount", "base_amount",
+    "exchange_rate",  # not money, but a decimal that must never become a float either
+    "total", "average", "previous_total", "average_monthly_expenses", "average_daily_spending",
+    "average_per_day", "fixed_expenses", "variable_expenses", "recurring_commitments", "expected_to_date",
+    "current_amount", "previous_amount", "change_amount",
 }
 
 
@@ -123,6 +127,10 @@ def test_money_is_always_serialized_as_a_decimal_string(auth_client, user, food,
     Transaction.objects.create(
         user=user, category=salary, type=TransactionType.INCOME, amount=Decimal("1000.00"), date=date(2026, 9, 1)
     )
+    Transaction.objects.create(
+        user=user, category=food, type=TransactionType.EXPENSE, amount=Decimal("15000"),
+        currency="HUF", exchange_rate=Decimal("0.0025650891"), date=date(2026, 9, 4), description="Spar",
+    )
     month = {"year": 2026, "month": 9}
     responses = {
         "dashboard": auth_client.get(reverse("analytics-dashboard"), month),
@@ -130,6 +138,10 @@ def test_money_is_always_serialized_as_a_decimal_string(auth_client, user, food,
         "categories": auth_client.get(reverse("analytics-categories"), month),
         "comparison": auth_client.get(reverse("analytics-comparison"), month),
         "insights": auth_client.get(reverse("analytics-insights"), month),
+        "trends": auth_client.get(reverse("analytics-trends"), month),
+        "year-over-year": auth_client.get(reverse("analytics-comparison"), {**month, "against": "previous_year"}),
+        "merchants": auth_client.get(reverse("analytics-merchants"), month),
+        "spending-patterns": auth_client.get(reverse("analytics-spending-patterns"), month),
         "budgets": auth_client.get(reverse("budget-list")),
         "transactions": auth_client.get(reverse("transaction-list")),
     }
@@ -142,3 +154,24 @@ def test_money_is_always_serialized_as_a_decimal_string(auth_client, user, food,
             Decimal(value)  # and a valid decimal
             checked += 1
     assert checked > 20  # the walk really found the money fields
+
+
+@pytest.mark.django_db
+def test_converted_values_are_exact_decimals(auth_client, food, add_rates):
+    add_rates(date(2026, 9, 10), HUF="389.85")
+
+    created = auth_client.post(
+        reverse("transaction-list"),
+        {"category": food.id, "type": "expense", "amount": "15000", "currency": "HUF", "date": "2026-09-10"},
+        format="json",
+    ).json()
+    auth_client.post(
+        reverse("transaction-list"),
+        {"category": food.id, "type": "expense", "amount": "0.10", "date": "2026-09-10"},
+        format="json",
+    )
+    dashboard = auth_client.get(reverse("analytics-dashboard"), {"year": 2026, "month": 9}).json()
+
+    assert created["exchange_rate"] == "0.0025650891"
+    assert created["base_amount"] == "38.48"  # 15000 × 0.0025650891 = 38.4763… → 38.48
+    assert dashboard["total_expenses"] == "38.58"  # exact decimal sum of base amounts

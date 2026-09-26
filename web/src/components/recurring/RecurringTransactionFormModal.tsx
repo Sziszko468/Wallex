@@ -10,6 +10,8 @@ import {
 } from "../../services/recurringTransactionsService";
 import { extractErrorMessage, extractFieldErrors, type FieldErrors } from "../../utils/errors";
 import { toIsoDate } from "../../utils/date";
+import { amountStep } from "../../utils/currency";
+import { useBaseCurrency } from "../../hooks/useBaseCurrency";
 import { Modal } from "../Modal";
 import { Button } from "../Button";
 import { TextField } from "../TextField";
@@ -39,6 +41,8 @@ export function RecurringTransactionFormModal({
   onClose,
   onSaved,
 }: RecurringTransactionFormModalProps) {
+  // Recurring amounts are in the base currency (like budgets and every total).
+  const baseCurrency = useBaseCurrency();
   const [name, setName] = useState("");
   const [type, setType] = useState<TransactionType>("expense");
   const [categoryId, setCategoryId] = useState("");
@@ -163,11 +167,11 @@ export function RecurringTransactionFormModal({
         <TypeToggle value={type} onChange={handleTypeChange} />
 
         <TextField
-          label="Amount"
+          label={`Amount (${baseCurrency})`}
           type="number"
-          step="0.01"
-          min="0.01"
-          placeholder="0.00"
+          step={amountStep(baseCurrency)}
+          min={amountStep(baseCurrency)}
+          placeholder={amountStep(baseCurrency) === "1" ? "0" : "0.00"}
           value={amount}
           onChange={(event) => setAmount(event.target.value)}
           error={fieldErrors.amount}

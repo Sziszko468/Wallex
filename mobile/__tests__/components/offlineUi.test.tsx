@@ -6,6 +6,7 @@ import type { PendingTransaction } from "../../services/outbox";
 import type { Category } from "../../types/category";
 
 jest.mock("../../hooks/useOffline", () => ({ useOffline: jest.fn() }));
+jest.mock("../../hooks/useBaseCurrency", () => ({ useBaseCurrency: () => "EUR" }));
 jest.mock("expo-router", () => ({ router: { push: jest.fn() } }));
 const mockUseOffline = jest.mocked(useOffline);
 

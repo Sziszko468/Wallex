@@ -1,0 +1,25 @@
+@use "../../styles/variables" as vars;
+
+.badge {
+  display: inline-block;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.good {
+  background-color: rgba(22, 163, 74, 0.12);
+  color: vars.$color-success;
+}
+
+.bad {
+  background-color: rgba(220, 38, 38, 0.12);
+  color: vars.$color-danger;
+}
+
+.neutral {
+  background-color: vars.$color-background;
+  color: vars.$color-text-muted;
+}

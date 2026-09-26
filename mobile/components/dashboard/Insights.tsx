@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 import type { Insight, InsightSeverity, InsightType } from "../../types/dashboard";
 import { formatCurrency } from "../../utils/format";
+import { useBaseCurrency } from "../../hooks/useBaseCurrency";
 import { colors, fontSize, radius, spacing } from "../../utils/theme";
 
 // What the backend-computed `amount` means for each insight type — a label only,
@@ -28,6 +29,7 @@ interface InsightsProps {
 }
 
 export function Insights({ insights }: InsightsProps) {
+  const baseCurrency = useBaseCurrency();
   if (insights.length === 0) {
     return <Text style={styles.empty}>No insights for this month yet.</Text>;
   }
@@ -49,7 +51,7 @@ export function Insights({ insights }: InsightsProps) {
               <Text style={styles.message}>{insight.message}</Text>
               {insight.amount !== null && (
                 <Text style={styles.detail}>
-                  {formatCurrency(insight.amount)} {AMOUNT_LABELS[insight.type]}
+                  {formatCurrency(insight.amount, baseCurrency)} {AMOUNT_LABELS[insight.type]}
                 </Text>
               )}
             </View>

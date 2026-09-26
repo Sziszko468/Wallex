@@ -2,11 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useAsyncData } from "../hooks/useAsyncData";
+import { useBaseCurrency } from "../hooks/useBaseCurrency";
 import { useCreateTransaction } from "../hooks/useCreateTransaction";
 import { listCategories } from "../services/categoriesService";
 import { getTransaction, updateTransaction } from "../services/transactionsService";
 import { extractErrorMessage, extractFieldErrors, type FieldErrors } from "../utils/errors";
 import { toIsoDate, isValidIsoDate } from "../utils/date";
+import { hasValidPrecision } from "../utils/currency";
 import { Screen } from "../components/Screen";
 import { Button } from "../components/Button";
 import { TextField } from "../components/TextField";
@@ -41,6 +43,9 @@ export function TransactionFormScreen() {
     }, [transactionId])
   );
   const categories = useAsyncData(useCallback(() => listCategories(), []));
+  // New transactions are recorded in the base currency (the API's default); an edited one keeps its own.
+  const baseCurrency = useBaseCurrency();
+  const currency = existingTransaction.data?.currency ?? baseCurrency;
 
   const [type, setType] = useState<TransactionType>("expense");
   const [amount, setAmount] = useState("");
@@ -84,6 +89,8 @@ export function TransactionFormScreen() {
       errors.amount = "Amount is required.";
     } else if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
       errors.amount = "Amount must be greater than 0.";
+    } else if (!hasValidPrecision(amount, currency)) {
+      errors.amount = `${currency} amounts can't have decimals.`;
     }
 
     if (categoryId === null) {
@@ -161,7 +168,7 @@ export function TransactionFormScreen() {
         <TypeToggle value={type} onChange={handleTypeChange} />
 
         <TextField
-          label="Amount"
+          label={`Amount (${currency})`}
           placeholder="0.00"
           keyboardType="decimal-pad"
           autoFocus={!isEditMode}

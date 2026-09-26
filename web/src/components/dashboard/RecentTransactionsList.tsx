@@ -1,7 +1,8 @@
 import type { Category } from "../../types/category";
 import type { Transaction } from "../../types/transaction";
-import { formatCurrency, formatDate } from "../../utils/format";
+import { formatDate } from "../../utils/format";
 import { EmptyState } from "../EmptyState";
+import { TransactionAmount } from "../transactions/TransactionAmount";
 import styles from "./RecentTransactionsList.module.scss";
 
 interface RecentTransactionsListProps {
@@ -39,8 +40,7 @@ export function RecentTransactionsList({
                   : `${styles.amount} ${styles.expense}`
               }
             >
-              {transaction.type === "income" ? "+" : "-"}
-              {formatCurrency(transaction.amount)}
+              <TransactionAmount transaction={transaction} />
             </span>
           </li>
         );

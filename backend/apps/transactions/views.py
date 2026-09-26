@@ -32,7 +32,8 @@ class TransactionViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, SearchFilter, StableOrderingFilter]
     filterset_class = TransactionFilter
     search_fields = ["description"]
-    ordering_fields = ["date", "amount", "created_at"]
+    # base_amount sorts by value across currencies; amount compares raw numbers (15000 HUF > 50 EUR).
+    ordering_fields = ["date", "amount", "base_amount", "created_at"]
     ordering = ["-date", "-created_at"]
     lookup_value_regex = r"\d+"
 
@@ -71,7 +72,10 @@ class TransactionViewSet(viewsets.ModelViewSet):
         self._check_budgets(serializer.save(user=self.request.user))
 
     def perform_update(self, serializer):
-        self._check_budgets(serializer.save())
+        saved = serializer.save()
+        # The database recomputed base_amount; an UPDATE doesn't return it (an INSERT does).
+        saved.refresh_from_db(fields=["base_amount"])
+        self._check_budgets(saved)
 
     def _check_budgets(self, saved):
         if saved.type == TransactionType.EXPENSE:

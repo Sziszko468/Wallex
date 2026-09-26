@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 import type { Transaction } from "../../types/transaction";
 import { formatCurrency, formatShortDate } from "../../utils/format";
+import { useBaseCurrency } from "../../hooks/useBaseCurrency";
 import { colors, fontSize, spacing } from "../../utils/theme";
 
 interface RecentTransactionsProps {
@@ -14,6 +15,7 @@ export function RecentTransactions({
   colorByCategoryId,
   nameByCategoryId,
 }: RecentTransactionsProps) {
+  const baseCurrency = useBaseCurrency();
   if (transactions.length === 0) {
     return <Text style={styles.empty}>No transactions yet.</Text>;
   }
@@ -43,10 +45,15 @@ export function RecentTransactions({
                 {categoryName} · {formatShortDate(transaction.date)}
               </Text>
             </View>
-            <Text style={[styles.amount, isIncome ? styles.income : styles.expense]}>
-              {isIncome ? "+" : "-"}
-              {formatCurrency(transaction.amount)}
-            </Text>
+            <View style={styles.amounts}>
+              <Text style={[styles.amount, isIncome ? styles.income : styles.expense]}>
+                {isIncome ? "+" : "-"}
+                {formatCurrency(transaction.amount, transaction.currency)}
+              </Text>
+              {transaction.currency !== baseCurrency && (
+                <Text style={styles.converted}>≈ {formatCurrency(transaction.base_amount, baseCurrency)}</Text>
+              )}
+            </View>
           </View>
         );
       })}
@@ -89,9 +96,17 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: 2,
   },
+  amounts: {
+    alignItems: "flex-end",
+  },
   amount: {
     fontSize: fontSize.base,
     fontWeight: "700",
+  },
+  converted: {
+    marginTop: 2,
+    fontSize: fontSize.sm,
+    color: colors.textMuted,
   },
   income: {
     color: colors.success,

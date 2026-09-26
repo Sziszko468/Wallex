@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 import type { CategoryBreakdownEntry } from "../../types/dashboard";
 import { formatCurrency, formatPercentage } from "../../utils/format";
+import { useBaseCurrency } from "../../hooks/useBaseCurrency";
 import { colors, fontSize, spacing } from "../../utils/theme";
 
 interface TopCategoriesProps {
@@ -11,6 +12,7 @@ interface TopCategoriesProps {
 const MAX_ITEMS = 5;
 
 export function TopCategories({ categories, colorByCategoryId }: TopCategoriesProps) {
+  const baseCurrency = useBaseCurrency();
   if (categories.length === 0) {
     return <Text style={styles.empty}>No expenses yet this month.</Text>;
   }
@@ -31,7 +33,7 @@ export function TopCategories({ categories, colorByCategoryId }: TopCategoriesPr
                 {entry.category_name}
               </Text>
             </View>
-            <Text style={styles.amount}>{formatCurrency(entry.amount)}</Text>
+            <Text style={styles.amount}>{formatCurrency(entry.amount, baseCurrency)}</Text>
           </View>
           <View style={styles.track}>
             <View

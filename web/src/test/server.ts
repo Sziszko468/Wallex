@@ -1,6 +1,20 @@
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { categories, dashboard, emptyPage, insights, monthly, categoryBreakdown, user } from "./fixtures";
+import {
+  categories,
+  categoryBreakdown,
+  comparison,
+  conversionPreview,
+  dashboard,
+  emptyPage,
+  insights,
+  merchants,
+  monthly,
+  spendingPatterns,
+  trends,
+  user,
+} from "./fixtures";
+import type { UpdateUserPayload } from "../types/auth";
 
 export const API = "http://localhost:8000/api";
 
@@ -11,6 +25,10 @@ export const API = "http://localhost:8000/api";
  */
 export const defaultHandlers = [
   http.get(`${API}/auth/me/`, () => HttpResponse.json(user)),
+  http.patch(`${API}/auth/me/`, async ({ request }) =>
+    HttpResponse.json({ ...user, ...((await request.json()) as UpdateUserPayload) })
+  ),
+  http.get(`${API}/currencies/convert/`, () => HttpResponse.json(conversionPreview)),
   http.post(`${API}/auth/logout/`, () => HttpResponse.json({ detail: "Logged out successfully." })),
   http.get(`${API}/categories/`, () => HttpResponse.json(categories)),
   http.get(`${API}/transactions/`, () => HttpResponse.json(emptyPage)),
@@ -18,6 +36,10 @@ export const defaultHandlers = [
   http.get(`${API}/analytics/monthly/`, () => HttpResponse.json(monthly)),
   http.get(`${API}/analytics/categories/`, () => HttpResponse.json(categoryBreakdown)),
   http.get(`${API}/analytics/insights/`, () => HttpResponse.json(insights)),
+  http.get(`${API}/analytics/trends/`, () => HttpResponse.json(trends)),
+  http.get(`${API}/analytics/comparison/`, () => HttpResponse.json(comparison)),
+  http.get(`${API}/analytics/merchants/`, () => HttpResponse.json(merchants)),
+  http.get(`${API}/analytics/spending-patterns/`, () => HttpResponse.json(spendingPatterns)),
 ];
 
 export const server = setupServer(...defaultHandlers);

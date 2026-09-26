@@ -1,5 +1,6 @@
 import { useRef, useState, type ChangeEvent } from "react";
 import { importTransactionsCsv } from "../services/csvImportService";
+import { useBaseCurrency } from "../hooks/useBaseCurrency";
 import { extractErrorMessage } from "../utils/errors";
 import type { ImportSummary } from "../types/csvImport";
 import { Button } from "../components/Button";
@@ -8,6 +9,7 @@ import { ImportResultSummary } from "../components/import/ImportResultSummary";
 import styles from "./ImportPage.module.scss";
 
 export function ImportPage() {
+  const baseCurrency = useBaseCurrency();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -46,7 +48,8 @@ export function ImportPage() {
         <p className={styles.helpText}>
           Expected columns: <code>date</code>, <code>description</code>, <code>amount</code>.
           Dates as <code>YYYY-MM-DD</code> or <code>DD/MM/YYYY</code>. Amount is signed —
-          negative for expenses, positive for income (e.g. <code>-42.50</code>). Categories are
+          negative for expenses, positive for income (e.g. <code>-42.50</code>), in your base currency
+          ({baseCurrency}). Categories are
           detected automatically from the description (e.g. "Albert Heijn" → Food, "Shell" →
           Transport, "Netflix" → Entertainment); an unmatched expense falls back to "Other".
         </p>

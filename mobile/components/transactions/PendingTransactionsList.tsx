@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { PendingTransaction } from "../../services/outbox";
 import type { Category } from "../../types/category";
 import { formatCurrency, formatShortDate } from "../../utils/format";
+import { useBaseCurrency } from "../../hooks/useBaseCurrency";
 import { colors, fontSize, radius, spacing } from "../../utils/theme";
 
 interface PendingTransactionsListProps {
@@ -16,6 +17,7 @@ interface PendingTransactionsListProps {
  * separately from the server list: they aren't part of any total until synced.
  */
 export function PendingTransactionsList({ items, categoriesById, onRetry, onDiscard }: PendingTransactionsListProps) {
+  const baseCurrency = useBaseCurrency();
   if (items.length === 0) return null;
 
   return (
@@ -38,7 +40,7 @@ export function PendingTransactionsList({ items, categoriesById, onRetry, onDisc
               </View>
               <Text style={styles.amount}>
                 {isIncome ? "+" : "-"}
-                {formatCurrency(item.payload.amount)}
+                {formatCurrency(item.payload.amount, item.payload.currency ?? baseCurrency)}
               </Text>
               <Text style={[styles.badge, isFailed ? styles.badgeFailed : styles.badgePending]}>
                 {isFailed ? "Failed" : "Pending"}

@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 import type { BudgetUsageEntry } from "../../types/dashboard";
 import { formatCurrency, formatPercentage } from "../../utils/format";
+import { useBaseCurrency } from "../../hooks/useBaseCurrency";
 import { colors, fontSize, spacing } from "../../utils/theme";
 
 interface BudgetStatusProps {
@@ -8,6 +9,7 @@ interface BudgetStatusProps {
 }
 
 export function BudgetStatus({ budgets }: BudgetStatusProps) {
+  const baseCurrency = useBaseCurrency();
   if (budgets.length === 0) {
     return <Text style={styles.empty}>No budgets set for this month.</Text>;
   }
@@ -27,7 +29,7 @@ export function BudgetStatus({ budgets }: BudgetStatusProps) {
             <View style={styles.itemHeader}>
               <Text style={styles.name}>{budget.category_name || "Overall"}</Text>
               <Text style={styles.amountText}>
-                {formatCurrency(budget.spent_amount)} / {formatCurrency(budget.budget_amount)}
+                {formatCurrency(budget.spent_amount, baseCurrency)} / {formatCurrency(budget.budget_amount, baseCurrency)}
               </Text>
             </View>
             <View style={styles.track}>
@@ -40,8 +42,8 @@ export function BudgetStatus({ budgets }: BudgetStatusProps) {
             </View>
             <Text style={[styles.status, isOverBudget && styles.statusOver]}>
               {isOverBudget
-                ? `Over budget by ${formatCurrency(Math.abs(Number(budget.remaining_amount)))}`
-                : `${formatCurrency(budget.remaining_amount)} left · ${formatPercentage(
+                ? `Over budget by ${formatCurrency(Math.abs(Number(budget.remaining_amount)), baseCurrency)}`
+                : `${formatCurrency(budget.remaining_amount, baseCurrency)} left · ${formatPercentage(
                     budget.usage_percentage
                   )}`}
             </Text>

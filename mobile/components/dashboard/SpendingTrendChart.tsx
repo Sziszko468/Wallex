@@ -1,6 +1,7 @@
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import type { MonthlyDataPoint } from "../../types/dashboard";
 import { formatCurrency } from "../../utils/format";
+import { useBaseCurrency } from "../../hooks/useBaseCurrency";
 import { colors, fontSize, spacing } from "../../utils/theme";
 
 interface SpendingTrendChartProps {
@@ -20,6 +21,7 @@ const BAR_WIDTH = 10;
  * computed every value here).
  */
 export function SpendingTrendChart({ months, selectedMonth }: SpendingTrendChartProps) {
+  const baseCurrency = useBaseCurrency();
   const maxValue = Math.max(1, ...months.flatMap((m) => [Number(m.income), Number(m.expenses)]));
 
   return (
@@ -41,9 +43,7 @@ export function SpendingTrendChart({ months, selectedMonth }: SpendingTrendChart
                 key={point.month}
                 style={[styles.column, isSelected && styles.columnSelected]}
                 accessible
-                accessibilityLabel={`${point.month_name}: income ${formatCurrency(
-                  point.income
-                )}, expenses ${formatCurrency(point.expenses)}`}
+                accessibilityLabel={`${point.month_name}: income ${formatCurrency(point.income, baseCurrency)}, expenses ${formatCurrency(point.expenses, baseCurrency)}`}
               >
                 <View style={styles.bars}>
                   <View

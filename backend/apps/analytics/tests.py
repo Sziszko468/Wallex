@@ -241,7 +241,8 @@ def test_get_comparison_january_wraps_to_previous_december(user, food_category):
 
 
 @pytest.mark.django_db
-def test_get_comparison_uses_two_queries(django_assert_num_queries, user, food_category):
+def test_get_comparison_uses_three_queries(django_assert_num_queries, user, food_category):
     _expense(user, food_category, "100.00", 5)
-    with django_assert_num_queries(2):
+    # Two month summaries + one query for every category of both months.
+    with django_assert_num_queries(3):
         services.get_comparison(user, 2026, 9)

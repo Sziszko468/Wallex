@@ -7,6 +7,8 @@ from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 
 from apps.categories.defaults import create_default_categories
+from apps.currencies.rates import ConversionError
+from apps.currencies.services import change_base_currency
 
 User = get_user_model()
 
@@ -77,6 +79,23 @@ class SafeTokenRefreshSerializer(TokenRefreshSerializer):
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ("id", "email", "first_name", "last_name", "date_joined")
-        read_only_fields = fields
-        extra_kwargs = {"date_joined": {"help_text": "Registration time (UTC)."}}
+        fields = ("id", "email", "first_name", "last_name", "date_joined", "base_currency")
+        read_only_fields = ("id", "email", "first_name", "last_name", "date_joined")
+        extra_kwargs = {
+            "date_joined": {"help_text": "Registration time (UTC)."},
+            "base_currency": {
+                "help_text": (
+                    "Currency of every total, budget and recurring amount. Changing it converts the "
+                    "user's data (see `PATCH /api/auth/me/`)."
+                )
+            },
+        }
+
+    def update(self, instance, validated_data):
+        new_base = validated_data.get("base_currency")
+        if new_base is not None:
+            try:
+                change_base_currency(instance, new_base)
+            except ConversionError as error:
+                raise serializers.ValidationError({"base_currency": [str(error)]}) from error
+        return instance

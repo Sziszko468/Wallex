@@ -1,13 +1,20 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import type { Category, TransactionType } from "../../types/category";
+import type { ConversionPreview, CurrencyCode } from "../../types/currency";
 import type { Transaction } from "../../types/transaction";
 import { createTransaction, updateTransaction } from "../../services/transactionsService";
+import { convertAmount } from "../../services/currenciesService";
+import { useBaseCurrency } from "../../hooks/useBaseCurrency";
+import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import { extractErrorMessage, extractFieldErrors, type FieldErrors } from "../../utils/errors";
+import { amountStep, hasValidPrecision } from "../../utils/currency";
+import { formatCurrency, formatDate } from "../../utils/format";
 import { toIsoDate } from "../../utils/date";
 import { Modal } from "../Modal";
 import { Button } from "../Button";
 import { TextField } from "../TextField";
 import { Select } from "../Select";
+import { CurrencySelect } from "../CurrencySelect";
 import { ErrorBanner } from "../ErrorBanner";
 import { TypeToggle } from "../TypeToggle";
 import styles from "./TransactionFormModal.module.scss";
@@ -20,6 +27,15 @@ interface TransactionFormModalProps {
   onSaved: () => void;
 }
 
+const PREVIEW_DELAY_MS = 400;
+
+type PreviewResult = { data: ConversionPreview } | { error: string };
+
+function isPositiveAmount(amount: string): boolean {
+  const numeric = Number(amount);
+  return amount.trim() !== "" && Number.isFinite(numeric) && numeric > 0;
+}
+
 export function TransactionFormModal({
   isOpen,
   transaction,
@@ -27,8 +43,10 @@ export function TransactionFormModal({
   onClose,
   onSaved,
 }: TransactionFormModalProps) {
+  const baseCurrency = useBaseCurrency();
   const [type, setType] = useState<TransactionType>("expense");
   const [amount, setAmount] = useState("");
+  const [currency, setCurrency] = useState<CurrencyCode>(baseCurrency);
   const [categoryId, setCategoryId] = useState("");
   const [description, setDescription] = useState("");
   const [date, setDate] = useState(() => toIsoDate(new Date()));
@@ -43,19 +61,51 @@ export function TransactionFormModal({
     if (transaction) {
       setType(transaction.type);
       setAmount(transaction.amount);
+      setCurrency(transaction.currency);
       setCategoryId(String(transaction.category));
       setDescription(transaction.description);
       setDate(transaction.date);
     } else {
       setType("expense");
       setAmount("");
+      setCurrency(baseCurrency);
       setCategoryId("");
       setDescription("");
       setDate(toIsoDate(new Date()));
     }
     setErrorMessage(null);
     setFieldErrors({});
-  }, [isOpen, transaction]);
+  }, [isOpen, transaction, baseCurrency]);
+
+  // Live "≈ €41.06" preview for another currency. The backend converts (the same
+  // way it will when saving); the form only shows the result.
+  const debouncedAmount = useDebouncedValue(amount, PREVIEW_DELAY_MS);
+  const previewKey =
+    isOpen &&
+    currency !== baseCurrency &&
+    date &&
+    isPositiveAmount(debouncedAmount) &&
+    hasValidPrecision(debouncedAmount, currency)
+      ? `${debouncedAmount}|${currency}|${date}`
+      : null;
+  const [preview, setPreview] = useState<{ key: string; result: PreviewResult } | null>(null);
+
+  useEffect(() => {
+    if (previewKey === null) return;
+    let isCurrent = true;
+    convertAmount({ amount: debouncedAmount, currency, date })
+      .then((data) => {
+        if (isCurrent) setPreview({ key: previewKey, result: { data } });
+      })
+      .catch((error: unknown) => {
+        if (isCurrent) setPreview({ key: previewKey, result: { error: extractErrorMessage(error) } });
+      });
+    return () => {
+      isCurrent = false;
+    };
+  }, [previewKey, debouncedAmount, currency, date]);
+
+  const previewResult = preview !== null && preview.key === previewKey ? preview.result : null;
 
   const availableCategories = useMemo(
     () => categories.filter((category) => category.type === type),
@@ -71,12 +121,13 @@ export function TransactionFormModal({
 
   function validate(): FieldErrors {
     const errors: FieldErrors = {};
-    const numericAmount = Number(amount);
 
     if (!amount.trim()) {
       errors.amount = "Amount is required.";
-    } else if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+    } else if (!isPositiveAmount(amount)) {
       errors.amount = "Amount must be greater than 0.";
+    } else if (!hasValidPrecision(amount, currency)) {
+      errors.amount = `${currency} amounts can't have decimals.`;
     }
 
     if (!categoryId) {
@@ -101,6 +152,7 @@ export function TransactionFormModal({
     try {
       const payload = {
         amount,
+        currency,
         type,
         category: Number(categoryId),
         description: description.trim() || undefined,
@@ -127,16 +179,40 @@ export function TransactionFormModal({
 
         <TypeToggle value={type} onChange={handleTypeChange} />
 
-        <TextField
-          label="Amount"
-          type="number"
-          step="0.01"
-          min="0.01"
-          placeholder="0.00"
-          value={amount}
-          onChange={(event) => setAmount(event.target.value)}
-          error={fieldErrors.amount}
-        />
+        <div className={styles.amountRow}>
+          <TextField
+            label="Amount"
+            type="number"
+            step={amountStep(currency)}
+            min={amountStep(currency)}
+            placeholder={amountStep(currency) === "1" ? "0" : "0.00"}
+            value={amount}
+            onChange={(event) => setAmount(event.target.value)}
+            error={fieldErrors.amount}
+          />
+          <CurrencySelect
+            value={currency}
+            onChange={setCurrency}
+            error={fieldErrors.currency ?? fieldErrors.exchange_rate}
+          />
+        </div>
+
+        {previewKey !== null && (
+          <p className={styles.conversion} aria-live="polite">
+            {previewResult === null && "Converting…"}
+            {previewResult !== null && "data" in previewResult && (
+              <>
+                ≈ {formatCurrency(previewResult.data.base_amount, previewResult.data.base_currency)}
+                {previewResult.data.rate_date && (
+                  <span className={styles.rateSource}> · ECB rate of {formatDate(previewResult.data.rate_date)}</span>
+                )}
+              </>
+            )}
+            {previewResult !== null && "error" in previewResult && (
+              <span className={styles.conversionError}>{previewResult.error}</span>
+            )}
+          </p>
+        )}
 
         <Select
           label="Category"

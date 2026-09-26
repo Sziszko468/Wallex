@@ -21,6 +21,9 @@ IMPORT_ROW_STATUS_CHOICES = [("skipped", "skipped"), ("failed", "failed")]
 _TRANSACTION_EXAMPLE = {
     "id": 116,
     "amount": "45.90",
+    "currency": "EUR",
+    "exchange_rate": "1.0000000000",
+    "base_amount": "45.90",
     "type": "expense",
     "category": 206,
     "description": "Monthly gym pass",
@@ -37,6 +40,13 @@ _TRANSACTION_VALIDATION = validation_error(
     ("Unknown or foreign category", {"category": ['Invalid pk "999999" - object does not exist.']}),
     ("Bad date", {"date": ["Date has wrong format. Use one of these formats instead: YYYY-MM-DD."]}),
     ("Bad client_id", {"client_id": ["Must be a valid UUID."]}),
+    ("Unknown currency", {"currency": ['"XYZ" is not a valid choice.']}),
+    ("Fractional forints", {"amount": ["HUF amounts can't have decimals."]}),
+    (
+        "No exchange rate",
+        {"exchange_rate": ["No HUF exchange rate is available for 2026-09-26. Enter the rate manually or try again later."]},
+    ),
+    ("Rate for the base currency", {"exchange_rate": ["Must be 1 when the currency is your base currency."]}),
     ("Missing fields", {"category": ["This field is required."], "date": ["This field is required."]}),
 )
 
@@ -55,8 +65,10 @@ _LIST_PARAMETERS = [
         "ordering",
         OpenApiTypes.STR,
         description=(
-            "Sort by `date`, `amount` or `created_at`; prefix `-` for descending, comma-separate for "
-            "several (`-amount,date`). Default: `-date,-created_at` (newest first). Unknown fields are ignored."
+            "Sort by `date`, `base_amount` (the value in the base currency: use it to sort by size), `amount` "
+            "(the raw number in each transaction's own currency) or `created_at`; prefix `-` for descending, "
+            "comma-separate for several (`-base_amount,date`). Default: `-date,-created_at` (newest first). "
+            "Unknown fields are ignored."
         ),
     ),
     OpenApiParameter("page", OpenApiTypes.INT, description="Page number, starting at 1."),
@@ -89,7 +101,12 @@ TRANSACTION_VIEWSET_SCHEMA = extend_schema_view(
         tags=["Transactions"],
         summary="Create a transaction",
         description=(
-            "`type` must equal the category's type; `amount` is positive with at most 2 decimals.\n\n"
+            "`type` must equal the category's type; `amount` is positive with at most 2 decimals "
+            "(whole numbers for HUF and JPY).\n\n"
+            "**Currency:** `amount` is stored in `currency` exactly as sent (default: the user's base currency). "
+            "`exchange_rate` is fixed now: the ECB reference rate of `date`, or of the last publication at most "
+            "7 days before it, unless you send one yourself. `base_amount` (`amount × exchange_rate`, in the "
+            "base currency) is what every total adds up.\n\n"
             "**Idempotency:** send a `client_id` (UUID, generated once per transaction) to make retries safe. "
             "If a transaction with the same `client_id` already exists, it is returned with `200` and "
             "nothing new is created — the body of the retry is ignored.\n\n"
@@ -115,6 +132,18 @@ TRANSACTION_VIEWSET_SCHEMA = extend_schema_view(
                 },
             ),
             OpenApiExample(
+                "In another currency",
+                request_only=True,
+                value={
+                    "amount": "15000",
+                    "currency": "HUF",
+                    "type": "expense",
+                    "category": 202,
+                    "description": "Lunch in Budapest",
+                    "date": "2026-09-25",
+                },
+            ),
+            OpenApiExample(
                 "Offline-safe (with client_id)",
                 request_only=True,
                 value={
@@ -133,7 +162,10 @@ TRANSACTION_VIEWSET_SCHEMA = extend_schema_view(
     update=extend_schema(
         tags=["Transactions"],
         summary="Replace a transaction",
-        description="Full update: send every writable field. `client_id` can't be changed after creation and is ignored.",
+        description=(
+            "Full update: send every writable field. `client_id` can't be changed after creation and is ignored. "
+            "An omitted `currency` keeps the stored one."
+        ),
         responses={200: TransactionSerializer, 400: _TRANSACTION_VALIDATION},
     ),
     partial_update=extend_schema(
@@ -141,7 +173,9 @@ TRANSACTION_VIEWSET_SCHEMA = extend_schema_view(
         summary="Update a transaction",
         description=(
             "Changes any subset of fields. The type/category rule is checked against the resulting "
-            "transaction, so changing both at once works. `client_id` is ignored."
+            "transaction, so changing both at once works. `client_id` is ignored.\n\n"
+            "The exchange rate is looked up again only when `currency` or `date` changes (or send "
+            "`exchange_rate`); changing just the amount keeps the stored rate."
         ),
         responses={200: TransactionSerializer, 400: _TRANSACTION_VALIDATION},
         examples=[OpenApiExample("Fix the amount", request_only=True, value={"amount": "49.90"})],
@@ -194,7 +228,7 @@ date,description,amount
 | Column | Rules |
 |---|---|
 | `date` | `YYYY-MM-DD` or `DD/MM/YYYY` |
-| `amount` | Signed decimal with a **dot** as decimal separator. Negative = expense, positive = income, zero is rejected. Thousands separators (`,` and spaces) and `€ $ £` are removed. |
+| `amount` | Signed decimal with a **dot** as decimal separator, in the user's **base currency**. Negative = expense, positive = income, zero is rejected; whole numbers for HUF and JPY. Thousands separators (`,` and spaces) and `€ $ £` are removed. |
 | `description` | Free text, max 255 characters. Also used to pick the category. |
 
 **Category detection:** keyword rules on the description map each row to one of the user's categories

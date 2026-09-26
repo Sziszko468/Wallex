@@ -11,6 +11,8 @@ Expected CSV format (documented for the client in docs/api-contract.md):
   are stripped as thousands separators — NOT as an alternate decimal mark).
   Negative -> expense, positive -> income. Zero is rejected.
 - description: free text, used for rule-based category detection below.
+
+Amounts are in the user's base currency (a bank export has one account currency).
 """
 
 import csv
@@ -23,6 +25,7 @@ from django.conf import settings
 
 from apps.categories.models import Category, TransactionType
 from apps.categories.rules import match_category_name
+from apps.currencies.rates import ONE, has_valid_precision
 
 from .models import Transaction
 
@@ -130,6 +133,7 @@ def import_transactions_from_csv(user, uploaded_file) -> ImportSummary:
         for category in Category.objects.filter(user=user)
     }
 
+    currency = user.base_currency
     summary = ImportSummary()
     seen_in_file: set[tuple[date, Decimal, str]] = set()
     to_create: list[Transaction] = []
@@ -170,6 +174,10 @@ def import_transactions_from_csv(user, uploaded_file) -> ImportSummary:
 
         transaction_type = TransactionType.EXPENSE if signed_amount < 0 else TransactionType.INCOME
         amount = abs(signed_amount)
+        if not has_valid_precision(amount, currency):
+            summary.failed += 1
+            summary.details.append(RowResult(line_number, "failed", f"{currency} amounts can't have decimals."))
+            continue
         description = row["description"]
         if len(description) > DESCRIPTION_MAX_LENGTH:
             summary.failed += 1
@@ -184,7 +192,7 @@ def import_transactions_from_csv(user, uploaded_file) -> ImportSummary:
 
         dedupe_key = (parsed_date, amount, description.lower())
         if dedupe_key in seen_in_file or Transaction.objects.filter(
-            user=user, date=parsed_date, amount=amount, description__iexact=description
+            user=user, date=parsed_date, amount=amount, currency=currency, description__iexact=description
         ).exists():
             summary.skipped += 1
             summary.details.append(
@@ -216,6 +224,8 @@ def import_transactions_from_csv(user, uploaded_file) -> ImportSummary:
                 category=category,
                 type=transaction_type,
                 amount=amount,
+                currency=currency,
+                exchange_rate=ONE,
                 description=description,
                 date=parsed_date,
             )

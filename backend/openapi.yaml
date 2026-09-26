@@ -53,6 +53,7 @@ info:
     | Base path | Everything is under `/api/`. URLs end with a slash. |
     | Content type | `application/json`, except the two uploads (`multipart/form-data`). |
     | Money | Decimal **strings** with two decimals: `"1234.50"`. Send strings (numbers are accepted); never do money arithmetic with floats on the client — the API returns every total. |
+    | Currencies | EUR, HUF, USD, GBP, JPY, CHF (whole numbers for HUF and JPY). A transaction keeps `amount` in its own `currency`; its `base_amount` is the same value in the user's **base currency** (`GET /api/auth/me/` → `base_currency`). Every total — analytics, budgets, recurring amounts — is in the base currency. Conversions use ECB reference rates, fixed when the transaction is saved. |
     | Amount sign | Amounts are always positive. `type` (`income` / `expense`) says which way the money went. A transaction's `type` must equal its category's `type`. |
     | Dates | `YYYY-MM-DD`. Timestamps: ISO 8601 in UTC (`2026-09-26T09:49:57.360831Z`). |
     | Percentages | JSON numbers (`76.5`), or `null` where they are undefined (division by zero). |
@@ -202,10 +203,28 @@ paths:
   /api/analytics/comparison/:
     get:
       operationId: analytics_comparison_retrieve
-      description: Totals of the month and the month before, with absolute and relative
-        differences. `year` and `month` default to the current month (UTC).
-      summary: Compare a month with the previous one
+      description: |-
+        Totals of the month and of the month it is compared with, with absolute and relative differences, plus the same comparison for every expense category.
+
+        - `against=previous_month` (default): month-over-month, e.g. September vs August.
+        - `against=previous_year`: year-over-year, e.g. September 2026 vs September 2025.
+
+        The compared month is always under `previous_month`. `year` and `month` default to the current month (UTC).
+      summary: Compare a month with the previous month or year
       parameters:
+      - in: query
+        name: against
+        schema:
+          enum:
+          - previous_month
+          - previous_year
+          type: string
+          minLength: 1
+        description: |-
+          `previous_month` (default) or `previous_year`: the same month one year earlier.
+
+          * `previous_month` - previous_month
+          * `previous_year` - previous_year
       - in: query
         name: month
         schema:
@@ -237,19 +256,17 @@ paths:
               schema:
                 $ref: '#/components/schemas/ValidationError'
               examples:
-                OutOfRange:
+                UnknownComparison:
                   value:
-                    year:
-                    - Ensure this value is greater than or equal to 2000.
+                    against:
+                    - '"week" is not a valid choice.'
+                  summary: Unknown comparison
+                BadMonth:
+                  value:
                     month:
                     - Ensure this value is less than or equal to 12.
-                  summary: Out of range
-                NotANumber:
-                  value:
-                    year:
-                    - A valid integer is required.
-                  summary: Not a number
-          description: '`year` or `month` is invalid.'
+                  summary: Bad month
+          description: A query parameter is invalid.
         '401':
           description: 'No valid access token: missing, malformed or expired. Refresh
             it with `POST /api/auth/refresh/` and retry once; if the refresh fails
@@ -291,7 +308,9 @@ paths:
       operationId: analytics_dashboard_retrieve
       description: 'Everything a dashboard needs for one month in a single call: income,
         expenses, balance, number of transactions, the top spending category and the
-        usage of every budget. `year` and `month` default to the current month (UTC).'
+        usage of every budget, with its variance (budget vs actual, and whether spending
+        keeps pace with the month). `year` and `month` default to the current month
+        (UTC).'
       summary: Monthly dashboard
       parameters:
       - in: query
@@ -339,6 +358,9 @@ paths:
                       spent_amount: '45.90'
                       remaining_amount: '14.10'
                       usage_percentage: 76.5
+                      variance_percentage: -23.5
+                      expected_to_date: '40.00'
+                      status: ahead_of_pace
                     - budget_id: 22
                       category_id: null
                       category_name: Overall
@@ -346,6 +368,9 @@ paths:
                       spent_amount: '845.90'
                       remaining_amount: '654.10'
                       usage_percentage: 56.39
+                      variance_percentage: -43.61
+                      expected_to_date: '1000.00'
+                      status: on_track
           description: Dashboard data.
         '400':
           content:
@@ -533,6 +558,119 @@ paths:
               schema:
                 type: integer
               description: Seconds until the next request is allowed.
+  /api/analytics/merchants/:
+    get:
+      operationId: analytics_merchants_retrieve
+      description: The month's expenses grouped by merchant, largest first. The merchant
+        is the transaction's description, compared without letter case and surrounding
+        spaces; expenses without a description belong to no merchant but count in
+        `total_expenses`. Each merchant is compared with the month before. `year`
+        and `month` default to the current month (UTC).
+      summary: Top merchants
+      parameters:
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          maximum: 50
+          minimum: 1
+        description: 'How many merchants, largest first (1–50). Default: 10.'
+      - in: query
+        name: month
+        schema:
+          type: integer
+          maximum: 12
+          minimum: 1
+        description: 'Month (1–12). Default: the current month.'
+      - in: query
+        name: year
+        schema:
+          type: integer
+          maximum: 2100
+          minimum: 2000
+        description: 'Year (2000–2100). Default: the current year.'
+      tags:
+      - Analytics
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Merchants'
+              examples:
+                September:
+                  value:
+                    year: 2026
+                    month: 9
+                    total_expenses: '1950.00'
+                    merchants:
+                    - merchant: Albert Heijn
+                      transaction_count: 6
+                      total: '420.00'
+                      average: '70.00'
+                      share_percentage: 21.54
+                      previous_total: '380.00'
+                      change_percentage: 10.53
+                      last_date: '2026-09-24'
+                    - merchant: Shell
+                      transaction_count: 3
+                      total: '180.00'
+                      average: '60.00'
+                      share_percentage: 9.23
+                      previous_total: '0.00'
+                      change_percentage: null
+                      last_date: '2026-09-20'
+          description: The top merchants.
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                TooMany:
+                  value:
+                    limit:
+                    - Ensure this value is less than or equal to 50.
+                  summary: Too many
+          description: A query parameter is invalid.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
   /api/analytics/monthly/:
     get:
       operationId: analytics_monthly_retrieve
@@ -577,6 +715,223 @@ paths:
                     - A valid integer is required.
                   summary: Not a number
           description: '`year` or `month` is invalid.'
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/analytics/spending-patterns/:
+    get:
+      operationId: analytics_spending_patterns_retrieve
+      description: |-
+        How the month's spending is spread: the average per day, the total and daily average for each weekday, and fixed vs variable expenses. For the current month everything is month-to-date.
+
+        **Fixed** expenses are the ones a recurring template accounts for: linked to a template, or in the same category with exactly the template's amount while the template runs (a 600.00 rent, a 12.99 subscription). Everything else is **variable**. `year` and `month` default to the current month (UTC).
+      summary: Daily, weekday and fixed-vs-variable spending
+      parameters:
+      - in: query
+        name: month
+        schema:
+          type: integer
+          maximum: 12
+          minimum: 1
+        description: 'Month (1–12). Default: the current month.'
+      - in: query
+        name: year
+        schema:
+          type: integer
+          maximum: 2100
+          minimum: 2000
+        description: 'Year (2000–2100). Default: the current year.'
+      tags:
+      - Analytics
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpendingPatterns'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                OutOfRange:
+                  value:
+                    year:
+                    - Ensure this value is greater than or equal to 2000.
+                    month:
+                    - Ensure this value is less than or equal to 12.
+                  summary: Out of range
+                NotANumber:
+                  value:
+                    year:
+                    - A valid integer is required.
+                  summary: Not a number
+          description: '`year` or `month` is invalid.'
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/analytics/trends/:
+    get:
+      operationId: analytics_trends_retrieve
+      description: 'Income, expenses and balance for each of the last `months` months
+        (ending with `year`/`month`, across year boundaries), each month''s change
+        in expenses, and every expense category''s spending per month with its latest
+        change (e.g. Food: August 280.00, September 320.00, +14.29 %). `year` and
+        `month` default to the current month (UTC). All amounts are in the user''s
+        base currency.'
+      summary: Monthly and category spending trends
+      parameters:
+      - in: query
+        name: month
+        schema:
+          type: integer
+          maximum: 12
+          minimum: 1
+        description: 'Month (1–12). Default: the current month.'
+      - in: query
+        name: months
+        schema:
+          type: integer
+          maximum: 24
+          minimum: 2
+        description: 'How many months, ending with year/month (2–24). Default: 6.'
+      - in: query
+        name: year
+        schema:
+          type: integer
+          maximum: 2100
+          minimum: 2000
+        description: 'Year (2000–2100). Default: the current year.'
+      tags:
+      - Analytics
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trends'
+              examples:
+                TwoMonths:
+                  value:
+                    year: 2026
+                    month: 9
+                    months:
+                    - year: 2026
+                      month: 8
+                      month_name: August
+                      income: '3000.00'
+                      expenses: '1920.00'
+                      balance: '1080.00'
+                      expenses_change_percentage: 3.78
+                    - year: 2026
+                      month: 9
+                      month_name: September
+                      income: '3000.00'
+                      expenses: '2100.00'
+                      balance: '900.00'
+                      expenses_change_percentage: 9.38
+                    average_monthly_expenses: '2010.00'
+                    categories:
+                    - category_id: 2
+                      category_name: Food
+                      amounts:
+                      - '280.00'
+                      - '320.00'
+                      total: '600.00'
+                      average: '300.00'
+                      change_amount: '40.00'
+                      change_percentage: 14.29
+                  summary: Two months
+          description: The trends.
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                OutOfRange:
+                  value:
+                    months:
+                    - Ensure this value is less than or equal to 24.
+                  summary: Out of range
+                BadMonth:
+                  value:
+                    month:
+                    - Ensure this value is less than or equal to 12.
+                  summary: Bad month
+          description: A query parameter is invalid.
         '401':
           description: 'No valid access token: missing, malformed or expired. Refresh
             it with `POST /api/auth/refresh/` and retry once; if the refresh fails
@@ -774,7 +1129,9 @@ paths:
     get:
       operationId: auth_me_retrieve
       description: The profile of the user the access token belongs to. Use it to
-        check a stored token on app start.
+        check a stored token on app start. `base_currency` is the currency of every
+        total the API returns (analytics, budgets, recurring amounts, a transaction's
+        `base_amount`).
       summary: Get the signed-in user
       tags:
       - Users
@@ -787,6 +1144,107 @@ paths:
               schema:
                 $ref: '#/components/schemas/User'
           description: The signed-in user.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+    patch:
+      operationId: auth_me_partial_update
+      description: |-
+        Only `base_currency` can be changed; the other fields are read-only.
+
+        Changing it converts the user's data in one step:
+        - every transaction keeps its `amount` and `currency`; its `exchange_rate` and `base_amount` are recalculated with the ECB rate of the transaction's own date;
+        - budget and recurring transaction amounts are converted at the latest rate and rounded to the new currency's unit (whole forints and yen).
+
+        All or nothing: if a needed exchange rate is missing, the answer is `400` and nothing changes.
+      summary: Change the base currency
+      tags:
+      - Users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUserRequest'
+            examples:
+              SwitchToForint:
+                value:
+                  base_currency: HUF
+                summary: Switch to forint
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedUserRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedUserRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+              examples:
+                Updated:
+                  value:
+                    id: 42
+                    email: ada@example.com
+                    first_name: Ada
+                    last_name: Lovelace
+                    date_joined: '2026-09-21T16:06:12.123456Z'
+                    base_currency: HUF
+          description: The updated user.
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                UnknownCurrency:
+                  value:
+                    base_currency:
+                    - '"XYZ" is not a valid choice.'
+                  summary: Unknown currency
+                RatesMissing:
+                  value:
+                    base_currency:
+                    - No HUF exchange rate is available for 2019-03-04.
+                  summary: Rates missing
+          description: Validation failed; nothing was changed. See the examples for
+            typical messages.
         '401':
           description: 'No valid access token: missing, malformed or expired. Refresh
             it with `POST /api/auth/refresh/` and retry once; if the refresh fails
@@ -1872,6 +2330,145 @@ paths:
               schema:
                 type: integer
               description: Seconds until the next request is allowed.
+  /api/currencies/convert/:
+    get:
+      operationId: currencies_convert_retrieve
+      description: |-
+        What a transaction of `amount` `currency` on `date` would be worth in the user's base currency — the same rate and `base_amount` that `POST /api/transactions/` would store. Nothing is saved; clients use it to show the converted value while the user types.
+
+        Rates are the ECB euro reference rates of that date, or of the last publication before it (weekends, holidays) if it is at most 7 days older. Without such a rate the answer is `400`.
+      summary: Preview a currency conversion
+      parameters:
+      - in: query
+        name: amount
+        schema:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        description: Amount in `currency`, e.g. `15000`.
+        required: true
+      - in: query
+        name: currency
+        schema:
+          enum:
+          - EUR
+          - HUF
+          - USD
+          - GBP
+          - JPY
+          - CHF
+          type: string
+          minLength: 1
+        description: |-
+          Currency of `amount`.
+
+          * `EUR` - Euro
+          * `HUF` - Hungarian forint
+          * `USD` - US dollar
+          * `GBP` - British pound
+          * `JPY` - Japanese yen
+          * `CHF` - Swiss franc
+        required: true
+      - in: query
+        name: date
+        schema:
+          type: string
+          format: date
+        description: 'Transaction date. Default: today.'
+      tags:
+      - Currencies
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversion'
+              examples:
+                ForintToEuro:
+                  value:
+                    amount: '15000.00'
+                    currency: HUF
+                    base_currency: EUR
+                    exchange_rate: '0.0025650891'
+                    base_amount: '38.48'
+                    rate_date: '2026-09-25'
+                  summary: Forint to euro
+                AlreadyInTheBaseCurrency:
+                  value:
+                    amount: '12.50'
+                    currency: EUR
+                    base_currency: EUR
+                    exchange_rate: '1.0000000000'
+                    base_amount: '12.50'
+                    rate_date: null
+                  summary: Already in the base currency
+          description: The conversion.
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                NoRateForTheDate:
+                  value:
+                    exchange_rate:
+                    - No HUF exchange rate is available for 2026-09-26.
+                  summary: No rate for the date
+                FractionalForints:
+                  value:
+                    amount:
+                    - HUF amounts can't have decimals.
+                  summary: Fractional forints
+                UnknownCurrency:
+                  value:
+                    currency:
+                    - '"XYZ" is not a valid choice.'
+                  summary: Unknown currency
+                MissingAmount:
+                  value:
+                    amount:
+                    - This field is required.
+                  summary: Missing amount
+          description: Validation failed; nothing was changed. See the examples for
+            typical messages.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
   /api/devices/:
     get:
       operationId: devices_list
@@ -2918,9 +3515,11 @@ paths:
         name: ordering
         schema:
           type: string
-        description: 'Sort by `date`, `amount` or `created_at`; prefix `-` for descending,
-          comma-separate for several (`-amount,date`). Default: `-date,-created_at`
-          (newest first). Unknown fields are ignored.'
+        description: 'Sort by `date`, `base_amount` (the value in the base currency:
+          use it to sort by size), `amount` (the raw number in each transaction''s
+          own currency) or `created_at`; prefix `-` for descending, comma-separate
+          for several (`-base_amount,date`). Default: `-date,-created_at` (newest
+          first). Unknown fields are ignored.'
       - in: query
         name: page
         schema:
@@ -3022,7 +3621,9 @@ paths:
     post:
       operationId: transactions_create
       description: |-
-        `type` must equal the category's type; `amount` is positive with at most 2 decimals.
+        `type` must equal the category's type; `amount` is positive with at most 2 decimals (whole numbers for HUF and JPY).
+
+        **Currency:** `amount` is stored in `currency` exactly as sent (default: the user's base currency). `exchange_rate` is fixed now: the ECB reference rate of `date`, or of the last publication at most 7 days before it, unless you send one yourself. `base_amount` (`amount × exchange_rate`, in the base currency) is what every total adds up.
 
         **Idempotency:** send a `client_id` (UUID, generated once per transaction) to make retries safe. If a transaction with the same `client_id` already exists, it is returned with `200` and nothing new is created — the body of the retry is ignored.
 
@@ -3043,6 +3644,15 @@ paths:
                   category: 206
                   description: Monthly gym pass
                   date: '2026-09-12'
+              InAnotherCurrency:
+                value:
+                  amount: '15000'
+                  currency: HUF
+                  type: expense
+                  category: 202
+                  description: Lunch in Budapest
+                  date: '2026-09-25'
+                summary: In another currency
               Offline-safe(withClientId):
                 value:
                   amount: '2500.00'
@@ -3078,6 +3688,9 @@ paths:
                   value:
                     id: 116
                     amount: '45.90'
+                    currency: EUR
+                    exchange_rate: '1.0000000000'
+                    base_amount: '45.90'
                     type: expense
                     category: 206
                     description: Monthly gym pass
@@ -3122,6 +3735,27 @@ paths:
                     client_id:
                     - Must be a valid UUID.
                   summary: Bad client_id
+                UnknownCurrency:
+                  value:
+                    currency:
+                    - '"XYZ" is not a valid choice.'
+                  summary: Unknown currency
+                FractionalForints:
+                  value:
+                    amount:
+                    - HUF amounts can't have decimals.
+                  summary: Fractional forints
+                NoExchangeRate:
+                  value:
+                    exchange_rate:
+                    - No HUF exchange rate is available for 2026-09-26. Enter the
+                      rate manually or try again later.
+                  summary: No exchange rate
+                RateForTheBaseCurrency:
+                  value:
+                    exchange_rate:
+                    - Must be 1 when the currency is your base currency.
+                  summary: Rate for the base currency
                 MissingFields:
                   value:
                     category:
@@ -3239,7 +3873,8 @@ paths:
     put:
       operationId: transactions_update
       description: 'Full update: send every writable field. `client_id` can''t be
-        changed after creation and is ignored.'
+        changed after creation and is ignored. An omitted `currency` keeps the stored
+        one.'
       summary: Replace a transaction
       parameters:
       - in: path
@@ -3307,6 +3942,27 @@ paths:
                     client_id:
                     - Must be a valid UUID.
                   summary: Bad client_id
+                UnknownCurrency:
+                  value:
+                    currency:
+                    - '"XYZ" is not a valid choice.'
+                  summary: Unknown currency
+                FractionalForints:
+                  value:
+                    amount:
+                    - HUF amounts can't have decimals.
+                  summary: Fractional forints
+                NoExchangeRate:
+                  value:
+                    exchange_rate:
+                    - No HUF exchange rate is available for 2026-09-26. Enter the
+                      rate manually or try again later.
+                  summary: No exchange rate
+                RateForTheBaseCurrency:
+                  value:
+                    exchange_rate:
+                    - Must be 1 when the currency is your base currency.
+                  summary: Rate for the base currency
                 MissingFields:
                   value:
                     category:
@@ -3365,9 +4021,10 @@ paths:
               description: Seconds until the next request is allowed.
     patch:
       operationId: transactions_partial_update
-      description: Changes any subset of fields. The type/category rule is checked
-        against the resulting transaction, so changing both at once works. `client_id`
-        is ignored.
+      description: |-
+        Changes any subset of fields. The type/category rule is checked against the resulting transaction, so changing both at once works. `client_id` is ignored.
+
+        The exchange rate is looked up again only when `currency` or `date` changes (or send `exchange_rate`); changing just the amount keeps the stored rate.
       summary: Update a transaction
       parameters:
       - in: path
@@ -3439,6 +4096,27 @@ paths:
                     client_id:
                     - Must be a valid UUID.
                   summary: Bad client_id
+                UnknownCurrency:
+                  value:
+                    currency:
+                    - '"XYZ" is not a valid choice.'
+                  summary: Unknown currency
+                FractionalForints:
+                  value:
+                    amount:
+                    - HUF amounts can't have decimals.
+                  summary: Fractional forints
+                NoExchangeRate:
+                  value:
+                    exchange_rate:
+                    - No HUF exchange rate is available for 2026-09-26. Enter the
+                      rate manually or try again later.
+                  summary: No exchange rate
+                RateForTheBaseCurrency:
+                  value:
+                    exchange_rate:
+                    - Must be 1 when the currency is your base currency.
+                  summary: Rate for the base currency
                 MissingFields:
                   value:
                     category:
@@ -3576,7 +4254,7 @@ paths:
         | Column | Rules |
         |---|---|
         | `date` | `YYYY-MM-DD` or `DD/MM/YYYY` |
-        | `amount` | Signed decimal with a **dot** as decimal separator. Negative = expense, positive = income, zero is rejected. Thousands separators (`,` and spaces) and `€ $ £` are removed. |
+        | `amount` | Signed decimal with a **dot** as decimal separator, in the user's **base currency**. Negative = expense, positive = income, zero is rejected; whole numbers for HUF and JPY. Thousands separators (`,` and spaces) and `€ $ £` are removed. |
         | `description` | Free text, max 255 characters. Also used to pick the category. |
 
         **Category detection:** keyword rules on the description map each row to one of the user's categories
@@ -3728,7 +4406,8 @@ components:
           type: string
           format: decimal
           pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
-          description: 'Monthly limit: positive, max 2 decimals.'
+          description: 'Monthly limit in the user''s base currency: positive, max
+            2 decimals (whole for HUF/JPY).'
         year:
           type: integer
           maximum: 2100
@@ -3787,7 +4466,8 @@ components:
           type: string
           format: decimal
           pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
-          description: 'Monthly limit: positive, max 2 decimals.'
+          description: 'Monthly limit in the user''s base currency: positive, max
+            2 decimals (whole for HUF/JPY).'
         year:
           type: integer
           maximum: 2100
@@ -3802,6 +4482,16 @@ components:
       - amount
       - month
       - year
+    BudgetStatusEnum:
+      enum:
+      - on_track
+      - ahead_of_pace
+      - over_budget
+      type: string
+      description: |-
+        * `on_track` - on_track
+        * `ahead_of_pace` - ahead_of_pace
+        * `over_budget` - over_budget
     BudgetUsage:
       type: object
       properties:
@@ -3833,14 +4523,37 @@ components:
           type: number
           format: double
           description: '`spent / budget × 100`; above 100 when over budget.'
+        variance_percentage:
+          type: number
+          format: double
+          description: 'Budget variance: how far spending is above (+) or below (−)
+            the limit, in % of the limit.'
+        expected_to_date:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          description: 'What the budget allows by today when spread evenly over the
+            month: the full limit for a past month, 0 for a future one.'
+        status:
+          allOf:
+          - $ref: '#/components/schemas/BudgetStatusEnum'
+          description: |-
+            `over_budget`: above the limit. `ahead_of_pace`: above `expected_to_date` but not the limit yet. `on_track`: otherwise.
+
+            * `on_track` - on_track
+            * `ahead_of_pace` - ahead_of_pace
+            * `over_budget` - over_budget
       required:
       - budget_amount
       - budget_id
       - category_id
       - category_name
+      - expected_to_date
       - remaining_amount
       - spent_amount
+      - status
       - usage_percentage
+      - variance_percentage
     Category:
       type: object
       properties:
@@ -3904,6 +4617,40 @@ components:
       - categories
       - month
       - year
+    CategoryComparison:
+      type: object
+      properties:
+        category_id:
+          type: integer
+        category_name:
+          type: string
+        current_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          description: Spent in the selected month.
+        previous_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          description: Spent in the month compared against.
+        change_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          description: '`current_amount - previous_amount`.'
+        change_percentage:
+          type: number
+          format: double
+          nullable: true
+          description: '`null` when nothing was spent before.'
+      required:
+      - category_id
+      - category_name
+      - change_amount
+      - change_percentage
+      - current_amount
+      - previous_amount
     CategoryRequest:
       type: object
       properties:
@@ -3954,13 +4701,68 @@ components:
       - category_id
       - category_name
       - percentage
+    CategoryTrend:
+      type: object
+      properties:
+        category_id:
+          type: integer
+        category_name:
+          type: string
+        amounts:
+          type: array
+          items:
+            type: string
+            format: decimal
+            pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+            description: Spent that month.
+          description: One amount per month of `months`, in the same order.
+        total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          description: Spent over the whole window.
+        average:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          description: '`total / number of months`.'
+        change_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          description: The latest month minus the month before it.
+        change_percentage:
+          type: number
+          format: double
+          nullable: true
+          description: The latest month against the month before it; `null` without
+            spending before.
+      required:
+      - amounts
+      - average
+      - category_id
+      - category_name
+      - change_amount
+      - change_percentage
+      - total
     Comparison:
       type: object
       properties:
+        against:
+          allOf:
+          - $ref: '#/components/schemas/ComparisonAgainstEnum'
+          description: |-
+            What the month is compared with.
+
+            * `previous_month` - previous_month
+            * `previous_year` - previous_year
         current_month:
           $ref: '#/components/schemas/MonthSummary'
         previous_month:
-          $ref: '#/components/schemas/MonthSummary'
+          allOf:
+          - $ref: '#/components/schemas/MonthSummary'
+          description: 'The month compared against: the previous month, or the same
+            month a year earlier.'
         difference:
           allOf:
           - $ref: '#/components/schemas/ComparisonValues'
@@ -3968,13 +4770,29 @@ components:
         percentage_difference:
           allOf:
           - $ref: '#/components/schemas/ComparisonPercentages'
-          description: Change relative to the previous month; `null` where the previous
-            value was 0.
+          description: Change relative to the month compared against; `null` where
+            its value was 0.
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryComparison'
+          description: Expense categories with spending in either month, largest current
+            spending first.
       required:
+      - against
+      - categories
       - current_month
       - difference
       - percentage_difference
       - previous_month
+    ComparisonAgainstEnum:
+      enum:
+      - previous_month
+      - previous_year
+      type: string
+      description: |-
+        * `previous_month` - previous_month
+        * `previous_year` - previous_year
     ComparisonPercentages:
       type: object
       properties:
@@ -4016,6 +4834,52 @@ components:
       - balance
       - total_expenses
       - total_income
+    Conversion:
+      type: object
+      properties:
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          description: The amount sent.
+        currency:
+          $ref: '#/components/schemas/CurrencyEnum'
+        base_currency:
+          allOf:
+          - $ref: '#/components/schemas/CurrencyEnum'
+          description: |-
+            The user's base currency.
+
+            * `EUR` - Euro
+            * `HUF` - Hungarian forint
+            * `USD` - US dollar
+            * `GBP` - British pound
+            * `JPY` - Japanese yen
+            * `CHF` - Swiss franc
+        exchange_rate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,10})?$
+          description: Value of 1 unit of `currency` in `base_currency`.
+        base_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,13}(?:\.\d{0,2})?$
+          description: '`amount × exchange_rate`, rounded to cents — what a transaction
+            would store.'
+        rate_date:
+          type: string
+          format: date
+          nullable: true
+          description: Date of the ECB publication used (the last one on or before
+            `date`); `null` for the base currency.
+      required:
+      - amount
+      - base_amount
+      - base_currency
+      - currency
+      - exchange_rate
+      - rate_date
     CsvImportRequest:
       type: object
       properties:
@@ -4048,6 +4912,22 @@ components:
       - failed
       - imported
       - skipped
+    CurrencyEnum:
+      enum:
+      - EUR
+      - HUF
+      - USD
+      - GBP
+      - JPY
+      - CHF
+      type: string
+      description: |-
+        * `EUR` - Euro
+        * `HUF` - Hungarian forint
+        * `USD` - US dollar
+        * `GBP` - British pound
+        * `JPY` - Japanese yen
+        * `CHF` - Swiss franc
     Dashboard:
       type: object
       properties:
@@ -4364,6 +5244,75 @@ components:
       required:
       - email
       - password
+    Merchant:
+      type: object
+      properties:
+        merchant:
+          type: string
+          description: The most frequent spelling of the description.
+        transaction_count:
+          type: integer
+        total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          description: Spent at this merchant this month.
+        average:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          description: Average per transaction.
+        share_percentage:
+          type: number
+          format: double
+          nullable: true
+          description: Share of the month's total expenses, 0–100.
+        previous_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          description: Spent at this merchant the month before.
+        change_percentage:
+          type: number
+          format: double
+          nullable: true
+          description: Against the month before; `null` when nothing was spent there
+            then.
+        last_date:
+          type: string
+          format: date
+          description: Most recent transaction this month.
+      required:
+      - average
+      - change_percentage
+      - last_date
+      - merchant
+      - previous_total
+      - share_percentage
+      - total
+      - transaction_count
+    Merchants:
+      type: object
+      properties:
+        year:
+          type: integer
+        month:
+          type: integer
+        total_expenses:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          description: All expenses of the month, including those without a merchant.
+        merchants:
+          type: array
+          items:
+            $ref: '#/components/schemas/Merchant'
+          description: Largest total first, at most `limit`.
+      required:
+      - merchants
+      - month
+      - total_expenses
+      - year
     Message:
       type: object
       properties:
@@ -4515,7 +5464,8 @@ components:
           type: string
           format: decimal
           pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
-          description: 'Monthly limit: positive, max 2 decimals.'
+          description: 'Monthly limit in the user''s base currency: positive, max
+            2 decimals (whole for HUF/JPY).'
         year:
           type: integer
           maximum: 2100
@@ -4589,7 +5539,8 @@ components:
           type: string
           format: decimal
           pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
-          description: 'Amount per occurrence: positive, max 2 decimals.'
+          description: 'Amount per occurrence in the user''s base currency: positive,
+            max 2 decimals (whole for HUF/JPY).'
         frequency:
           allOf:
           - $ref: '#/components/schemas/FrequencyEnum'
@@ -4622,7 +5573,27 @@ components:
           type: string
           format: decimal
           pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
-          description: Positive, max 2 decimals (decimal string, e.g. `"45.90"`).
+          description: Positive, in `currency`, as paid (decimal string, e.g. `"45.90"`).
+            Max 2 decimals; whole numbers for HUF and JPY.
+        currency:
+          allOf:
+          - $ref: '#/components/schemas/CurrencyEnum'
+          description: |-
+            Currency of `amount`. Default: the user's base currency.
+
+            * `EUR` - Euro
+            * `HUF` - Hungarian forint
+            * `USD` - US dollar
+            * `GBP` - British pound
+            * `JPY` - Japanese yen
+            * `CHF` - Swiss franc
+        exchange_rate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,10})?$
+          description: 'Value of 1 unit of `currency` in the user''s base currency.
+            Optional: when omitted it is the ECB reference rate of `date`. Always
+            1 when `currency` is the base currency.'
         type:
           allOf:
           - $ref: '#/components/schemas/TransactionTypeEnum'
@@ -4641,13 +5612,28 @@ components:
         date:
           type: string
           format: date
-          description: Booking date (`YYYY-MM-DD`).
+          description: Booking date (`YYYY-MM-DD`). Also picks the exchange rate.
         client_id:
           type: string
           format: uuid
           nullable: true
           description: Optional idempotency key (UUID) chosen by the client. Only
             settable on create.
+    PatchedUserRequest:
+      type: object
+      properties:
+        base_currency:
+          allOf:
+          - $ref: '#/components/schemas/CurrencyEnum'
+          description: |-
+            Currency of every total, budget and recurring amount. Changing it converts the user's data (see `PATCH /api/auth/me/`).
+
+            * `EUR` - Euro
+            * `HUF` - Hungarian forint
+            * `USD` - US dollar
+            * `GBP` - British pound
+            * `JPY` - Japanese yen
+            * `CHF` - Swiss franc
     Readiness:
       type: object
       properties:
@@ -4732,7 +5718,8 @@ components:
           type: string
           format: decimal
           pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
-          description: 'Amount per occurrence: positive, max 2 decimals.'
+          description: 'Amount per occurrence in the user''s base currency: positive,
+            max 2 decimals (whole for HUF/JPY).'
         frequency:
           allOf:
           - $ref: '#/components/schemas/FrequencyEnum'
@@ -4800,7 +5787,8 @@ components:
           type: string
           format: decimal
           pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
-          description: 'Amount per occurrence: positive, max 2 decimals.'
+          description: 'Amount per occurrence in the user''s base currency: positive,
+            max 2 decimals (whole for HUF/JPY).'
         frequency:
           allOf:
           - $ref: '#/components/schemas/FrequencyEnum'
@@ -4952,6 +5940,65 @@ components:
       required:
       - confidence
       - value
+    SpendingPatterns:
+      type: object
+      properties:
+        year:
+          type: integer
+        month:
+          type: integer
+        days_counted:
+          type: integer
+          description: 'Days of the month included: all of a past month, 1st to today
+            for the current month, 0 for a future one.'
+        total_expenses:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          description: Expenses of the counted days.
+        average_daily_spending:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          nullable: true
+          description: '`total_expenses / days_counted`; `null` with no days counted.'
+        weekdays:
+          type: array
+          items:
+            $ref: '#/components/schemas/WeekdaySpending'
+          description: Always 7 entries, Monday first.
+        fixed_expenses:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          description: Expenses a recurring template accounts for (see the description).
+        variable_expenses:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          description: '`total_expenses - fixed_expenses`.'
+        fixed_percentage:
+          type: number
+          format: double
+          nullable: true
+          description: Share of fixed expenses; `null` without expenses.
+        recurring_commitments:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          description: What the active recurring expense templates add up to per month
+            (weekly × 52 / 12, yearly / 12).
+      required:
+      - average_daily_spending
+      - days_counted
+      - fixed_expenses
+      - fixed_percentage
+      - month
+      - recurring_commitments
+      - total_expenses
+      - variable_expenses
+      - weekdays
+      - year
     SuggestedCategory:
       type: object
       properties:
@@ -5018,7 +6065,34 @@ components:
           type: string
           format: decimal
           pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
-          description: Positive, max 2 decimals (decimal string, e.g. `"45.90"`).
+          description: Positive, in `currency`, as paid (decimal string, e.g. `"45.90"`).
+            Max 2 decimals; whole numbers for HUF and JPY.
+        currency:
+          allOf:
+          - $ref: '#/components/schemas/CurrencyEnum'
+          description: |-
+            Currency of `amount`. Default: the user's base currency.
+
+            * `EUR` - Euro
+            * `HUF` - Hungarian forint
+            * `USD` - US dollar
+            * `GBP` - British pound
+            * `JPY` - Japanese yen
+            * `CHF` - Swiss franc
+        exchange_rate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,10})?$
+          description: 'Value of 1 unit of `currency` in the user''s base currency.
+            Optional: when omitted it is the ECB reference rate of `date`. Always
+            1 when `currency` is the base currency.'
+        base_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,13}(?:\.\d{0,2})?$
+          readOnly: true
+          description: '`amount × exchange_rate` in the user''s base currency, rounded
+            to cents. Every total is a sum of these.'
         type:
           allOf:
           - $ref: '#/components/schemas/TransactionTypeEnum'
@@ -5037,7 +6111,7 @@ components:
         date:
           type: string
           format: date
-          description: Booking date (`YYYY-MM-DD`).
+          description: Booking date (`YYYY-MM-DD`). Also picks the exchange rate.
         client_id:
           type: string
           format: uuid
@@ -5054,6 +6128,7 @@ components:
           readOnly: true
       required:
       - amount
+      - base_amount
       - category
       - created_at
       - date
@@ -5067,7 +6142,27 @@ components:
           type: string
           format: decimal
           pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
-          description: Positive, max 2 decimals (decimal string, e.g. `"45.90"`).
+          description: Positive, in `currency`, as paid (decimal string, e.g. `"45.90"`).
+            Max 2 decimals; whole numbers for HUF and JPY.
+        currency:
+          allOf:
+          - $ref: '#/components/schemas/CurrencyEnum'
+          description: |-
+            Currency of `amount`. Default: the user's base currency.
+
+            * `EUR` - Euro
+            * `HUF` - Hungarian forint
+            * `USD` - US dollar
+            * `GBP` - British pound
+            * `JPY` - Japanese yen
+            * `CHF` - Swiss franc
+        exchange_rate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,10})?$
+          description: 'Value of 1 unit of `currency` in the user''s base currency.
+            Optional: when omitted it is the ECB reference rate of `date`. Always
+            1 when `currency` is the base currency.'
         type:
           allOf:
           - $ref: '#/components/schemas/TransactionTypeEnum'
@@ -5086,7 +6181,7 @@ components:
         date:
           type: string
           format: date
-          description: Booking date (`YYYY-MM-DD`).
+          description: Booking date (`YYYY-MM-DD`). Also picks the exchange rate.
         client_id:
           type: string
           format: uuid
@@ -5106,6 +6201,75 @@ components:
       description: |-
         * `income` - Income
         * `expense` - Expense
+    TrendMonth:
+      type: object
+      properties:
+        year:
+          type: integer
+        month:
+          type: integer
+          description: 1–12.
+        month_name:
+          type: string
+          description: English month name.
+        income:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          description: Income that month.
+        expenses:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          description: Expenses that month.
+        balance:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          description: '`income - expenses`.'
+        expenses_change_percentage:
+          type: number
+          format: double
+          nullable: true
+          description: Expenses against the month before; `null` when that month had
+            none.
+      required:
+      - balance
+      - expenses
+      - expenses_change_percentage
+      - income
+      - month
+      - month_name
+      - year
+    Trends:
+      type: object
+      properties:
+        year:
+          type: integer
+          description: Last month of the window.
+        month:
+          type: integer
+        months:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrendMonth'
+          description: Oldest first; months without transactions are zero.
+        average_monthly_expenses:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          description: Average expenses per month of the window.
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryTrend'
+          description: Expense categories with spending in the window, largest first.
+      required:
+      - average_monthly_expenses
+      - categories
+      - month
+      - months
+      - year
     User:
       type: object
       properties:
@@ -5127,6 +6291,18 @@ components:
           format: date-time
           readOnly: true
           description: Registration time (UTC).
+        base_currency:
+          allOf:
+          - $ref: '#/components/schemas/CurrencyEnum'
+          description: |-
+            Currency of every total, budget and recurring amount. Changing it converts the user's data (see `PATCH /api/auth/me/`).
+
+            * `EUR` - Euro
+            * `HUF` - Hungarian forint
+            * `USD` - US dollar
+            * `GBP` - British pound
+            * `JPY` - Japanese yen
+            * `CHF` - Swiss franc
       required:
       - date_joined
       - email
@@ -5146,6 +6322,38 @@ components:
         type: array
         items:
           type: string
+    WeekdaySpending:
+      type: object
+      properties:
+        weekday:
+          type: integer
+          description: 'ISO weekday: 1 = Monday … 7 = Sunday.'
+        name:
+          type: string
+          description: English weekday name.
+        total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          description: Spent on this weekday.
+        transaction_count:
+          type: integer
+        days:
+          type: integer
+          description: How many times this weekday occurred in the counted days.
+        average_per_day:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          nullable: true
+          description: '`total / days`; `null` if the weekday hasn''t occurred yet.'
+      required:
+      - average_per_day
+      - days
+      - name
+      - total
+      - transaction_count
+      - weekday
   securitySchemes:
     jwtAuth:
       type: http
@@ -5166,6 +6374,8 @@ tags:
   description: Monthly spending limits, overall or per category, with live usage.
 - name: Recurring Transactions
   description: Templates for repeating income and expenses.
+- name: Currencies
+  description: Conversion previews with ECB reference rates.
 - name: Analytics
   description: Read-only monthly summaries computed on the server.
 - name: Financial Insights

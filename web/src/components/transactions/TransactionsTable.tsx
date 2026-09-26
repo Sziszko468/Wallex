@@ -1,10 +1,12 @@
 import type { Category } from "../../types/category";
 import type { Transaction } from "../../types/transaction";
-import { formatCurrency, formatDate } from "../../utils/format";
+import { formatDate } from "../../utils/format";
 import { EmptyState } from "../EmptyState";
+import { TransactionAmount } from "./TransactionAmount";
 import styles from "./TransactionsTable.module.scss";
 
-type SortableField = "date" | "amount";
+// Amounts sort by base_amount: their value in one currency, so 15,000 HUF sorts below 50 EUR.
+type SortableField = "date" | "base_amount";
 
 interface TransactionsTableProps {
   transactions: Transaction[];
@@ -69,7 +71,7 @@ export function TransactionsTable({
             <th scope="col">Description</th>
             <th scope="col">Category</th>
             <th scope="col">Type</th>
-            {renderSortableHeader("amount", "Amount")}
+            {renderSortableHeader("base_amount", "Amount")}
             <th scope="col" className={styles.actionsHeader}>
               Actions
             </th>
@@ -104,8 +106,7 @@ export function TransactionsTable({
                   </span>
                 </td>
                 <td className={isIncome ? styles.income : styles.expense}>
-                  {isIncome ? "+" : "-"}
-                  {formatCurrency(transaction.amount)}
+                  <TransactionAmount transaction={transaction} />
                 </td>
                 <td className={styles.actionsCell}>
                   <button

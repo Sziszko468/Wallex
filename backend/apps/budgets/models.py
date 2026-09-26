@@ -8,7 +8,7 @@ from django.db.models.functions import Coalesce
 
 from apps.categories.models import Category, TransactionType
 
-_MONEY = DecimalField(max_digits=12, decimal_places=2)
+_MONEY = DecimalField(max_digits=15, decimal_places=2)
 ZERO = Decimal("0.00")
 
 
@@ -22,7 +22,8 @@ class BudgetQuerySet(models.QuerySet):
         """Annotates `spent`: the expenses counted against each budget, in the same query.
 
         A category budget counts that category's expenses of its month; an overall
-        budget (category NULL) counts every expense of the month.
+        budget (category NULL) counts every expense of the month. Expenses count with
+        their base_amount — like the budget itself, in the user's base currency.
         """
         from apps.transactions.models import Transaction  # budgets must not import transactions at load time
 
@@ -35,7 +36,7 @@ class BudgetQuerySet(models.QuerySet):
 
         def total(expenses):
             # order_by(): the model's default ordering would otherwise split the GROUP BY.
-            summed = expenses.order_by().values("user_id").annotate(total=Sum("amount")).values("total")[:1]
+            summed = expenses.order_by().values("user_id").annotate(total=Sum("base_amount")).values("total")[:1]
             return Subquery(summed, output_field=_MONEY)
 
         return self.annotate(
@@ -57,6 +58,7 @@ class Budget(models.Model):
     category = models.ForeignKey(
         Category, on_delete=models.CASCADE, related_name="budgets", null=True, blank=True
     )
+    # In the user's base currency (converted when the base currency changes).
     amount = models.DecimalField(
         max_digits=12, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))]
     )

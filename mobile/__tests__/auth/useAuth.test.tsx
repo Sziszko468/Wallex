@@ -18,7 +18,14 @@ jest.mock("../../services/pushNotifications", () => ({ unregisterCurrentDevice: 
 const mockAuthService = jest.mocked(authService);
 const mockBiometrics = jest.mocked(biometrics);
 
-const anna: User = { id: 1, email: "anna@example.com", first_name: "Anna", last_name: "", date_joined: "2026-09-01" };
+const anna: User = {
+  id: 1,
+  email: "anna@example.com",
+  first_name: "Anna",
+  last_name: "",
+  date_joined: "2026-09-01",
+  base_currency: "EUR",
+};
 
 const wrapper = ({ children }: { children: ReactNode }) => <AuthProvider>{children}</AuthProvider>;
 

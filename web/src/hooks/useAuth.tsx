@@ -16,6 +16,7 @@ import {
   setTokens,
 } from "../utils/tokenStorage";
 import type { LoginPayload, RegisterPayload, User } from "../types/auth";
+import type { CurrencyCode } from "../types/currency";
 
 interface AuthContextValue {
   user: User | null;
@@ -24,6 +25,8 @@ interface AuthContextValue {
   login: (payload: LoginPayload) => Promise<void>;
   register: (payload: RegisterPayload) => Promise<void>;
   logout: () => Promise<void>;
+  /** Converts the user's data on the server, then updates `user`. */
+  changeBaseCurrency: (currency: CurrencyCode) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -89,6 +92,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const changeBaseCurrency = useCallback(async (currency: CurrencyCode) => {
+    setUser(await authService.updateCurrentUser({ base_currency: currency }));
+  }, []);
+
   const value: AuthContextValue = {
     user,
     isAuthenticated: user !== null,
@@ -96,6 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     login,
     register,
     logout,
+    changeBaseCurrency,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

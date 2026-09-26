@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useAsyncData } from "../hooks/useAsyncData";
+import { useBaseCurrency } from "../hooks/useBaseCurrency";
 import { useRefetchOnFocus } from "../hooks/useRefetchOnFocus";
 import { listCategories } from "../services/categoriesService";
 import { deleteTransaction, getTransaction } from "../services/transactionsService";
@@ -15,6 +16,7 @@ import { colors, fontSize, radius, spacing } from "../utils/theme";
 export function TransactionDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const transactionId = Number(id);
+  const baseCurrency = useBaseCurrency();
   const [isDeleting, setIsDeleting] = useState(false);
 
   const transaction = useAsyncData(
@@ -77,13 +79,20 @@ export function TransactionDetailsScreen() {
                 ]}
               >
                 {transaction.data.type === "income" ? "+" : "-"}
-                {formatCurrency(transaction.data.amount)}
+                {formatCurrency(transaction.data.amount, transaction.data.currency)}
               </Text>
             </View>
 
             <View style={styles.card}>
               <DetailRow label="Description" value={transaction.data.description || "—"} />
               <DetailRow label="Date" value={formatFullDate(transaction.data.date)} />
+              {transaction.data.currency !== baseCurrency && (
+                // Computed by the API with the ECB rate of the transaction's date.
+                <DetailRow
+                  label={`In ${baseCurrency}`}
+                  value={formatCurrency(transaction.data.base_amount, baseCurrency)}
+                />
+              )}
               <DetailRow
                 label="Type"
                 value={transaction.data.type === "income" ? "Income" : "Expense"}

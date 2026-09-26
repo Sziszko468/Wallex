@@ -4,8 +4,10 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
+from django.db.models.functions import Round
 
 from apps.categories.models import Category, TransactionType
+from apps.currencies.models import Currency
 
 
 class Transaction(models.Model):
@@ -23,8 +25,21 @@ class Transaction(models.Model):
         related_name="generated_transactions",
     )
     type = models.CharField(max_length=10, choices=TransactionType.choices)
+    # The amount as it was paid, in `currency` — never rewritten.
     amount = models.DecimalField(
         max_digits=12, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))]
+    )
+    # Default EUR: every transaction recorded before multi-currency support was in euros.
+    currency = models.CharField(max_length=3, choices=Currency.choices, default=Currency.EUR)
+    # Value of 1 unit of `currency` in the user's base currency (1 when they are the same).
+    # Fixed when the transaction is saved; see apps/currencies/rates.py.
+    exchange_rate = models.DecimalField(max_digits=20, decimal_places=10, default=Decimal(1))
+    # `amount` in the user's base currency. Computed by the database, so it can never
+    # disagree with amount × exchange_rate. Every total (analytics, budgets) sums this.
+    base_amount = models.GeneratedField(
+        expression=Round(models.F("amount") * models.F("exchange_rate"), 2),
+        output_field=models.DecimalField(max_digits=15, decimal_places=2),
+        db_persist=True,
     )
     description = models.CharField(max_length=255, blank=True, default="")
     date = models.DateField()
@@ -39,6 +54,9 @@ class Transaction(models.Model):
         ordering = ["-date", "-created_at"]
         constraints = [
             models.CheckConstraint(condition=models.Q(amount__gt=0), name="transaction_amount_positive"),
+            models.CheckConstraint(
+                condition=models.Q(exchange_rate__gt=0), name="transaction_exchange_rate_positive"
+            ),
             models.UniqueConstraint(
                 fields=["user", "client_id"],
                 condition=models.Q(client_id__isnull=False),
@@ -57,7 +75,7 @@ class Transaction(models.Model):
             )
 
     def __str__(self):
-        return f"{self.date} · {self.get_type_display()} · {self.amount}"
+        return f"{self.date} · {self.get_type_display()} · {self.amount} {self.currency}"
 
 
 class Frequency(models.TextChoices):
@@ -75,6 +93,7 @@ class RecurringTransaction(models.Model):
     )
     name = models.CharField(max_length=100)
     type = models.CharField(max_length=10, choices=TransactionType.choices)
+    # In the user's base currency (converted when the base currency changes).
     amount = models.DecimalField(
         max_digits=12, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))]
     )

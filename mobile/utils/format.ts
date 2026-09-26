@@ -1,17 +1,34 @@
 // Pure display formatting only — every number here already comes fully
 // computed from the backend. Nothing in this file sums, divides, or
 // otherwise derives a new financial figure.
+import type { CurrencyCode } from "../types/currency";
+import { CURRENCY_DECIMALS } from "./currency";
 
-const currencyFormatter = new Intl.NumberFormat(undefined, {
-  style: "currency",
-  currency: "EUR",
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
+const currencyFormatters = new Map<CurrencyCode, Intl.NumberFormat>();
 
-export function formatCurrency(value: string | number): string {
+function currencyFormatter(currency: CurrencyCode): Intl.NumberFormat {
+  let formatter = currencyFormatters.get(currency);
+  if (!formatter) {
+    const decimals = CURRENCY_DECIMALS[currency];
+    formatter = new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency,
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    });
+    currencyFormatters.set(currency, formatter);
+  }
+  return formatter;
+}
+
+/**
+ * `currency` is required on purpose: an amount means nothing without it. Use the
+ * transaction's own currency for `amount`, and the user's base currency for
+ * `base_amount` and every total (see hooks/useBaseCurrency).
+ */
+export function formatCurrency(value: string | number, currency: CurrencyCode): string {
   const numeric = typeof value === "string" ? Number(value) : value;
-  return currencyFormatter.format(numeric);
+  return currencyFormatter(currency).format(numeric);
 }
 
 export function formatPercentage(value: number): string {

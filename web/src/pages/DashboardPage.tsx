@@ -1,15 +1,21 @@
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import {
   getCategoryAnalytics,
+  getComparison,
   getDashboard,
   getInsights,
+  getMerchants,
   getMonthlyAnalytics,
+  getSpendingPatterns,
+  getTrends,
 } from "../services/analyticsService";
 import { listCategories } from "../services/categoriesService";
 import { listTransactions } from "../services/transactionsService";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { useAuth } from "../hooks/useAuth";
+import { useBaseCurrency } from "../hooks/useBaseCurrency";
 import type { Category } from "../types/category";
+import type { ComparisonAgainst } from "../types/dashboard";
 import { DashboardCard } from "../components/dashboard/DashboardCard";
 import { StatCard } from "../components/dashboard/StatCard";
 import { MonthNavigator } from "../components/MonthNavigator";
@@ -19,12 +25,19 @@ import { BudgetOverview } from "../components/dashboard/BudgetOverview";
 import { TopCategoriesList } from "../components/dashboard/TopCategoriesList";
 import { RecentTransactionsList } from "../components/dashboard/RecentTransactionsList";
 import { InsightsList } from "../components/dashboard/InsightsList";
+import { SpendingTrend } from "../components/dashboard/SpendingTrend";
+import { CategoryTrendsTable } from "../components/dashboard/CategoryTrendsTable";
+import { MonthComparison } from "../components/dashboard/MonthComparison";
+import { TopMerchantsList } from "../components/dashboard/TopMerchantsList";
+import { SpendingPatternsCard } from "../components/dashboard/SpendingPatternsCard";
 import { Skeleton } from "../components/Skeleton";
 import { ErrorState } from "../components/ErrorState";
 import { formatCurrency } from "../utils/format";
 import styles from "./DashboardPage.module.scss";
 
 const RECENT_TRANSACTIONS_LIMIT = 5;
+const TREND_MONTHS = 6;
+const TOP_MERCHANTS_LIMIT = 5;
 const FALLBACK_CATEGORY_COLOR = "#9ca3af";
 
 function currentPeriod() {
@@ -34,6 +47,7 @@ function currentPeriod() {
 
 export function DashboardPage() {
   const { user } = useAuth();
+  const baseCurrency = useBaseCurrency();
   const [{ year, month }, setPeriod] = useState(currentPeriod);
 
   const fetchStats = useCallback(() => getDashboard({ year, month }), [year, month]);
@@ -50,6 +64,23 @@ export function DashboardPage() {
 
   const fetchInsights = useCallback(() => getInsights({ year, month }), [year, month]);
   const insights = useAsyncData(fetchInsights);
+
+  // Spending analysis — every figure below is computed by the backend.
+  const [against, setAgainst] = useState<ComparisonAgainst>("previous_month");
+  const fetchComparison = useCallback(() => getComparison({ year, month, against }), [year, month, against]);
+  const comparison = useAsyncData(fetchComparison);
+
+  const fetchTrends = useCallback(() => getTrends({ year, month, months: TREND_MONTHS }), [year, month]);
+  const trends = useAsyncData(fetchTrends);
+
+  const fetchMerchants = useCallback(
+    () => getMerchants({ year, month, limit: TOP_MERCHANTS_LIMIT }),
+    [year, month]
+  );
+  const merchants = useAsyncData(fetchMerchants);
+
+  const fetchPatterns = useCallback(() => getSpendingPatterns({ year, month }), [year, month]);
+  const patterns = useAsyncData(fetchPatterns);
 
   const fetchRecentTransactions = useCallback(
     () => listTransactions({ page_size: RECENT_TRANSACTIONS_LIMIT }),
@@ -96,19 +127,19 @@ export function DashboardPage() {
         <div className={styles.statsRow}>
           <StatCard
             label="Income"
-            value={stats.data ? formatCurrency(stats.data.total_income) : undefined}
+            value={stats.data ? formatCurrency(stats.data.total_income, baseCurrency) : undefined}
             tone="positive"
             isLoading={stats.isLoading}
           />
           <StatCard
             label="Expenses"
-            value={stats.data ? formatCurrency(stats.data.total_expenses) : undefined}
+            value={stats.data ? formatCurrency(stats.data.total_expenses, baseCurrency) : undefined}
             tone="negative"
             isLoading={stats.isLoading}
           />
           <StatCard
             label="Balance"
-            value={stats.data ? formatCurrency(stats.data.balance) : undefined}
+            value={stats.data ? formatCurrency(stats.data.balance, baseCurrency) : undefined}
             tone={balanceTone}
             isLoading={stats.isLoading}
           />
@@ -160,6 +191,44 @@ export function DashboardPage() {
           </SectionBody>
         </DashboardCard>
       </div>
+
+      <h2 className={styles.sectionHeading}>Spending analysis</h2>
+
+      <div className={styles.chartsRow}>
+        <DashboardCard title="Spending trend">
+          <SectionBody isLoading={trends.isLoading} error={trends.error} onRetry={trends.refetch}>
+            {trends.data && <SpendingTrend trends={trends.data} />}
+          </SectionBody>
+        </DashboardCard>
+
+        <DashboardCard title="Comparison">
+          <SectionBody isLoading={comparison.isLoading} error={comparison.error} onRetry={comparison.refetch}>
+            {comparison.data && (
+              <MonthComparison comparison={comparison.data} against={against} onAgainstChange={setAgainst} />
+            )}
+          </SectionBody>
+        </DashboardCard>
+      </div>
+
+      <div className={styles.listsRow}>
+        <DashboardCard title="Category trends">
+          <SectionBody isLoading={trends.isLoading} error={trends.error} onRetry={trends.refetch}>
+            {trends.data && <CategoryTrendsTable trends={trends.data} colorFor={colorForCategory} />}
+          </SectionBody>
+        </DashboardCard>
+
+        <DashboardCard title="Top merchants">
+          <SectionBody isLoading={merchants.isLoading} error={merchants.error} onRetry={merchants.refetch}>
+            {merchants.data && <TopMerchantsList merchants={merchants.data.merchants} />}
+          </SectionBody>
+        </DashboardCard>
+      </div>
+
+      <DashboardCard title="Spending patterns">
+        <SectionBody isLoading={patterns.isLoading} error={patterns.error} onRetry={patterns.refetch}>
+          {patterns.data && <SpendingPatternsCard patterns={patterns.data} />}
+        </SectionBody>
+      </DashboardCard>
 
       <DashboardCard title="Recent transactions">
         <SectionBody

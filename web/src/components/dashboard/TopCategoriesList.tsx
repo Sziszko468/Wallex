@@ -1,5 +1,6 @@
 import type { CategoryBreakdownEntry } from "../../types/dashboard";
 import { formatCurrency, formatPercentage } from "../../utils/format";
+import { useBaseCurrency } from "../../hooks/useBaseCurrency";
 import { EmptyState } from "../EmptyState";
 import styles from "./TopCategoriesList.module.scss";
 
@@ -10,6 +11,7 @@ interface TopCategoriesListProps {
 }
 
 export function TopCategoriesList({ categories, colorFor, limit = 5 }: TopCategoriesListProps) {
+  const baseCurrency = useBaseCurrency();
   if (categories.length === 0) {
     return <EmptyState message="No expenses recorded this month yet." />;
   }
@@ -23,7 +25,7 @@ export function TopCategoriesList({ categories, colorFor, limit = 5 }: TopCatego
         <li key={entry.category_id} className={styles.item}>
           <span className={styles.dot} style={{ backgroundColor: colorFor(entry.category_id) }} />
           <span className={styles.name}>{entry.category_name}</span>
-          <span className={styles.amount}>{formatCurrency(entry.amount)}</span>
+          <span className={styles.amount}>{formatCurrency(entry.amount, baseCurrency)}</span>
           <span className={styles.percentage}>{formatPercentage(entry.percentage)}</span>
         </li>
       ))}

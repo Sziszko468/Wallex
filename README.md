@@ -75,9 +75,21 @@ Design goals:
 - **Recurring transactions:** weekly, monthly or yearly templates for rent, salary and
   subscriptions. They can be paused and drive payment reminders.
 - **Analytics:** a monthly dashboard, a 12-month income/expense trend, spending by category,
-  and month-over-month comparison.
+  plus a spending analysis section:
+  - rolling monthly and per-category trends with each month's change,
+  - month-over-month **and** year-over-year comparison, per category too,
+  - top merchants (total, count, average, share, change),
+  - average daily spending, spending by weekday, fixed vs variable expenses,
+  - budget variance: over/under the limit and whether spending keeps pace with the month.
+
+  All of it is computed in the database with grouped queries (1–3 per endpoint, however much
+  data there is).
 - **Financial insights:** 8 rule types, e.g. budget exceeded/warning, overspending, savings
   rate, category spikes and drops, recurring share of income, top category.
+- **Multi-currency:** EUR, HUF, USD, GBP, JPY and CHF. A transaction keeps the amount and
+  currency it was paid in; its value in the user's base currency is fixed with the ECB
+  reference rate of its date. Every total is in the base currency, and changing the base
+  currency converts the whole history at historical rates.
 
 ### Web only
 
@@ -212,7 +224,7 @@ Router). The platform differences are handled by Expo modules:
 
 ## API
 
-- **Style:** RESTful JSON under `/api/`, 40 operations.
+- **Style:** RESTful JSON under `/api/`, 45 operations.
 - **Reference:** a complete **OpenAPI 3** document generated from the code, covering every
   endpoint's request, response, validation errors and status codes.
   - Interactive Swagger UI at **`/api/docs/`** (dev server: http://localhost:8000/api/docs/).
@@ -221,14 +233,15 @@ Router). The platform differences are handled by Expo modules:
 
 | Area | Endpoints |
 |---|---|
-| Authentication | `POST /api/auth/register/` · `login/` · `refresh/` · `logout/` · `GET /api/auth/me/` |
+| Authentication | `POST /api/auth/register/` · `login/` · `refresh/` · `logout/` · `GET PATCH /api/auth/me/` |
 | Transactions | `GET POST /api/transactions/` · `GET PUT PATCH DELETE /api/transactions/{id}/` |
 | CSV import | `POST /api/transactions/import/` |
 | Categories | `GET POST /api/categories/` · `GET PATCH DELETE /api/categories/{id}/` |
 | Budgets | `GET POST /api/budgets/` · `GET PATCH DELETE /api/budgets/{id}/` |
 | Recurring | `GET POST /api/recurring-transactions/` · `GET PATCH DELETE …/{id}/` |
-| Analytics | `GET /api/analytics/dashboard/` · `monthly/` · `categories/` · `comparison/` |
+| Analytics | `GET /api/analytics/dashboard/` · `monthly/` · `categories/` · `comparison/` · `trends/` · `merchants/` · `spending-patterns/` |
 | Insights | `GET /api/analytics/insights/` |
+| Currencies | `GET /api/currencies/convert/` (conversion preview with ECB rates) |
 | Receipts | `POST /api/receipts/scan/` (multipart photo → suggestions, nothing saved) |
 | Notifications | `GET POST /api/devices/` · `DELETE /api/devices/{id}/` · `GET PATCH /api/notifications/preferences/` |
 | Health | `GET /api/health/` (liveness) · `GET /api/health/ready/` (database + cache) |
@@ -272,7 +285,10 @@ erDiagram
         bigint user_id FK
         bigint category_id FK
         varchar type "income | expense"
-        decimal amount "12,2 · > 0"
+        decimal amount "12,2 · > 0 · as paid"
+        char currency "EUR HUF USD GBP JPY CHF"
+        decimal exchange_rate "20,10 · > 0"
+        decimal base_amount "generated: amount × rate"
         date date
         uuid client_id "offline idempotency key"
     }
@@ -339,9 +355,9 @@ Production images:
 
 | Suite | Tools | Tests |
 |---|---|---|
-| Backend | pytest, pytest-django | **501** |
-| Web | Vitest, React Testing Library, MSW | **34** |
-| Mobile | Jest (jest-expo), React Native Testing Library | **87** |
+| Backend | pytest, pytest-django | **637** |
+| Web | Vitest, React Testing Library, MSW | **49** |
+| Mobile | Jest (jest-expo), React Native Testing Library | **92** |
 
 The testing is risk-based rather than aimed at a coverage number
 ([strategy](docs/testing-strategy.md)). Highlights:
@@ -349,7 +365,7 @@ The testing is risk-based rather than aimed at a coverage number
 - **Security matrix:** introspects the URL configuration, so every endpoint must reject
   anonymous requests and hide other users' objects. A new endpoint can't forget it.
 - **Money:** exact decimals end to end; money never appears as a float in any response.
-- **API contract:** real responses of all 40 operations, errors included, are validated
+- **API contract:** real responses of all 45 operations, errors included, are validated
   strictly against the OpenAPI document, so the docs can't drift from the code.
 - **Performance guards:** analytics endpoints must run a fixed number of SQL queries.
 - **Offline sync:** queued transactions are never lost or duplicated.
@@ -374,6 +390,7 @@ git clone <repository-url> spendly && cd spendly
 cp backend/.env.example backend/.env          # set DJANGO_SECRET_KEY and POSTGRES_PASSWORD
 docker compose up -d --build
 docker compose exec backend python manage.py migrate
+docker compose exec backend python manage.py fetch_exchange_rates --period all   # ECB rates for multi-currency
 docker compose exec backend python manage.py createsuperuser   # optional, for /admin/
 ```
 
@@ -485,4 +502,6 @@ spendly/
 - **Web category management UI:** the API is complete; the page is still a placeholder.
 - **CSV export**, with spreadsheet formula-injection protection.
 - **End-to-end tests:** Playwright (web) and Maestro (mobile) on real flows.
-- **UX:** proper tab-bar icons, dark mode, Hungarian localisation, multi-currency support.
+- **Mobile currencies:** a currency picker on the mobile transaction and receipt screens
+  (mobile shows every currency correctly, but records new transactions in the base currency).
+- **UX:** proper tab-bar icons, dark mode, Hungarian localisation.

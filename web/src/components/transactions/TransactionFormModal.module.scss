@@ -1,6 +1,31 @@
+@use "../../styles/variables" as vars;
+
 .form {
   display: flex;
   flex-direction: column;
+}
+
+.amountRow {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: vars.$space-sm;
+}
+
+.conversion {
+  margin: calc(-1 * vars.$space-sm) 0 vars.$space-md;
+  font-size: vars.$font-size-sm;
+  font-weight: 600;
+  color: vars.$color-text;
+}
+
+.rateSource {
+  font-weight: 400;
+  color: vars.$color-text-muted;
+}
+
+.conversionError {
+  font-weight: 400;
+  color: vars.$color-danger;
 }
 
 .actions {

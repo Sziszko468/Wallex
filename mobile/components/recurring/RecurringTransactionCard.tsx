@@ -2,6 +2,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-nati
 import type { Category } from "../../types/category";
 import type { RecurringTransaction } from "../../types/recurringTransaction";
 import { formatCurrency, formatShortDate } from "../../utils/format";
+import { useBaseCurrency } from "../../hooks/useBaseCurrency";
 import { colors, fontSize, radius, spacing } from "../../utils/theme";
 
 const FREQUENCY_LABELS: Record<RecurringTransaction["frequency"], string> = {
@@ -27,6 +28,7 @@ export function RecurringTransactionCard({
   onToggleActive,
   isToggling,
 }: RecurringTransactionCardProps) {
+  const baseCurrency = useBaseCurrency();
   const isIncome = item.type === "income";
 
   return (
@@ -40,7 +42,7 @@ export function RecurringTransactionCard({
         </View>
         <Text style={[styles.amount, isIncome ? styles.income : styles.expense]}>
           {isIncome ? "+" : "-"}
-          {formatCurrency(item.amount)}
+          {formatCurrency(item.amount, baseCurrency)}
         </Text>
       </View>
 

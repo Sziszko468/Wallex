@@ -1,0 +1,64 @@
+@use "../../styles/variables" as vars;
+
+.patterns {
+  display: flex;
+  flex-direction: column;
+  gap: vars.$space-md;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: vars.$space-md;
+
+  @media (min-width: vars.$breakpoint-tablet) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.statLabel {
+  font-size: vars.$font-size-sm;
+  color: vars.$color-text-muted;
+}
+
+.statValue {
+  font-size: vars.$font-size-lg;
+  font-weight: 700;
+  color: vars.$color-text;
+}
+
+.statHint {
+  min-height: 1rem;
+  font-size: 0.75rem;
+  color: vars.$color-text-muted;
+}
+
+.split {
+  display: flex;
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background-color: vars.$color-background;
+}
+
+.fixed {
+  background-color: vars.$color-primary-dark;
+}
+
+.variable {
+  flex: 1;
+  background-color: rgba(99, 102, 241, 0.35);
+}
+
+.subheading {
+  margin: 0 0 vars.$space-sm;
+  font-size: vars.$font-size-sm;
+  font-weight: 600;
+  color: vars.$color-text-muted;
+}

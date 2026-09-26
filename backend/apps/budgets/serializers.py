@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from apps.categories.models import Category, TransactionType
+from apps.currencies.serializers import check_amount_precision
 
 from .models import ZERO, Budget, usage_figures
 
@@ -37,7 +38,9 @@ class BudgetSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at", "updated_at"]
         extra_kwargs = {
             "category": {"help_text": "Expense category id, or `null` for the overall budget of all expenses."},
-            "amount": {"help_text": "Monthly limit: positive, max 2 decimals."},
+            "amount": {
+                "help_text": "Monthly limit in the user's base currency: positive, max 2 decimals (whole for HUF/JPY)."
+            },
             "year": {"help_text": "2000–2100."},
             "month": {"help_text": "1–12."},
         }
@@ -65,6 +68,8 @@ class BudgetSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"category": "Budgets can only be set for expense categories."}
             )
+        # A budget is in the user's base currency.
+        check_amount_precision(attrs.get("amount"), request.user.base_currency)
 
         queryset = Budget.objects.filter(user=request.user, category=category, year=year, month=month)
         if self.instance is not None:

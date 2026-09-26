@@ -1,6 +1,6 @@
 """OpenAPI documentation for the authentication and user endpoints."""
 
-from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema
+from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema, extend_schema_view
 from rest_framework import serializers
 
 from apps.common.openapi import error_response, message_response, throttled, validation_error
@@ -139,9 +139,48 @@ LOGOUT_SCHEMA = extend_schema(
     },
 )
 
-ME_SCHEMA = extend_schema(
-    tags=["Users"],
-    summary="Get the signed-in user",
-    description="The profile of the user the access token belongs to. Use it to check a stored token on app start.",
-    responses={200: OpenApiResponse(UserSerializer, description="The signed-in user.")},
+_USER_EXAMPLE = {
+    "id": 42,
+    "email": "ada@example.com",
+    "first_name": "Ada",
+    "last_name": "Lovelace",
+    "date_joined": "2026-09-21T16:06:12.123456Z",
+    "base_currency": "EUR",
+}
+
+ME_SCHEMA = extend_schema_view(
+    get=extend_schema(
+        tags=["Users"],
+        summary="Get the signed-in user",
+        description=(
+            "The profile of the user the access token belongs to. Use it to check a stored token on app start. "
+            "`base_currency` is the currency of every total the API returns (analytics, budgets, recurring "
+            "amounts, a transaction's `base_amount`)."
+        ),
+        responses={200: OpenApiResponse(UserSerializer, description="The signed-in user.")},
+    ),
+    patch=extend_schema(
+        tags=["Users"],
+        summary="Change the base currency",
+        description=(
+            "Only `base_currency` can be changed; the other fields are read-only.\n\n"
+            "Changing it converts the user's data in one step:\n"
+            "- every transaction keeps its `amount` and `currency`; its `exchange_rate` and `base_amount` are "
+            "recalculated with the ECB rate of the transaction's own date;\n"
+            "- budget and recurring transaction amounts are converted at the latest rate and rounded to the new "
+            "currency's unit (whole forints and yen).\n\n"
+            "All or nothing: if a needed exchange rate is missing, the answer is `400` and nothing changes."
+        ),
+        responses={
+            200: OpenApiResponse(UserSerializer, description="The updated user."),
+            400: validation_error(
+                ("Unknown currency", {"base_currency": ['"XYZ" is not a valid choice.']}),
+                ("Rates missing", {"base_currency": ["No HUF exchange rate is available for 2019-03-04."]}),
+            ),
+        },
+        examples=[
+            OpenApiExample("Switch to forint", request_only=True, value={"base_currency": "HUF"}),
+            OpenApiExample("Updated", response_only=True, status_codes=["200"], value={**_USER_EXAMPLE, "base_currency": "HUF"}),
+        ],
+    ),
 )

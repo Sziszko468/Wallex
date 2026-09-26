@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { Category } from "../../types/category";
 import type { Transaction } from "../../types/transaction";
 import { formatCurrency, formatShortDate } from "../../utils/format";
+import { useBaseCurrency } from "../../hooks/useBaseCurrency";
 import { colors, fontSize, radius, spacing } from "../../utils/theme";
 
 interface TransactionListItemProps {
@@ -11,16 +12,20 @@ interface TransactionListItemProps {
 }
 
 export function TransactionListItem({ transaction, category, onPress }: TransactionListItemProps) {
+  const baseCurrency = useBaseCurrency();
   const isIncome = transaction.type === "income";
   const title = transaction.description || category?.name || "Transaction";
-  const amountLabel = `${isIncome ? "+" : "-"}${formatCurrency(transaction.amount)}`;
+  const amountLabel = `${isIncome ? "+" : "-"}${formatCurrency(transaction.amount, transaction.currency)}`;
+  // A foreign-currency transaction also shows its value in the base currency (computed by the API).
+  const convertedLabel =
+    transaction.currency !== baseCurrency ? `≈ ${formatCurrency(transaction.base_amount, baseCurrency)}` : null;
 
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${title}, ${category?.name ?? "Uncategorized"}, ${formatShortDate(
         transaction.date
-      )}, ${amountLabel}`}
+      )}, ${amountLabel}${convertedLabel ? `, ${convertedLabel}` : ""}`}
       onPress={onPress}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
     >
@@ -33,7 +38,10 @@ export function TransactionListItem({ transaction, category, onPress }: Transact
           {category?.name ?? "Uncategorized"} · {formatShortDate(transaction.date)}
         </Text>
       </View>
-      <Text style={[styles.amount, isIncome ? styles.income : styles.expense]}>{amountLabel}</Text>
+      <View style={styles.amounts}>
+        <Text style={[styles.amount, isIncome ? styles.income : styles.expense]}>{amountLabel}</Text>
+        {convertedLabel && <Text style={styles.converted}>{convertedLabel}</Text>}
+      </View>
     </Pressable>
   );
 }
@@ -74,10 +82,18 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.textMuted,
   },
+  amounts: {
+    alignItems: "flex-end",
+    flexShrink: 0,
+  },
   amount: {
     fontSize: fontSize.base,
     fontWeight: "700",
-    flexShrink: 0,
+  },
+  converted: {
+    marginTop: 2,
+    fontSize: fontSize.sm,
+    color: colors.textMuted,
   },
   income: {
     color: colors.success,

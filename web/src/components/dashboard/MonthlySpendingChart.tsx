@@ -10,6 +10,7 @@ import {
 } from "recharts";
 import type { MonthlyDataPoint } from "../../types/dashboard";
 import { formatCurrency } from "../../utils/format";
+import { useBaseCurrency } from "../../hooks/useBaseCurrency";
 import { EmptyState } from "../EmptyState";
 
 interface MonthlySpendingChartProps {
@@ -17,6 +18,7 @@ interface MonthlySpendingChartProps {
 }
 
 export function MonthlySpendingChart({ data }: MonthlySpendingChartProps) {
+  const baseCurrency = useBaseCurrency();
   const hasAnyActivity = data.some((point) => point.income !== "0.00" || point.expenses !== "0.00");
   if (!hasAnyActivity) {
     return <EmptyState message="No transactions recorded this year yet." />;
@@ -36,7 +38,7 @@ export function MonthlySpendingChart({ data }: MonthlySpendingChartProps) {
         <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
         <XAxis dataKey="name" stroke="#6b7280" fontSize={12} tickLine={false} axisLine={false} />
         <YAxis stroke="#6b7280" fontSize={12} tickLine={false} axisLine={false} width={48} />
-        <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+        <Tooltip formatter={(value) => formatCurrency(Number(value), baseCurrency)} />
         <Legend />
         <Bar dataKey="Income" fill="#16a34a" radius={[4, 4, 0, 0]} />
         <Bar dataKey="Expenses" fill="#dc2626" radius={[4, 4, 0, 0]} />

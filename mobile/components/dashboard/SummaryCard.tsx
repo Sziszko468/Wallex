@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 import type { DashboardStats } from "../../types/dashboard";
 import { formatCurrency } from "../../utils/format";
+import { useBaseCurrency } from "../../hooks/useBaseCurrency";
 import { colors, fontSize, radius, spacing } from "../../utils/theme";
 
 interface SummaryCardProps {
@@ -8,24 +9,25 @@ interface SummaryCardProps {
 }
 
 export function SummaryCard({ stats }: SummaryCardProps) {
+  const baseCurrency = useBaseCurrency();
   const balance = Number(stats.balance);
 
   return (
     <View>
       <Text style={styles.balanceLabel}>Balance</Text>
       <Text style={[styles.balanceValue, balance < 0 && styles.negative]}>
-        {formatCurrency(stats.balance)}
+        {formatCurrency(stats.balance, baseCurrency)}
       </Text>
 
       <View style={styles.row}>
         <View style={styles.pill}>
           <Text style={styles.pillLabel}>↑ Income</Text>
-          <Text style={[styles.pillValue, styles.income]}>{formatCurrency(stats.total_income)}</Text>
+          <Text style={[styles.pillValue, styles.income]}>{formatCurrency(stats.total_income, baseCurrency)}</Text>
         </View>
         <View style={styles.pill}>
           <Text style={styles.pillLabel}>↓ Expenses</Text>
           <Text style={[styles.pillValue, styles.expense]}>
-            {formatCurrency(stats.total_expenses)}
+            {formatCurrency(stats.total_expenses, baseCurrency)}
           </Text>
         </View>
       </View>

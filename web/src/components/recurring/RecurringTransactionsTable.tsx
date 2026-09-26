@@ -1,6 +1,7 @@
 import type { RecurringTransaction } from "../../types/recurringTransaction";
 import type { Category } from "../../types/category";
 import { formatCurrency, formatDate } from "../../utils/format";
+import { useBaseCurrency } from "../../hooks/useBaseCurrency";
 import { EmptyState } from "../EmptyState";
 import styles from "./RecurringTransactionsTable.module.scss";
 
@@ -27,6 +28,7 @@ export function RecurringTransactionsTable({
   onToggleActive,
   togglingId,
 }: RecurringTransactionsTableProps) {
+  const baseCurrency = useBaseCurrency();
   if (items.length === 0) {
     return <EmptyState message="No recurring transactions yet. Add rent, subscriptions, or bills to track them automatically." />;
   }
@@ -68,7 +70,7 @@ export function RecurringTransactionsTable({
                 </td>
                 <td className={isIncome ? styles.income : styles.expense}>
                   {isIncome ? "+" : "-"}
-                  {formatCurrency(item.amount)}
+                  {formatCurrency(item.amount, baseCurrency)}
                 </td>
                 <td>{FREQUENCY_LABELS[item.frequency]}</td>
                 <td>{formatDate(item.next_occurrence_date)}</td>

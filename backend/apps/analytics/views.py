@@ -3,15 +3,30 @@ from rest_framework import permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from . import formatters, insights, services
+from . import formatters, insights, merchants, patterns, services, trends
 from .openapi import (
     CATEGORIES_SCHEMA,
     COMPARISON_SCHEMA,
     DASHBOARD_SCHEMA,
     INSIGHTS_SCHEMA,
+    MERCHANTS_SCHEMA,
     MONTHLY_SCHEMA,
+    SPENDING_PATTERNS_SCHEMA,
+    TRENDS_SCHEMA,
 )
-from .serializers import MonthQuerySerializer, YearQuerySerializer
+from .serializers import (
+    ComparisonQuerySerializer,
+    MerchantsQuerySerializer,
+    MonthQuerySerializer,
+    TrendsQuerySerializer,
+    YearQuerySerializer,
+)
+
+
+def _validated(serializer_class, request) -> dict:
+    query = serializer_class(data=request.query_params)
+    query.is_valid(raise_exception=True)
+    return query.validated_data
 
 
 @DASHBOARD_SCHEMA
@@ -19,10 +34,9 @@ class DashboardView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        query = MonthQuerySerializer(data=request.query_params)
-        query.is_valid(raise_exception=True)
+        query = _validated(MonthQuerySerializer, request)
         dashboard = services.get_dashboard(
-            request.user, query.validated_data["year"], query.validated_data["month"]
+            request.user, query["year"], query["month"], today=timezone.localdate()
         )
         return Response(formatters.format_dashboard(dashboard))
 
@@ -32,9 +46,7 @@ class MonthlyAnalyticsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        query = YearQuerySerializer(data=request.query_params)
-        query.is_valid(raise_exception=True)
-        year = query.validated_data["year"]
+        year = _validated(YearQuerySerializer, request)["year"]
         months = services.get_monthly_analytics(request.user, year)
         return Response({"year": year, "months": formatters.format_monthly_analytics(months)})
 
@@ -44,10 +56,8 @@ class CategoryAnalyticsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        query = MonthQuerySerializer(data=request.query_params)
-        query.is_valid(raise_exception=True)
-        year = query.validated_data["year"]
-        month = query.validated_data["month"]
+        query = _validated(MonthQuerySerializer, request)
+        year, month = query["year"], query["month"]
         categories = services.get_category_breakdown(request.user, year, month)
         return Response(
             {"year": year, "month": month, "categories": formatters.format_category_breakdown(categories)}
@@ -59,12 +69,41 @@ class ComparisonView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        query = MonthQuerySerializer(data=request.query_params)
-        query.is_valid(raise_exception=True)
-        comparison = services.get_comparison(
-            request.user, query.validated_data["year"], query.validated_data["month"]
-        )
+        query = _validated(ComparisonQuerySerializer, request)
+        comparison = services.get_comparison(request.user, query["year"], query["month"], against=query["against"])
         return Response(formatters.format_comparison(comparison))
+
+
+@TRENDS_SCHEMA
+class TrendsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        query = _validated(TrendsQuerySerializer, request)
+        result = trends.get_trends(request.user, query["year"], query["month"], months=query["months"])
+        return Response(formatters.format_trends(result))
+
+
+@MERCHANTS_SCHEMA
+class MerchantsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        query = _validated(MerchantsQuerySerializer, request)
+        result = merchants.get_merchants(request.user, query["year"], query["month"], limit=query["limit"])
+        return Response(formatters.format_merchants(result))
+
+
+@SPENDING_PATTERNS_SCHEMA
+class SpendingPatternsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        query = _validated(MonthQuerySerializer, request)
+        result = patterns.get_spending_patterns(
+            request.user, query["year"], query["month"], today=timezone.localdate()
+        )
+        return Response(formatters.format_spending_patterns(result))
 
 
 @INSIGHTS_SCHEMA
@@ -72,9 +111,7 @@ class InsightsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        query = MonthQuerySerializer(data=request.query_params)
-        query.is_valid(raise_exception=True)
-        year = query.validated_data["year"]
-        month = query.validated_data["month"]
-        generated = insights.generate_insights(request.user, year, month, today=timezone.now().date())
+        query = _validated(MonthQuerySerializer, request)
+        year, month = query["year"], query["month"]
+        generated = insights.generate_insights(request.user, year, month, today=timezone.localdate())
         return Response({"year": year, "month": month, "insights": formatters.format_insights(generated)})

@@ -58,6 +58,31 @@ def push_outbox(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def no_ecb_downloads(monkeypatch):
+    """No test may reach the real ECB: tests that need a download replace `ecb.download` themselves."""
+    from apps.currencies import ecb
+
+    def refuse(url):
+        raise AssertionError(f"Tests must not download exchange rates ({url}); patch apps.currencies.ecb.download.")
+
+    monkeypatch.setattr(ecb, "download", refuse)
+
+
+@pytest.fixture
+def add_rates(db):
+    """add_rates(day, HUF="400", USD="1.25"): ECB rates for `day` (1 EUR = … units)."""
+    from decimal import Decimal
+
+    from apps.currencies.models import ExchangeRate
+
+    def _add(day, **rates):
+        for currency, rate in rates.items():
+            ExchangeRate.objects.update_or_create(currency=currency, date=day, defaults={"rate": Decimal(rate)})
+
+    return _add
+
+
+@pytest.fixture(autouse=True)
 def reset_throttle_counters():
     """Rate-limit counters live in the cache; never let one test's requests throttle another's."""
     from django.core.cache import cache

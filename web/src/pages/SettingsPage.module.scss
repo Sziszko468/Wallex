@@ -9,6 +9,20 @@
   max-width: 480px;
 }
 
+.hint {
+  margin-top: 0;
+  font-size: vars.$font-size-sm;
+  color: vars.$color-text-muted;
+}
+
+.notice {
+  padding: vars.$space-sm vars.$space-md;
+  border-radius: vars.$radius-sm;
+  background-color: rgba(22, 163, 74, 0.1);
+  color: vars.$color-success;
+  font-size: vars.$font-size-sm;
+}
+
 .profile {
   display: grid;
   grid-template-columns: auto 1fr;

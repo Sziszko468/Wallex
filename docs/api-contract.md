@@ -39,6 +39,12 @@ rendered exactly as the API returns them.**
   `remaining_amount`, `budget_amount`, ...) are **decimal strings** (e.g. `"49.99"`), never
   JSON numbers — this avoids floating-point rounding on either client. Percentage fields
   (`usage_percentage`, `percentage`) are plain numbers.
+- Currencies: a transaction's `amount` is in its own `currency` (EUR, HUF, USD, GBP, JPY,
+  CHF; whole numbers for HUF and JPY) and never changes; `base_amount` is its value in the
+  user's **base currency** (`GET /api/auth/me/` → `base_currency`). Every other money field —
+  analytics, budgets, recurring amounts — is in the base currency. Format each amount with
+  its own currency; the clients never convert (`GET /api/currencies/convert/` previews a
+  conversion). The exact rules are in the OpenAPI document.
 - Errors follow DRF's default shape: `{"detail": "..."}` for auth/permission/not-found errors,
   or `{"field_name": ["message"]}` for validation errors. Both clients parse this uniformly via
   `utils/errors.ts` (`extractErrorMessage` / `extractFieldErrors`).

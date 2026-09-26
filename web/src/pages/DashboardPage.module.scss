@@ -11,6 +11,11 @@
   font-size: vars.$font-size-xl;
 }
 
+.sectionHeading {
+  margin: vars.$space-sm 0 0;
+  font-size: vars.$font-size-lg;
+}
+
 .statsRow {
   display: grid;
   grid-template-columns: 1fr;

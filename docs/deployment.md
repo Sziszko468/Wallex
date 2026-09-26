@@ -311,6 +311,24 @@ It is idempotent, so a missed or doubled run is harmless.
 - **Cloud:** use the platform's cron job feature (Render Cron Job, Cloud Scheduler +
   Cloud Run job, Fly Machines schedule) with the backend image and the same environment.
 
+### Exchange rates
+
+`python manage.py fetch_exchange_rates` downloads the ECB euro reference rates (free, no
+key; published around 16:00 CET on working days) for EUR, HUF, USD, GBP, JPY and CHF.
+Foreign-currency transactions and base-currency changes need a rate of at most 7 days
+before their date, so:
+
+- **once, after the first deploy:** `python manage.py fetch_exchange_rates --period all`
+  (the whole history since 1999, about 35,000 rows, ~10 s);
+- **every day, after 16:00 CET:**
+  ```
+  30 17 * * * cd /srv/spendly && docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T backend python manage.py fetch_exchange_rates
+  ```
+
+It is idempotent (existing rates are updated, never duplicated). If it stops running,
+new foreign-currency transactions are refused with a clear `400` after a week instead of
+silently using an old rate.
+
 ## 12. Troubleshooting
 
 | Symptom | Cause / fix |
