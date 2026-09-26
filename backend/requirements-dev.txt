@@ -1,0 +1,4 @@
+# Development and test tools — installed in the dev image only, never shipped to production.
+-r requirements.txt
+pytest==9.1.1
+pytest-django==4.14.0

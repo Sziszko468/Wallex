@@ -1,0 +1,8 @@
+node_modules
+dist
+coverage
+.vite
+*.log
+# Local env files would silently change the API URL baked into the bundle.
+.env
+.env.*

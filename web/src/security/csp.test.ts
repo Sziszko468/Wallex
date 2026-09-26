@@ -22,6 +22,11 @@ describe("Content-Security-Policy", () => {
     expect(policy["connect-src"]).toEqual(["'self'", "https://api.spendly.example"]);
   });
 
+  it("allows only the page's own origin when the API is same-origin (relative base URL)", () => {
+    const sameOrigin = directives(buildContentSecurityPolicy("/api"));
+    expect(sameOrigin["connect-src"]).toEqual(["'self'"]);
+  });
+
   it("blocks plugins and <base>/<form> hijacking", () => {
     expect(policy["object-src"]).toEqual(["'none'"]);
     expect(policy["base-uri"]).toEqual(["'self'"]);

@@ -2,6 +2,7 @@ from datetime import timedelta
 from pathlib import Path
 
 import environ
+from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -64,16 +65,29 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": env("POSTGRES_DB"),
-        "USER": env("POSTGRES_USER"),
-        "PASSWORD": env("POSTGRES_PASSWORD"),
-        "HOST": env("POSTGRES_HOST", default="localhost"),
-        "PORT": env("POSTGRES_PORT", default="5432"),
+# Either a single DATABASE_URL — what managed Postgres services hand out, e.g.
+# postgres://user:pass@host:5432/spendly?sslmode=require — or the POSTGRES_* parts.
+if env("DATABASE_URL", default=""):
+    DATABASES = {"default": env.db_url("DATABASE_URL")}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": env("POSTGRES_DB"),
+            "USER": env("POSTGRES_USER"),
+            "PASSWORD": env("POSTGRES_PASSWORD"),
+            "HOST": env("POSTGRES_HOST", default="localhost"),
+            "PORT": env("POSTGRES_PORT", default="5432"),
+            # "require" (or stricter) for a database reached over a network you don't control.
+            "OPTIONS": {"sslmode": env("POSTGRES_SSLMODE", default="prefer")},
+        }
     }
-}
+
+if DATABASES["default"]["ENGINE"] != "django.db.backends.postgresql":
+    raise ImproperlyConfigured("Spendly only runs on PostgreSQL — check DATABASE_URL.")
+
+# A reused connection is verified before each request instead of failing on a stale one.
+DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
 
 AUTH_USER_MODEL = "users.User"
 AUTHENTICATION_BACKENDS = ["apps.users.backends.CaseInsensitiveEmailBackend"]
@@ -91,6 +105,8 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
+# `collectstatic` target (baked into the production image, served by WhiteNoise).
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

@@ -1,0 +1,93 @@
+# Production-like Spendly stack: postgres + backend (gunicorn) + web (nginx).
+#
+#   cp .env.prod.example .env.prod        # then fill in the secrets
+#   docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
+#
+# Runs next to the development stack (docker-compose.yml) without sharing containers,
+# volumes or ports. Full guide: docs/deployment.md
+
+name: spendly-prod
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+# One image, two jobs: the one-off `migrate` release step and the long-running `backend`.
+x-backend: &backend
+  build:
+    context: ./backend
+    target: prod
+  image: spendly-backend:${SPENDLY_IMAGE_TAG:-latest}
+  env_file: .env.prod
+  logging: *logging
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    # Only the three variables the image needs — not every secret in .env.prod.
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env.prod}
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env.prod}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.prod}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # No published port: only the other containers can reach the database.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    logging: *logging
+
+  # Release step, runs to completion before every (re)start of the backend:
+  # schema migrations + the table for the rate-limit cache. Both are idempotent.
+  migrate:
+    <<: *backend
+    command: ["sh", "-c", "python manage.py migrate --noinput && python manage.py createcachetable"]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  backend:
+    <<: *backend
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    # Not published either: all traffic comes through the web container's proxy.
+    healthcheck:
+      test: ["CMD", "python", "scripts/healthcheck.py"]
+      interval: 15s
+      timeout: 6s
+      retries: 3
+      start_period: 20s
+
+  web:
+    build:
+      context: ./web
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+    image: spendly-web:${SPENDLY_IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      API_UPSTREAM: http://backend:8000
+    ports:
+      - "${WEB_PORT:-8080}:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    logging: *logging
+
+volumes:
+  postgres_data:

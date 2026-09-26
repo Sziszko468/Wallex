@@ -1,0 +1,72 @@
+# Spendly web: serves the React build and proxies the Django backend on the same origin.
+#
+# The nginx image renders this template with envsubst when the container starts. Only
+# variables that are set in the environment are replaced (API_UPSTREAM,
+# NGINX_LOCAL_RESOLVERS); nginx's own lowercase $variables are left untouched.
+
+# Resolve the backend's name again every 10s: after a redeploy the new backend container
+# usually has a new IP, and a name resolved only once at startup would give 502s.
+resolver ${NGINX_LOCAL_RESOLVERS} valid=10s;
+
+# Pass on the scheme reported by the TLS-terminating proxy / load balancer in front of us
+# (it must overwrite the client's header). Without one — a local run — use our own.
+map $http_x_forwarded_proto $forwarded_proto {
+    default $http_x_forwarded_proto;
+    ""      $scheme;
+}
+
+server {
+    listen 8080;
+    server_name _;
+    server_tokens off;
+
+    root /usr/share/nginx/html;
+
+    # Receipt photos may be up to 10 MB. Django enforces the exact per-endpoint limits.
+    client_max_body_size 12m;
+
+    gzip on;
+    gzip_types text/css application/javascript application/json image/svg+xml;
+    gzip_min_length 1024;
+
+    # Liveness of this container. Deliberately independent of the backend.
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+
+    # --- Django: REST API, admin, admin static files ---------------------------------------
+    location ~ ^/(api|admin|static)/ {
+        # A variable makes nginx resolve the name per request (see `resolver` above);
+        # the original request URI is passed on unchanged.
+        set $backend ${API_UPSTREAM};
+        proxy_pass $backend;
+
+        proxy_http_version 1.1;
+        # The public host name, port included: Django validates it against ALLOWED_HOSTS.
+        proxy_set_header Host $http_host;
+        # Append the client address; DRF_NUM_PROXIES tells Django how many hops to trust.
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $forwarded_proto;
+
+        # Longer than gunicorn's 60s worker timeout, so gunicorn reports the slow request.
+        proxy_read_timeout 90s;
+    }
+
+    # --- React SPA -------------------------------------------------------------------------
+    # Hashed bundle files: the name changes whenever the content does, so cache forever.
+    location /assets/ {
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        try_files $uri =404;
+    }
+
+    # Every other path is a client-side route (/transactions, /budgets…): answer with
+    # index.html. Never cached, so a new deploy is picked up on the next page load.
+    location / {
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Cache-Control "no-cache" always;
+        try_files $uri /index.html;
+    }
+}

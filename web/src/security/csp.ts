@@ -11,7 +11,11 @@
  * platform must send it as an HTTP header (see docs/security-audit.md).
  */
 export function buildContentSecurityPolicy(apiBaseUrl: string): string {
-  const apiOrigin = new URL(apiBaseUrl).origin;
+  // A relative base URL ("/api", the Docker image's default) is served from the page's
+  // own origin, which 'self' already covers.
+  const connectSrc = /^https?:\/\//.test(apiBaseUrl)
+    ? `'self' ${new URL(apiBaseUrl).origin}`
+    : "'self'";
   return [
     "default-src 'self'",
     "script-src 'self'",
@@ -19,7 +23,7 @@ export function buildContentSecurityPolicy(apiBaseUrl: string): string {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data:",
     "font-src 'self'",
-    `connect-src 'self' ${apiOrigin}`,
+    `connect-src ${connectSrc}`,
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",

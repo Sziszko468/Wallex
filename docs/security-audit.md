@@ -47,8 +47,8 @@ pass: backend 449, web 33, mobile 68.
 ## Accepted risks / recommendations
 
 - **Web tokens in `localStorage`.** Mitigated by the CSP, 15-minute access tokens and refresh rotation. The stronger design (refresh token in an `HttpOnly; Secure; SameSite` cookie on a same-site API domain) needs backend cookie endpoints — recommended before a public launch.
-- **Throttle counters live in the local-memory cache** (per process, reset on restart). Production with several workers needs a shared cache (Redis).
-- **`frame-ancestors`** can't be set from a `<meta>` CSP — the web host must send `Content-Security-Policy: frame-ancestors 'none'` (or `X-Frame-Options: DENY`) as a header.
+- ~~Throttle counters live in the local-memory cache~~ — **resolved (deployment step):** production uses a cache shared by every worker and container (`CACHE_URL`, default a PostgreSQL table; Redis when traffic grows). Development still uses the per-process local-memory cache.
+- ~~`frame-ancestors` can't be set from a `<meta>` CSP~~ — **resolved (deployment step):** the web image's nginx sends `Content-Security-Policy: frame-ancestors 'none'` and `X-Frame-Options: DENY` as headers (`web/nginx/security-headers.conf`). A different static host must send them itself (see `docs/deployment.md`).
 - **Registration reveals whether an email exists** ("already exists"). Common trade-off; rate-limited. A verify-by-email flow would remove it.
 - **Push token takeover**: registering someone else's Expo token moves it to the caller. Tokens aren't public; the real owner reclaims it on next launch.
 - **CSV export (future)**: descriptions like `=HYPERLINK(...)` are stored as plain data (tested) — an export must prefix cells starting with `= + - @` with `'` to prevent spreadsheet formula injection.
