@@ -62,8 +62,12 @@ def test_budget_month_out_of_range_rejected(user, expense_category):
         )
 
 
+def _spent(budget):
+    return Budget.objects.with_spent().get(pk=budget.pk).spent
+
+
 @pytest.mark.django_db
-def test_get_spent_amount_sums_matching_expenses(user, expense_category):
+def test_spent_sums_matching_expenses(user, expense_category):
     budget = Budget.objects.create(
         user=user, category=expense_category, amount=Decimal("400.00"), year=2026, month=9
     )
@@ -76,19 +80,19 @@ def test_get_spent_amount_sums_matching_expenses(user, expense_category):
         amount=Decimal("120.00"), date=date(2026, 9, 20),
     )
 
-    assert budget.get_spent_amount() == Decimal("320.00")
+    assert _spent(budget) == Decimal("320.00")
 
 
 @pytest.mark.django_db
-def test_get_spent_amount_zero_when_no_transactions(user, expense_category):
+def test_spent_zero_when_no_transactions(user, expense_category):
     budget = Budget.objects.create(
         user=user, category=expense_category, amount=Decimal("400.00"), year=2026, month=9
     )
-    assert budget.get_spent_amount() == Decimal("0.00")
+    assert _spent(budget) == Decimal("0.00")
 
 
 @pytest.mark.django_db
-def test_get_spent_amount_ignores_income_transactions(user, expense_category, income_category):
+def test_spent_ignores_income_transactions(user, expense_category, income_category):
     budget = Budget.objects.create(
         user=user, category=expense_category, amount=Decimal("400.00"), year=2026, month=9
     )
@@ -97,11 +101,11 @@ def test_get_spent_amount_ignores_income_transactions(user, expense_category, in
         amount=Decimal("1000.00"), date=date(2026, 9, 10),
     )
 
-    assert budget.get_spent_amount() == Decimal("0.00")
+    assert _spent(budget) == Decimal("0.00")
 
 
 @pytest.mark.django_db
-def test_get_spent_amount_ignores_other_months(user, expense_category):
+def test_spent_ignores_other_months(user, expense_category):
     budget = Budget.objects.create(
         user=user, category=expense_category, amount=Decimal("400.00"), year=2026, month=9
     )
@@ -114,11 +118,11 @@ def test_get_spent_amount_ignores_other_months(user, expense_category):
         amount=Decimal("999.00"), date=date(2026, 10, 1),
     )
 
-    assert budget.get_spent_amount() == Decimal("0.00")
+    assert _spent(budget) == Decimal("0.00")
 
 
 @pytest.mark.django_db
-def test_get_spent_amount_ignores_other_users_transactions(user, other_user, expense_category):
+def test_spent_ignores_other_users_transactions(user, other_user, expense_category):
     budget = Budget.objects.create(
         user=user, category=expense_category, amount=Decimal("400.00"), year=2026, month=9
     )
@@ -130,11 +134,11 @@ def test_get_spent_amount_ignores_other_users_transactions(user, other_user, exp
         amount=Decimal("500.00"), date=date(2026, 9, 10),
     )
 
-    assert budget.get_spent_amount() == Decimal("0.00")
+    assert _spent(budget) == Decimal("0.00")
 
 
 @pytest.mark.django_db
-def test_get_spent_amount_for_overall_budget_sums_all_categories(user, expense_category, income_category):
+def test_spent_for_overall_budget_sums_all_categories(user, expense_category, income_category):
     other_expense_category = Category.objects.create(
         user=user, name="Transport", type=TransactionType.EXPENSE
     )
@@ -154,4 +158,4 @@ def test_get_spent_amount_for_overall_budget_sums_all_categories(user, expense_c
         amount=Decimal("1000.00"), date=date(2026, 9, 1),
     )
 
-    assert budget.get_spent_amount() == Decimal("250.00")
+    assert _spent(budget) == Decimal("250.00")

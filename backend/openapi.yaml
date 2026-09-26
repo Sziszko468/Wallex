@@ -1522,6 +1522,12 @@ paths:
                     name:
                     - You already have a category with this name and type.
                   summary: Duplicate name
+                TypeChangeWhileInUse:
+                  value:
+                    type:
+                    - This category is already in use, so its type can't change. Create
+                      a new category instead.
+                  summary: Type change while in use
                 InvalidColour:
                   value:
                     color:
@@ -1651,7 +1657,7 @@ paths:
       description: |-
         Changes any subset of `name`, `type`, `color`, `icon`. System categories are read-only (`403`).
 
-        **Caution:** changing `type` does not touch the category's existing transactions — they keep their own `type`, and can't be edited again until the types match. Create a new category instead of switching the type of one that is in use.
+        `type` can only change while no transaction, recurring transaction or budget uses the category (`400` otherwise) — create a new category instead.
       summary: Update a category
       parameters:
       - in: path
@@ -1693,6 +1699,12 @@ paths:
                     name:
                     - You already have a category with this name and type.
                   summary: Duplicate name
+                TypeChangeWhileInUse:
+                  value:
+                    type:
+                    - This category is already in use, so its type can't change. Create
+                      a new category instead.
+                  summary: Type change while in use
                 InvalidColour:
                   value:
                     color:

@@ -212,3 +212,31 @@ def test_cannot_log_out_another_users_session(api_client, user, other_user):
     api_client.credentials()
     still_valid = api_client.post(reverse("auth-refresh"), {"refresh": str(victims_refresh)})
     assert still_valid.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.django_db
+def test_a_user_with_financial_data_can_be_deleted_with_everything_they_own(user):
+    """Regression: PROTECT on Transaction/RecurringTransaction.category blocked the user's own cascade
+    (ProtectedError), so no active user could be deleted — not by an admin, not for a GDPR request."""
+    from datetime import date
+    from decimal import Decimal
+
+    from apps.budgets.models import Budget
+    from apps.categories.models import Category, TransactionType
+    from apps.notifications.models import Device, Notification
+    from apps.transactions.models import Frequency, RecurringTransaction, Transaction
+
+    category = Category.objects.create(user=user, name="Food", type=TransactionType.EXPENSE)
+    Transaction.objects.create(user=user, category=category, type="expense", amount=Decimal("5.00"), date=date(2026, 9, 1))
+    RecurringTransaction.objects.create(
+        user=user, category=category, name="Box", type="expense", amount=Decimal("9.00"),
+        frequency=Frequency.MONTHLY, start_date=date(2026, 9, 1), next_occurrence_date=date(2026, 9, 1),
+    )
+    Budget.objects.create(user=user, category=category, amount=Decimal("50.00"), year=2026, month=9)
+    Device.objects.create(user=user, expo_push_token="ExponentPushToken[abc]", platform="ios")
+    Notification.objects.create(user=user, kind="insight", title="t", body="b", dedupe_key="k")
+
+    user.delete()
+
+    for model in (Category, Transaction, RecurringTransaction, Budget, Device, Notification):
+        assert not model.objects.exists(), model.__name__

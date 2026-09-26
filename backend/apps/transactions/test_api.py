@@ -376,3 +376,26 @@ def test_pagination_page_size_and_next_page(auth_client, user, expense_category)
     assert second_page.status_code == status.HTTP_200_OK
     assert len(second_page.data["results"]) == 1
     assert second_page.data["next"] is None
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("ordering", ["-date", "date", "amount", "-amount", "created_at"])
+def test_pagination_shows_every_transaction_exactly_once(auth_client, user, expense_category, ordering):
+    """Regression: `?ordering=-date` alone left ties on the same date in arbitrary order per query,
+    so page boundaries repeated some transactions and skipped others."""
+    first_day = date(2026, 9, 1)
+    for index in range(45):
+        _create_transaction(
+            user, expense_category,
+            date=first_day + timedelta(days=index % 3),
+            amount=Decimal("10.00") + index % 2,
+        )
+    Transaction.objects.update(created_at=Transaction.objects.first().created_at)  # ties on every sort field
+
+    seen = []
+    for page in (1, 2, 3):
+        response = auth_client.get(reverse("transaction-list"), {"ordering": ordering, "page_size": 20, "page": page})
+        assert response.status_code == status.HTTP_200_OK
+        seen += [item["id"] for item in response.data["results"]]
+
+    assert sorted(seen) == sorted(Transaction.objects.values_list("id", flat=True))

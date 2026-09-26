@@ -258,3 +258,23 @@ def test_list_ignores_ordering_it_does_not_support(auth_client, user, expense_ca
 
     assert response.status_code == status.HTTP_200_OK
     assert len(response.data) == 1
+
+
+@pytest.mark.django_db
+def test_list_query_count_does_not_grow_with_the_number_of_budgets(auth_client, user, expense_category):
+    """Regression: spent/remaining/usage used to cost one aggregate query per budget (N+1)."""
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    def list_queries() -> int:
+        with CaptureQueriesContext(connection) as queries:
+            assert auth_client.get(reverse("budget-list")).status_code == status.HTTP_200_OK
+        return len(queries)
+
+    Budget.objects.create(user=user, category=expense_category, amount=Decimal("100.00"), year=2026, month=1)
+    with_one = list_queries()
+    for month in range(2, 9):
+        Budget.objects.create(user=user, category=expense_category, amount=Decimal("100.00"), year=2026, month=month)
+    Budget.objects.create(user=user, category=None, amount=Decimal("900.00"), year=2026, month=9)
+
+    assert list_queries() == with_one

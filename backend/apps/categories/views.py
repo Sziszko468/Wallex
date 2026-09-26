@@ -1,4 +1,4 @@
-from django.db.models import ProtectedError
+from django.db.models import RestrictedError
 from rest_framework import permissions, status, viewsets
 from rest_framework.response import Response
 
@@ -29,7 +29,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         try:
             self.perform_destroy(instance)
-        except ProtectedError:
+        except RestrictedError:
             return Response(
                 {"detail": "This category is used by existing transactions and cannot be deleted."},
                 status=status.HTTP_409_CONFLICT,

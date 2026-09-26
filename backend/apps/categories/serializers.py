@@ -16,6 +16,20 @@ class CategorySerializer(serializers.ModelSerializer):
             "is_system": {"help_text": "True for the 10 defaults created at registration: they can't be changed or deleted."},
         }
 
+    def validate_type(self, value: str) -> str:
+        # Transactions, recurring items and budgets store or assume the category's type;
+        # switching it under them would leave them inconsistent.
+        category = self.instance
+        if category is not None and value != category.type and (
+            category.transactions.exists()
+            or category.recurring_transactions.exists()
+            or category.budgets.exists()
+        ):
+            raise serializers.ValidationError(
+                "This category is already in use, so its type can't change. Create a new category instead."
+            )
+        return value
+
     def validate(self, attrs):
         request = self.context["request"]
         name = attrs.get("name", getattr(self.instance, "name", None))

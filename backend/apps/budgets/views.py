@@ -18,13 +18,18 @@ class BudgetViewSet(viewsets.ModelViewSet):
     lookup_value_regex = r"\d+"
 
     def get_queryset(self):
-        return Budget.objects.filter(user=self.request.user).select_related("category")
+        return Budget.objects.filter(user=self.request.user).with_spent()
 
     def perform_create(self, serializer):
-        self._check_thresholds(serializer.save(user=self.request.user))
+        self._saved(serializer, serializer.save(user=self.request.user))
 
     def perform_update(self, serializer):
-        self._check_thresholds(serializer.save())
+        self._saved(serializer, serializer.save())
+
+    def _saved(self, serializer, budget):
+        self._check_thresholds(budget)
+        # Answer with the computed figures (spent, remaining, usage) of the stored budget.
+        serializer.instance = self.get_queryset().get(pk=budget.pk)
 
     def _check_thresholds(self, budget):
         # A new or lowered budget can already be over the limit.

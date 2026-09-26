@@ -129,7 +129,7 @@ def build_context(user, year: int, month: int, today: date) -> InsightContext:
             services.get_category_expense_rows_between(user, *previous_range)
         ),
         is_month_to_date=is_month_to_date,
-        budget_usage=services.get_budget_usage(user, year, month, category_rows=category_rows),
+        budget_usage=services.get_budget_usage(user, year, month),
         recurring_monthly_expenses=services.get_recurring_monthly_expenses(user, year, month),
     )
 

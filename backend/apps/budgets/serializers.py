@@ -2,12 +2,16 @@ from rest_framework import serializers
 
 from apps.categories.models import Category, TransactionType
 
-from .models import Budget
+from .models import ZERO, Budget, usage_figures
 
 
 class BudgetSerializer(serializers.ModelSerializer):
     spent_amount = serializers.DecimalField(
-        max_digits=12, decimal_places=2, read_only=True, help_text="Expenses counted against this budget so far."
+        source="spent",
+        max_digits=12,
+        decimal_places=2,
+        read_only=True,
+        help_text="Expenses counted against this budget so far.",
     )
     remaining_amount = serializers.DecimalField(
         max_digits=12, decimal_places=2, read_only=True, help_text="`amount - spent_amount`; negative when over budget."
@@ -45,10 +49,10 @@ class BudgetSerializer(serializers.ModelSerializer):
             self.fields["category"].queryset = Category.objects.filter(user=request.user)
 
     def to_representation(self, instance):
-        spent = instance.get_spent_amount()
-        instance.spent_amount = spent
-        instance.remaining_amount = instance.amount - spent
-        instance.usage_percentage = round((spent / instance.amount) * 100, 2)
+        # `spent` is annotated by Budget.objects.with_spent() (see BudgetViewSet.get_queryset):
+        # one query for the whole list instead of one per budget.
+        spent = getattr(instance, "spent", ZERO)
+        instance.remaining_amount, instance.usage_percentage = usage_figures(instance.amount, spent)
         return super().to_representation(instance)
 
     def validate(self, attrs):

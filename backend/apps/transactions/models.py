@@ -12,7 +12,9 @@ class Transaction(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="transactions"
     )
-    category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name="transactions")
+    # RESTRICT, not PROTECT: a category in use can't be deleted on its own, but deleting
+    # the user (which removes their categories *and* transactions together) still works.
+    category = models.ForeignKey(Category, on_delete=models.RESTRICT, related_name="transactions")
     recurring_transaction = models.ForeignKey(
         "RecurringTransaction",
         on_delete=models.SET_NULL,
@@ -69,7 +71,7 @@ class RecurringTransaction(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="recurring_transactions"
     )
     category = models.ForeignKey(
-        Category, on_delete=models.PROTECT, related_name="recurring_transactions"
+        Category, on_delete=models.RESTRICT, related_name="recurring_transactions"
     )
     name = models.CharField(max_length=100)
     type = models.CharField(max_length=10, choices=TransactionType.choices)

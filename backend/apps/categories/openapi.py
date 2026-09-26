@@ -13,6 +13,7 @@ _SYSTEM_CATEGORY = error_response(
 
 _VALIDATION = validation_error(
     ("Duplicate name", {"name": ["You already have a category with this name and type."]}),
+    ("Type change while in use", {"type": ["This category is already in use, so its type can't change. Create a new category instead."]}),
     ("Invalid colour", {"color": ["Color must be a hex code, e.g. #6366F1."]}),
     ("Invalid type", {"type": ['"other" is not a valid choice.']}),
     ("Missing fields", {"name": ["This field is required."], "type": ["This field is required."]}),
@@ -69,9 +70,8 @@ CATEGORY_VIEWSET_SCHEMA = extend_schema_view(
         summary="Update a category",
         description=(
             "Changes any subset of `name`, `type`, `color`, `icon`. System categories are read-only (`403`).\n\n"
-            "**Caution:** changing `type` does not touch the category's existing transactions — they keep "
-            "their own `type`, and can't be edited again until the types match. Create a new category "
-            "instead of switching the type of one that is in use."
+            "`type` can only change while no transaction, recurring transaction or budget uses the "
+            "category (`400` otherwise) — create a new category instead."
         ),
         responses={
             200: CategorySerializer,

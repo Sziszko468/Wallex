@@ -5,7 +5,7 @@ from django.db import IntegrityError, transaction
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.filters import OrderingFilter, SearchFilter
+from rest_framework.filters import SearchFilter
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 
@@ -14,7 +14,7 @@ from apps.common.permissions import IsOwner
 from apps.common.uploads import declared_body_exceeds, file_too_large
 from apps.notifications.services import check_budget_thresholds
 
-from .filters import TransactionFilter
+from .filters import StableOrderingFilter, TransactionFilter
 from .models import RecurringTransaction, Transaction
 from .openapi import CSV_IMPORT_SCHEMA, RECURRING_VIEWSET_SCHEMA, TRANSACTION_VIEWSET_SCHEMA
 from .pagination import TransactionPagination
@@ -29,7 +29,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
     serializer_class = TransactionSerializer
     permission_classes = [permissions.IsAuthenticated, IsOwner]
     pagination_class = TransactionPagination
-    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filter_backends = [DjangoFilterBackend, SearchFilter, StableOrderingFilter]
     filterset_class = TransactionFilter
     search_fields = ["description"]
     ordering_fields = ["date", "amount", "created_at"]

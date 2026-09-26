@@ -6,7 +6,7 @@ from decimal import Decimal
 from django.db.models import Count, DecimalField, Q, Sum, Value
 from django.db.models.functions import Coalesce, ExtractMonth
 
-from apps.budgets.models import Budget
+from apps.budgets.models import Budget, usage_figures
 from apps.categories.models import TransactionType
 from apps.transactions.models import Frequency, RecurringTransaction, Transaction
 
@@ -83,25 +83,21 @@ def get_top_spending_category(category_rows):
     }
 
 
-def get_budget_usage(user, year, month, category_rows=None):
-    if category_rows is None:
-        category_rows = get_category_expense_rows(user, year, month)
-    category_totals = {row["category_id"]: row["total"] for row in category_rows}
-    overall_spent = sum(category_totals.values(), ZERO)
-
-    budgets = Budget.objects.filter(user=user, year=year, month=month).select_related("category")
+def get_budget_usage(user, year, month):
+    """Every budget of the month with its usage. One query (see Budget.objects.with_spent)."""
+    budgets = Budget.objects.filter(user=user, year=year, month=month).select_related("category").with_spent()
     usage = []
     for budget in budgets:
-        spent = category_totals.get(budget.category_id, ZERO) if budget.category_id else overall_spent
+        remaining, percentage = usage_figures(budget.amount, budget.spent)
         usage.append(
             {
                 "budget_id": budget.id,
                 "category_id": budget.category_id,
                 "category_name": budget.category.name if budget.category_id else "Overall",
                 "budget_amount": budget.amount,
-                "spent_amount": spent,
-                "remaining_amount": budget.amount - spent,
-                "usage_percentage": round((spent / budget.amount) * 100, 2),
+                "spent_amount": budget.spent,
+                "remaining_amount": remaining,
+                "usage_percentage": percentage,
             }
         )
     return usage
@@ -118,7 +114,7 @@ def get_dashboard(user, year, month):
         "balance": summary["balance"],
         "transaction_count": summary["transaction_count"],
         "top_spending_category": get_top_spending_category(category_rows),
-        "budget_usage": get_budget_usage(user, year, month, category_rows=category_rows),
+        "budget_usage": get_budget_usage(user, year, month),
     }
 
 

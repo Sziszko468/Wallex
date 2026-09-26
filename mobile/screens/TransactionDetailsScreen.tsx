@@ -1,7 +1,8 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
-import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useAsyncData } from "../hooks/useAsyncData";
+import { useRefetchOnFocus } from "../hooks/useRefetchOnFocus";
 import { listCategories } from "../services/categoriesService";
 import { deleteTransaction, getTransaction } from "../services/transactionsService";
 import { extractErrorMessage } from "../utils/errors";
@@ -21,20 +22,8 @@ export function TransactionDetailsScreen() {
   );
   const categories = useAsyncData(useCallback(() => listCategories(), []));
 
-  // Refetch whenever this screen regains focus (e.g. returning from Edit)
-  // so a just-saved change is reflected — skip the very first mount, which
-  // already fetched via useAsyncData itself.
-  const isFirstFocus = useRef(true);
-  useFocusEffect(
-    useCallback(() => {
-      if (isFirstFocus.current) {
-        isFirstFocus.current = false;
-        return;
-      }
-      transaction.refetch();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [transactionId])
-  );
+  // Back from Edit: show the saved change.
+  useRefetchOnFocus(transaction.refetch);
 
   const category = categories.data?.find((item) => item.id === transaction.data?.category);
 

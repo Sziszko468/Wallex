@@ -1,7 +1,8 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Alert, RefreshControl, StyleSheet, Text, View } from "react-native";
-import { router, useFocusEffect } from "expo-router";
+import { router } from "expo-router";
 import { useAsyncData } from "../hooks/useAsyncData";
+import { useRefetchOnFocus } from "../hooks/useRefetchOnFocus";
 import { listCategories } from "../services/categoriesService";
 import {
   deleteRecurringTransaction,
@@ -35,19 +36,8 @@ export function RecurringTransactionsScreen() {
     setIsRefreshing(false);
   }
 
-  // Refetch whenever this tab regains focus (e.g. returning from Add/Edit) —
-  // skip the very first mount, which already fetched via useAsyncData itself.
-  const isFirstFocus = useRef(true);
-  useFocusEffect(
-    useCallback(() => {
-      if (isFirstFocus.current) {
-        isFirstFocus.current = false;
-        return;
-      }
-      items.refetch();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
-  );
+  // Back from Add/Edit: show the change.
+  useRefetchOnFocus(items.refetch);
 
   function handleEdit(item: RecurringTransaction) {
     router.push(`/edit-recurring/${item.id}`);

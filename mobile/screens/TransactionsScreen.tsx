@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -8,11 +8,12 @@ import {
   Text,
   View,
 } from "react-native";
-import { router, useFocusEffect } from "expo-router";
+import { router } from "expo-router";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import { usePaginatedTransactions } from "../hooks/usePaginatedTransactions";
 import { useOffline, useRefetchOnDataChange } from "../hooks/useOffline";
+import { useRefetchOnFocus } from "../hooks/useRefetchOnFocus";
 import { listCategories } from "../services/categoriesService";
 import type { Category } from "../types/category";
 import { getMonthRange } from "../utils/date";
@@ -66,19 +67,8 @@ export function TransactionsScreen() {
     setIsRefreshing(false);
   }
 
-  // Refetch whenever this tab regains focus (e.g. returning from Add/Edit or
-  // a deletion on the details screen) — skip the very first mount.
-  const isFirstFocus = useRef(true);
-  useFocusEffect(
-    useCallback(() => {
-      if (isFirstFocus.current) {
-        isFirstFocus.current = false;
-        return;
-      }
-      refetch();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
-  );
+  // Back from Add/Edit or a deletion on the details screen: reload with the current filters.
+  useRefetchOnFocus(refetch);
 
   return (
     <View style={styles.flex}>

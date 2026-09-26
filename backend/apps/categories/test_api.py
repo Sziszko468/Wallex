@@ -5,9 +5,10 @@ import pytest
 from django.urls import reverse
 from rest_framework import status
 
-from apps.transactions.models import Transaction
+from apps.budgets.models import Budget
+from apps.transactions.models import Frequency, RecurringTransaction, Transaction
 
-from .models import Category
+from .models import Category, TransactionType
 
 
 @pytest.mark.django_db
@@ -189,3 +190,42 @@ def test_delete_category_used_by_transaction_returns_409(auth_client, user, cust
 
     assert response.status_code == status.HTTP_409_CONFLICT
     assert Category.objects.filter(id=custom_category.id).exists()
+
+
+def _used_by(kind, user, category):
+    if kind == "transaction":
+        Transaction.objects.create(user=user, category=category, type=category.type, amount=Decimal("5.00"), date=date(2026, 9, 1))
+    elif kind == "recurring":
+        RecurringTransaction.objects.create(
+            user=user, category=category, name="Gym", type=category.type, amount=Decimal("5.00"),
+            frequency=Frequency.MONTHLY, start_date=date(2026, 9, 1), next_occurrence_date=date(2026, 9, 1),
+        )
+    else:
+        Budget.objects.create(user=user, category=category, amount=Decimal("50.00"), year=2026, month=9)
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("usage", ["transaction", "recurring", "budget"])
+def test_type_of_a_category_in_use_cannot_change(auth_client, user, usage):
+    """Regression: switching expense→income left existing rows with the old type (and budgets on an income category)."""
+    category = Category.objects.create(user=user, name="Gym", type=TransactionType.EXPENSE)
+    _used_by(usage, user, category)
+
+    response = auth_client.patch(reverse("category-detail", args=[category.id]), {"type": "income"}, format="json")
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "type" in response.data
+    category.refresh_from_db()
+    assert category.type == TransactionType.EXPENSE
+
+
+@pytest.mark.django_db
+def test_type_of_an_unused_category_can_change_and_other_fields_of_a_used_one_too(auth_client, user):
+    unused = Category.objects.create(user=user, name="Misc", type=TransactionType.EXPENSE)
+    used = Category.objects.create(user=user, name="Gym", type=TransactionType.EXPENSE)
+    _used_by("transaction", user, used)
+
+    assert auth_client.patch(reverse("category-detail", args=[unused.id]), {"type": "income"}, format="json").status_code == 200
+    renamed = auth_client.patch(reverse("category-detail", args=[used.id]), {"name": "Fitness", "type": "expense"}, format="json")
+    assert renamed.status_code == 200
+    assert renamed.data["name"] == "Fitness"

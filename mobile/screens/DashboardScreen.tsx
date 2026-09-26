@@ -1,9 +1,10 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { RefreshControl, StyleSheet, Text, View } from "react-native";
-import { router, useFocusEffect } from "expo-router";
+import { router } from "expo-router";
 import { useAuth } from "../hooks/useAuth";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { useRefetchOnDataChange } from "../hooks/useOffline";
+import { useRefetchOnFocus } from "../hooks/useRefetchOnFocus";
 import { Screen } from "../components/Screen";
 import { Fab } from "../components/Fab";
 import { SectionState } from "../components/SectionState";
@@ -85,24 +86,14 @@ export function DashboardScreen() {
     setIsRefreshing(false);
   }
 
-  // Skip the very first focus (initial mount already fetches via useAsyncData
-  // itself) and refetch on every focus after that — this is what picks up a
-  // transaction added through the Quick Add modal once it's dismissed.
-  const isFirstFocus = useRef(true);
-  useFocusEffect(
-    useCallback(() => {
-      if (isFirstFocus.current) {
-        isFirstFocus.current = false;
-        return;
-      }
-      dashboard.refetch();
-      monthly.refetch();
-      categoryBreakdown.refetch();
-      insights.refetch();
-      recentTransactions.refetch();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [year, month])
-  );
+  // Picks up a transaction added through the Quick Add modal once it's dismissed.
+  useRefetchOnFocus(() => {
+    dashboard.refetch();
+    monthly.refetch();
+    categoryBreakdown.refetch();
+    insights.refetch();
+    recentTransactions.refetch();
+  });
 
   function goToPreviousMonth() {
     if (month === 1) {

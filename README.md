@@ -339,9 +339,9 @@ Production images:
 
 | Suite | Tools | Tests |
 |---|---|---|
-| Backend | pytest, pytest-django | **490** |
+| Backend | pytest, pytest-django | **501** |
 | Web | Vitest, React Testing Library, MSW | **34** |
-| Mobile | Jest (jest-expo), React Native Testing Library | **84** |
+| Mobile | Jest (jest-expo), React Native Testing Library | **87** |
 
 The testing is risk-based rather than aimed at a coverage number
 ([strategy](docs/testing-strategy.md)). Highlights:
@@ -468,6 +468,7 @@ spendly/
 | [docs/mobile-release.md](docs/mobile-release.md) | Build variants, EAS builds, iOS and Android deployment, push credentials |
 | [docs/security-audit.md](docs/security-audit.md) | Security review, findings and accepted risks |
 | [docs/testing-strategy.md](docs/testing-strategy.md) | What is tested, where and why |
+| [docs/code-review.md](docs/code-review.md) | Senior code review: findings by severity, fixes, production & portfolio readiness checklists |
 | [docs/api-contract.md](docs/api-contract.md) | How the web and mobile clients consume the API |
 | [backend/openapi.yaml](backend/openapi.yaml) | Complete OpenAPI 3 reference (also served at `/api/docs/`) |
 
@@ -483,9 +484,5 @@ spendly/
   instead of hand-mirrored types.
 - **Web category management UI:** the API is complete; the page is still a placeholder.
 - **CSV export**, with spreadsheet formula-injection protection.
-- **Known issues being fixed:**
-  - unstable ordering when paginating transactions that share a date,
-  - changing the type of a category that's already in use,
-  - account deletion blocked by the category foreign key.
 - **End-to-end tests:** Playwright (web) and Maestro (mobile) on real flows.
 - **UX:** proper tab-bar icons, dark mode, Hungarian localisation, multi-currency support.
