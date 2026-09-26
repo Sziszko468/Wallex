@@ -52,6 +52,6 @@ pass: backend 449, web 33, mobile 68.
 - **Registration reveals whether an email exists** ("already exists"). Common trade-off; rate-limited. A verify-by-email flow would remove it.
 - **Push token takeover**: registering someone else's Expo token moves it to the caller. Tokens aren't public; the real owner reclaims it on next launch.
 - **CSV export (future)**: descriptions like `=HYPERLINK(...)` are stored as plain data (tested) — an export must prefix cells starting with `= + - @` with `'` to prevent spreadsheet formula injection.
-- **Mobile npm advisories**: 13 moderate, all transitive inside Expo tooling (`xcode`/`uuid`, `query-string`/`decode-uri-component` — a malformed deep link could stall the app). npm's suggested "fix" is a downgrade to Expo 46; track Expo SDK patch releases instead. Web: 0 vulnerabilities.
+- **Mobile npm advisories**: 14 moderate (13 before the release-build step; `expo-splash-screen` joined through the same `@expo/config-plugins` → `xcode` → `uuid` chain — no new root cause), all transitive inside Expo tooling (`xcode`/`uuid`, `query-string`/`decode-uri-component` — a malformed deep link could stall the app). npm's suggested "fix" is a downgrade to Expo 46; track Expo SDK patch releases instead. Web: 0 vulnerabilities.
 - **Django admin** at `/admin/` has no rate limit — restrict it by network or VPN in production.
 - Later hardening: Argon2 password hashing (new dependency), dependency scanning (`pip-audit`, `npm audit`) in CI.

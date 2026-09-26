@@ -279,46 +279,19 @@ the release.
 
 ## 10. Mobile app (EAS Build)
 
-The app is built in the cloud by EAS. No Xcode or Android Studio is needed. Run the
-commands in `mobile/`:
+The mobile app is not part of the Docker stack. It is built and shipped with EAS. The
+full guide is [mobile-release.md](mobile-release.md): build variants, development /
+preview / production builds, App Store and Google Play submission, push credentials.
 
-```bash
-npx eas-cli@latest login
-npx eas-cli@latest init
-npx eas-cli@latest env:set --name EXPO_PUBLIC_API_BASE_URL --value https://spendly.example.com/api --environment production --visibility plaintext
-npx eas-cli@latest build --platform android --profile preview
-npx eas-cli@latest build --platform all --profile production
-npx eas-cli@latest submit --platform all --profile production
-```
+What connects it to this deployment:
 
-What each command does:
-
-- **`login`:** signs in with your Expo account (a free account is enough to build).
-- **`init`:** links the project and writes `extra.eas.projectId` into `app.json`. Push
-  notifications need this ID.
-- **`env:set`:** sets the API URL. Repeat it with `--environment preview` for the
-  preview profile.
-- **`build … --profile preview`:** builds an installable APK for testers.
-- **`build … --profile production`:** builds the store binaries (AAB / IPA).
-- **`submit`:** uploads them to Google Play / App Store Connect.
-
-Profiles (`mobile/eas.json`):
-
-- **`preview`:** internal distribution (Android APK, installable directly). Reads the
-  EAS `preview` environment.
-- **`production`:** store builds. Build numbers are managed remotely and incremented
-  automatically.
-
-Before the first build:
-
-- Set `ios.bundleIdentifier` and `android.package` in `app.json` (e.g.
-  `com.<yourname>.spendly`). EAS asks for them otherwise, and they cannot change after
-  the app has been published.
-- iOS builds and TestFlight require an Apple Developer Program membership.
-- Push notifications also need credentials: an FCM key for Android and an APNs key for
-  iOS (EAS can create the latter).
-- Biometrics, push and the camera only work in real builds, not in the web preview.
-  Test them on a device with a `preview` build.
+- **API URL:** the app's only build-time setting is `EXPO_PUBLIC_API_BASE_URL`, which
+  must be the public **https** origin of this stack plus `/api`
+  (e.g. `https://spendly.example.com/api`). Set it per EAS environment. A `preview` or
+  `production` build without a valid https URL fails at build time.
+- **No CORS needed:** native apps are not browsers.
+- **Backend first:** deploy the backend before building. Store reviewers need a working
+  backend and a demo account.
 
 ## 11. Scheduled jobs
 

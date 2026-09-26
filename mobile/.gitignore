@@ -33,6 +33,13 @@ yarn-error.*
 # local env files
 .env*.local
 
+# Store / push credentials — managed by EAS, never committed
+credentials.json
+credentials/
+google-services.json
+GoogleService-Info.plist
+*service-account*.json
+
 # typescript
 *.tsbuildinfo
 
