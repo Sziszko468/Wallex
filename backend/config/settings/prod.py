@@ -86,6 +86,10 @@ CACHES = {"default": env.cache_url("CACHE_URL", default="dbcache://spendly_cache
 DATABASES["default"]["CONN_MAX_AGE"] = env.int("DJANGO_DB_CONN_MAX_AGE", default=60)
 
 # --- API --------------------------------------------------------------------------------
+# Interactive docs are opt-in in production (the committed backend/openapi.yaml is the
+# public reference); the schema describes every endpoint, so expose it deliberately.
+API_DOCS_ENABLED = env.bool("API_DOCS_ENABLED", default=False)
+
 # JSON only: the browsable HTML API is a development tool.
 REST_FRAMEWORK = {
     **REST_FRAMEWORK,

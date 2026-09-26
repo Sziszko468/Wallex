@@ -20,6 +20,8 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .openapi import LIVENESS_SCHEMA, READINESS_SCHEMA
+
 logger = logging.getLogger(__name__)
 
 
@@ -48,11 +50,13 @@ class _HealthView(APIView):
 
 
 class LivenessView(_HealthView):
+    @LIVENESS_SCHEMA
     def get(self, request: Request) -> Response:
         return Response({"status": "ok"})
 
 
 class ReadinessView(_HealthView):
+    @READINESS_SCHEMA
     def get(self, request: Request) -> Response:
         results: dict[str, str] = {}
         for name, check in CHECKS.items():

@@ -8,6 +8,13 @@ class CategorySerializer(serializers.ModelSerializer):
         model = Category
         fields = ["id", "name", "type", "color", "icon", "is_system", "created_at", "updated_at"]
         read_only_fields = ["id", "is_system", "created_at", "updated_at"]
+        extra_kwargs = {
+            "name": {"help_text": "Unique per user and type, ignoring letter case."},
+            "type": {"help_text": "Transactions in this category must have the same type."},
+            "color": {"help_text": "Hex colour `#RRGGBB`, used in charts. Default `#6366F1`."},
+            "icon": {"help_text": "Optional icon name for the clients."},
+            "is_system": {"help_text": "True for the 10 defaults created at registration: they can't be changed or deleted."},
+        }
 
     def validate(self, attrs):
         request = self.context["request"]

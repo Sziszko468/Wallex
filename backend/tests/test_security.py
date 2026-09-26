@@ -18,8 +18,8 @@ from apps.categories.models import Category, TransactionType
 from apps.notifications.models import Device
 from apps.transactions.models import Frequency, RecurringTransaction, Transaction
 
-# Endpoints that must work without a token. Health probes return no user data.
-PUBLIC_ROUTES = {"auth-register", "auth-login", "auth-refresh", "health-live", "health-ready"}
+# Endpoints that must work without a token. Health probes and the API docs return no user data.
+PUBLIC_ROUTES = {"auth-register", "auth-login", "auth-refresh", "health-live", "health-ready", "api-schema", "api-docs"}
 
 
 def _api_routes():

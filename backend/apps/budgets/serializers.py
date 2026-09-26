@@ -6,9 +6,15 @@ from .models import Budget
 
 
 class BudgetSerializer(serializers.ModelSerializer):
-    spent_amount = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
-    remaining_amount = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
-    usage_percentage = serializers.FloatField(read_only=True)
+    spent_amount = serializers.DecimalField(
+        max_digits=12, decimal_places=2, read_only=True, help_text="Expenses counted against this budget so far."
+    )
+    remaining_amount = serializers.DecimalField(
+        max_digits=12, decimal_places=2, read_only=True, help_text="`amount - spent_amount`; negative when over budget."
+    )
+    usage_percentage = serializers.FloatField(
+        read_only=True, help_text="`spent_amount / amount × 100`, rounded to 2 decimals; above 100 when over budget."
+    )
 
     class Meta:
         model = Budget
@@ -25,11 +31,17 @@ class BudgetSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
+        extra_kwargs = {
+            "category": {"help_text": "Expense category id, or `null` for the overall budget of all expenses."},
+            "amount": {"help_text": "Monthly limit: positive, max 2 decimals."},
+            "year": {"help_text": "2000–2100."},
+            "month": {"help_text": "1–12."},
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         request = self.context.get("request")
-        if request is not None:
+        if request is not None and request.user.is_authenticated:
             self.fields["category"].queryset = Category.objects.filter(user=request.user)
 
     def to_representation(self, instance):

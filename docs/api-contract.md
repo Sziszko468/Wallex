@@ -1,5 +1,22 @@
 # Spendly API contract — web ↔ mobile ↔ backend
 
+> **The complete endpoint reference is the OpenAPI document** — every endpoint, request, response,
+> validation error and status code:
+>
+> - interactive (Swagger UI, "Try it out"): `http://localhost:8000/api/docs/` while the dev stack runs
+>   (in production only with `API_DOCS_ENABLED=True`); raw schema at `/api/schema/`
+> - static: [`backend/openapi.yaml`](../backend/openapi.yaml) (open it in any OpenAPI viewer, or import it
+>   into Postman / Insomnia)
+>
+> It is generated from the code (drf-spectacular; per-endpoint docs live in each app's `openapi.py`) and
+> `backend/tests/test_openapi.py` validates real responses of every endpoint against it, so it can't go
+> stale silently. **If this file and the OpenAPI document disagree, the OpenAPI document is right.**
+> After changing an endpoint, regenerate the committed copy:
+> `docker compose exec backend python manage.py spectacular --file openapi.yaml` (the tests fail until you do).
+>
+> This file remains the guide to how the *clients* use the API: shared TypeScript types, service functions,
+> and conventions both apps follow.
+
 This is the shared reference for the endpoints both frontends (`web/`, `mobile/`) consume today.
 It exists so the two clients never drift from each other or from the actual Django API: when the
 backend's shape changes, update this file **and** the mirrored TypeScript types in

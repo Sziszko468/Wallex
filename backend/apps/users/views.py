@@ -6,11 +6,13 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
+from .openapi import LOGIN_SCHEMA, LOGOUT_SCHEMA, ME_SCHEMA, REFRESH_SCHEMA, REGISTER_SCHEMA
 from .serializers import RegisterSerializer, UserSerializer
 
 
 # Public auth endpoints are rate-limited per client IP against brute force and
 # credential stuffing (rates: DEFAULT_THROTTLE_RATES in settings).
+@REGISTER_SCHEMA
 class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
     permission_classes = [permissions.AllowAny]
@@ -18,16 +20,19 @@ class RegisterView(generics.CreateAPIView):
     throttle_scope = "auth_register"
 
 
+@LOGIN_SCHEMA
 class LoginView(TokenObtainPairView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "auth_login"
 
 
+@REFRESH_SCHEMA
 class RefreshView(TokenRefreshView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "auth_refresh"
 
 
+@ME_SCHEMA
 class MeView(generics.RetrieveAPIView):
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -36,6 +41,7 @@ class MeView(generics.RetrieveAPIView):
         return self.request.user
 
 
+@LOGOUT_SCHEMA
 class LogoutView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 

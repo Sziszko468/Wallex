@@ -102,6 +102,7 @@ Required variables are **bold**. Everything else has a safe default.
 | `API_USER_RATE`, `AUTH_LOGIN_RATE`, `AUTH_REGISTER_RATE`, `AUTH_REFRESH_RATE`, `RECEIPT_SCAN_RATE` | see `.env.prod.example` | DRF rate format `N/second\|minute\|hour\|day`. |
 | `RECEIPT_OCR_PROVIDER`, `RECEIPT_OCR_LANGUAGES` | Tesseract, `hun+eng` | The OCR engine is swappable (see `apps/receipts/ocr`). |
 | `EXPO_PUSH_ACCESS_TOKEN` | *(none)* | Only if "Enhanced push security" is enabled in the Expo dashboard. |
+| `API_DOCS_ENABLED` | `False` (prod), `True` (dev) | Serves Swagger UI at `/api/docs/` and the OpenAPI schema at `/api/schema/`. Both are public when enabled, so turn them on deliberately. The committed `backend/openapi.yaml` is always available. |
 
 `DJANGO_SETTINGS_MODULE=config.settings.prod` is set inside the production image.
 

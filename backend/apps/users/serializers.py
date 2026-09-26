@@ -13,13 +13,19 @@ User = get_user_model()
 
 class RegisterSerializer(serializers.ModelSerializer):
     # max_length: the email is also stored as `username` (max 150 characters).
-    email = serializers.EmailField(max_length=150)
-    password = serializers.CharField(write_only=True, required=True)
-    password_confirm = serializers.CharField(write_only=True, required=True)
+    email = serializers.EmailField(max_length=150, help_text="Login name. Stored lower-cased; unique.")
+    password = serializers.CharField(
+        write_only=True, required=True, help_text="At least 8 characters, not common, not only digits."
+    )
+    password_confirm = serializers.CharField(write_only=True, required=True, help_text="Must equal `password`.")
 
     class Meta:
         model = User
         fields = ("id", "email", "first_name", "last_name", "password", "password_confirm")
+        extra_kwargs = {
+            "first_name": {"help_text": "Optional. Shown in the apps' greeting."},
+            "last_name": {"help_text": "Optional."},
+        }
 
     def validate_email(self, value: str) -> str:
         # One account per address, whatever the letter case.
@@ -73,3 +79,4 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ("id", "email", "first_name", "last_name", "date_joined")
         read_only_fields = fields
+        extra_kwargs = {"date_joined": {"help_text": "Registration time (UTC)."}}

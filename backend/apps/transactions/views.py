@@ -2,8 +2,10 @@ import uuid
 
 from django.conf import settings
 from django.db import IntegrityError, transaction
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 
@@ -14,15 +16,20 @@ from apps.notifications.services import check_budget_thresholds
 
 from .filters import TransactionFilter
 from .models import RecurringTransaction, Transaction
+from .openapi import CSV_IMPORT_SCHEMA, RECURRING_VIEWSET_SCHEMA, TRANSACTION_VIEWSET_SCHEMA
 from .pagination import TransactionPagination
 from .serializers import RecurringTransactionSerializer, TransactionSerializer
 from .services import CsvValidationError, import_transactions_from_csv
 
 
+@TRANSACTION_VIEWSET_SCHEMA
 class TransactionViewSet(viewsets.ModelViewSet):
+    # Only the model matters here (schema tooling); requests always go through get_queryset().
+    queryset = Transaction.objects.none()
     serializer_class = TransactionSerializer
     permission_classes = [permissions.IsAuthenticated, IsOwner]
     pagination_class = TransactionPagination
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = TransactionFilter
     search_fields = ["description"]
     ordering_fields = ["date", "amount", "created_at"]
@@ -70,6 +77,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
         if saved.type == TransactionType.EXPENSE:
             check_budget_thresholds(self.request.user, saved.date.year, saved.date.month)
 
+    @CSV_IMPORT_SCHEMA
     @action(
         detail=False,
         methods=["post"],
@@ -116,7 +124,10 @@ class TransactionViewSet(viewsets.ModelViewSet):
         )
 
 
+@RECURRING_VIEWSET_SCHEMA
 class RecurringTransactionViewSet(viewsets.ModelViewSet):
+    # Only the model matters here (schema tooling); requests always go through get_queryset().
+    queryset = RecurringTransaction.objects.none()
     serializer_class = RecurringTransactionSerializer
     permission_classes = [permissions.IsAuthenticated, IsOwner]
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]

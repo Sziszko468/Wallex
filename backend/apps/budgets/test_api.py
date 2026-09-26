@@ -246,3 +246,15 @@ def test_create_budget_unauthenticated_rejected(api_client, expense_category):
     payload = {"category": expense_category.id, "amount": "400.00", "year": 2026, "month": 9}
     response = api_client.post(reverse("budget-list"), payload)
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("ordering", ["spent_amount", "-usage_percentage", "remaining_amount"])
+def test_list_ignores_ordering_it_does_not_support(auth_client, user, expense_category, ordering):
+    """Regression: a global OrderingFilter used to accept computed fields and crash (500)."""
+    Budget.objects.create(user=user, category=expense_category, amount=Decimal("400.00"), year=2026, month=9)
+
+    response = auth_client.get(reverse("budget-list"), {"ordering": ordering})
+
+    assert response.status_code == status.HTTP_200_OK
+    assert len(response.data) == 1

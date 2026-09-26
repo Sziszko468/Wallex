@@ -5,9 +5,11 @@ from apps.common.permissions import IsOwner
 
 from . import services
 from .models import Device
+from .openapi import DEVICE_VIEWSET_SCHEMA, NOTIFICATION_PREFERENCES_SCHEMA
 from .serializers import DeviceSerializer, NotificationPreferenceSerializer
 
 
+@DEVICE_VIEWSET_SCHEMA
 class DeviceViewSet(
     mixins.ListModelMixin, mixins.DestroyModelMixin, viewsets.GenericViewSet
 ):
@@ -17,6 +19,8 @@ class DeviceViewSet(
     push token; DELETE is called by the app on logout.
     """
 
+    # Only the model matters here (schema tooling); requests always go through get_queryset().
+    queryset = Device.objects.none()
     serializer_class = DeviceSerializer
     permission_classes = [permissions.IsAuthenticated, IsOwner]
     lookup_value_regex = r"\d+"
@@ -34,6 +38,7 @@ class DeviceViewSet(
         )
 
 
+@NOTIFICATION_PREFERENCES_SCHEMA
 class NotificationPreferenceView(generics.RetrieveUpdateAPIView):
     serializer_class = NotificationPreferenceSerializer
     permission_classes = [permissions.IsAuthenticated]

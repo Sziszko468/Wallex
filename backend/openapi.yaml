@@ -1,0 +1,5166 @@
+openapi: 3.0.3
+info:
+  title: Spendly API
+  version: 1.0.0
+  description: |
+    REST API behind the Spendly web and mobile apps. Every business rule — validation,
+    ownership, money arithmetic, analytics, insights — lives here; clients only display
+    what the API returns.
+
+    ## Quick start
+
+    ```bash
+    # 1. Create an account (no token needed)
+    curl -X POST https://<host>/api/auth/register/ -H "Content-Type: application/json" \
+      -d '{"email": "ada@example.com", "password": "a-long-passphrase", "password_confirm": "a-long-passphrase"}'
+
+    # 2. Log in → {"access": "…", "refresh": "…"}
+    curl -X POST https://<host>/api/auth/login/ -H "Content-Type: application/json" \
+      -d '{"email": "ada@example.com", "password": "a-long-passphrase"}'
+
+    # 3. Call the API with the access token
+    curl https://<host>/api/transactions/ -H "Authorization: Bearer <access>"
+    ```
+
+    In Swagger UI: log in with *Authentication → POST /api/auth/login/ → Try it out*, copy the
+    `access` value, click **Authorize** and paste it (without the `Bearer ` prefix).
+
+    ## Authentication
+
+    JSON Web Tokens, sent as `Authorization: Bearer <access token>`.
+
+    | Token | Lifetime | Use |
+    |---|---|---|
+    | access | 15 minutes | Every authenticated request. |
+    | refresh | 7 days | Only `POST /api/auth/refresh/` and `POST /api/auth/logout/`. |
+
+    - **Refresh tokens rotate.** Every refresh returns a *new* refresh token and invalidates
+      the old one. Always store the newest; replaying an old one answers
+      `401 {"code": "token_not_valid"}`.
+    - **Recommended client flow:** on a `401` from any endpoint, call `/api/auth/refresh/`
+      once — never several in parallel, the first call already invalidates the token the
+      others would send — then retry the original request. If the refresh itself fails,
+      the session is over: send the user to the login screen.
+    - **Logout** revokes the refresh token server-side. Access tokens can't be revoked;
+      they simply expire within 15 minutes.
+    - Endpoints marked with a lock need a token; `register`, `login`, `refresh` and the
+      health probes don't.
+
+    ## Conventions
+
+    | Topic | Rule |
+    |---|---|
+    | Base path | Everything is under `/api/`. URLs end with a slash. |
+    | Content type | `application/json`, except the two uploads (`multipart/form-data`). |
+    | Money | Decimal **strings** with two decimals: `"1234.50"`. Send strings (numbers are accepted); never do money arithmetic with floats on the client — the API returns every total. |
+    | Amount sign | Amounts are always positive. `type` (`income` / `expense`) says which way the money went. A transaction's `type` must equal its category's `type`. |
+    | Dates | `YYYY-MM-DD`. Timestamps: ISO 8601 in UTC (`2026-09-26T09:49:57.360831Z`). |
+    | Percentages | JSON numbers (`76.5`), or `null` where they are undefined (division by zero). |
+    | IDs | Integers. Referencing another user's object (e.g. a category) is a validation error; fetching it is a `404`. The two never reveal that the object exists. |
+    | Partial updates | `PATCH` with only the fields to change. `PUT` (full replace) exists for transactions only. |
+    | Ownership | Every resource belongs to the signed-in user. There is no way to read or change another user's data. |
+
+    ## Pagination
+
+    Only `GET /api/transactions/` is paginated (it can grow without bound):
+
+    ```json
+    {"count": 132, "next": "https://<host>/api/transactions/?page=3", "previous": "https://<host>/api/transactions/?page=1", "results": [ … ]}
+    ```
+
+    `?page=` starts at 1, `?page_size=` defaults to 20 (max 100). A page past the end is a
+    `404`. All other lists (categories, budgets, recurring transactions, devices) are small
+    and returned as plain JSON arrays.
+
+    ## Errors
+
+    Every error has a JSON body and a meaningful status code:
+
+    | Status | Meaning | Body |
+    |---|---|---|
+    | `400` | Validation failed; nothing was saved | `{"<field>": ["message", …], "non_field_errors": ["…"]}` — one key per invalid field or query parameter |
+    | `401` | Missing, invalid or expired token | `{"detail": "…"}` (+ `"code": "token_not_valid"` for bad tokens) |
+    | `403` | Authenticated, but the action isn't allowed (e.g. editing a system category) | `{"detail": "…"}` |
+    | `404` | No such object *for this user* | `{"detail": "…"}` |
+    | `405` | HTTP method not supported on this URL | `{"detail": "…"}` |
+    | `409` | The action conflicts with existing data (e.g. deleting a category in use) | `{"detail": "…"}` |
+    | `413` | Upload too large | `{"<field>": ["…"]}` |
+    | `429` | Rate limit hit; retry after `Retry-After` seconds | `{"detail": "…"}` |
+    | `503` | A dependency is temporarily unavailable (receipt OCR, health probe) | `{"detail": "…"}` |
+
+    Error messages are written for end users and may be shown as they are.
+
+    ## Rate limits
+
+    | Scope | Default limit | Keyed by |
+    |---|---|---|
+    | `POST /api/auth/login/` | 10 / minute | client IP |
+    | `POST /api/auth/register/` | 10 / hour | client IP |
+    | `POST /api/auth/refresh/` | 30 / minute | client IP |
+    | `POST /api/receipts/scan/` | 30 / hour | user |
+    | Everything else | 2000 / hour | user (IP when anonymous) |
+
+    ## Idempotent transaction creation
+
+    Clients that queue transactions offline send a `client_id` (a UUID generated once per
+    transaction). Re-sending the same `client_id` answers `200` with the already stored
+    transaction instead of creating a duplicate — safe to retry after a lost response.
+
+    ## Side effects worth knowing
+
+    Creating or updating an **expense**, importing a CSV file, or creating / lowering a
+    **budget** re-checks that month's budgets. Crossing 80 % or 100 % of a budget sends a push
+    notification to the user's registered mobile devices (once per budget and threshold).
+paths:
+  /api/analytics/categories/:
+    get:
+      operationId: analytics_categories_retrieve
+      description: Each expense category's total and share of the month's expenses,
+        largest first. `year` and `month` default to the current month (UTC).
+      summary: Spending by category
+      parameters:
+      - in: query
+        name: month
+        schema:
+          type: integer
+          maximum: 12
+          minimum: 1
+        description: 'Month (1–12). Default: the current month.'
+      - in: query
+        name: year
+        schema:
+          type: integer
+          maximum: 2100
+          minimum: 2000
+        description: 'Year (2000–2100). Default: the current year.'
+      tags:
+      - Analytics
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryAnalytics'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                OutOfRange:
+                  value:
+                    year:
+                    - Ensure this value is greater than or equal to 2000.
+                    month:
+                    - Ensure this value is less than or equal to 12.
+                  summary: Out of range
+                NotANumber:
+                  value:
+                    year:
+                    - A valid integer is required.
+                  summary: Not a number
+          description: '`year` or `month` is invalid.'
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/analytics/comparison/:
+    get:
+      operationId: analytics_comparison_retrieve
+      description: Totals of the month and the month before, with absolute and relative
+        differences. `year` and `month` default to the current month (UTC).
+      summary: Compare a month with the previous one
+      parameters:
+      - in: query
+        name: month
+        schema:
+          type: integer
+          maximum: 12
+          minimum: 1
+        description: 'Month (1–12). Default: the current month.'
+      - in: query
+        name: year
+        schema:
+          type: integer
+          maximum: 2100
+          minimum: 2000
+        description: 'Year (2000–2100). Default: the current year.'
+      tags:
+      - Analytics
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comparison'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                OutOfRange:
+                  value:
+                    year:
+                    - Ensure this value is greater than or equal to 2000.
+                    month:
+                    - Ensure this value is less than or equal to 12.
+                  summary: Out of range
+                NotANumber:
+                  value:
+                    year:
+                    - A valid integer is required.
+                  summary: Not a number
+          description: '`year` or `month` is invalid.'
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/analytics/dashboard/:
+    get:
+      operationId: analytics_dashboard_retrieve
+      description: 'Everything a dashboard needs for one month in a single call: income,
+        expenses, balance, number of transactions, the top spending category and the
+        usage of every budget. `year` and `month` default to the current month (UTC).'
+      summary: Monthly dashboard
+      parameters:
+      - in: query
+        name: month
+        schema:
+          type: integer
+          maximum: 12
+          minimum: 1
+        description: 'Month (1–12). Default: the current month.'
+      - in: query
+        name: year
+        schema:
+          type: integer
+          maximum: 2100
+          minimum: 2000
+        description: 'Year (2000–2100). Default: the current year.'
+      tags:
+      - Analytics
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dashboard'
+              examples:
+                September:
+                  value:
+                    year: 2026
+                    month: 9
+                    total_income: '2500.00'
+                    total_expenses: '845.90'
+                    balance: '1654.10'
+                    transaction_count: 14
+                    top_spending_category:
+                      category_id: 1
+                      category_name: Housing
+                      amount: '600.00'
+                    budget_usage:
+                    - budget_id: 21
+                      category_id: 206
+                      category_name: Gym
+                      budget_amount: '60.00'
+                      spent_amount: '45.90'
+                      remaining_amount: '14.10'
+                      usage_percentage: 76.5
+                    - budget_id: 22
+                      category_id: null
+                      category_name: Overall
+                      budget_amount: '1500.00'
+                      spent_amount: '845.90'
+                      remaining_amount: '654.10'
+                      usage_percentage: 56.39
+          description: Dashboard data.
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                OutOfRange:
+                  value:
+                    year:
+                    - Ensure this value is greater than or equal to 2000.
+                    month:
+                    - Ensure this value is less than or equal to 12.
+                  summary: Out of range
+                NotANumber:
+                  value:
+                    year:
+                    - A valid integer is required.
+                  summary: Not a number
+          description: '`year` or `month` is invalid.'
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/analytics/insights/:
+    get:
+      operationId: analytics_insights_retrieve
+      description: |-
+        Rule-based observations about the month, most urgent first. `year` and `month` default to the current month (UTC).
+        For the current month, comparisons with the previous month are month-to-date on both sides
+        (e.g. 1–15 September vs 1–15 August).
+
+        | `type` | `severity` | When | `amount` | `percentage` |
+        |---|---|---|---|---|
+        | `budget_exceeded` | alert | A budget's spending is above its limit | Amount over the limit | Budget usage % |
+        | `budget_warning` | warning | A budget is at least 80 % used | Amount left | Budget usage % |
+        | `overspending` | alert | Expenses are higher than income | Deficit | Deficit as % of income |
+        | `savings` | positive | Income is higher than expenses | Amount saved | Saved % of income |
+        | `category_increase` | warning | A category's spending rose by ≥ 10 % **and** ≥ 10.00 vs last month (top 3) | Increase | Change % |
+        | `category_decrease` | positive | Same, but decreased | Decrease | Change % |
+        | `recurring_share` | warning if ≥ 50 %, else info | Active recurring expenses (monthly equivalent) relative to income | Monthly recurring expenses | % of income |
+        | `top_category` | info | The category with the highest spending | Its total | Its share of expenses % |
+
+        Rules that need income (`overspending`, `savings`, `recurring_share`) are skipped in a month without
+        income; category changes are skipped for categories with no spending last month.
+      summary: Financial insights for a month
+      parameters:
+      - in: query
+        name: month
+        schema:
+          type: integer
+          maximum: 12
+          minimum: 1
+        description: 'Month (1–12). Default: the current month.'
+      - in: query
+        name: year
+        schema:
+          type: integer
+          maximum: 2100
+          minimum: 2000
+        description: 'Year (2000–2100). Default: the current year.'
+      tags:
+      - Financial Insights
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InsightList'
+              examples:
+                September:
+                  value:
+                    year: 2026
+                    month: 9
+                    insights:
+                    - id: budget_exceeded:21
+                      type: budget_exceeded
+                      severity: alert
+                      message: Gym exceeded its budget by 15%.
+                      category_id: 206
+                      amount: '9.00'
+                      percentage: 115.0
+                    - id: savings
+                      type: savings
+                      severity: positive
+                      message: You saved 66% of your income this month.
+                      category_id: null
+                      amount: '1654.10'
+                      percentage: 66.16
+                    - id: top_category:1
+                      type: top_category
+                      severity: info
+                      message: Highest spending category is Housing (71% of this month's
+                        expenses).
+                      category_id: 1
+                      amount: '600.00'
+                      percentage: 70.93
+          description: The month's insights.
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                OutOfRange:
+                  value:
+                    year:
+                    - Ensure this value is greater than or equal to 2000.
+                    month:
+                    - Ensure this value is less than or equal to 12.
+                  summary: Out of range
+                NotANumber:
+                  value:
+                    year:
+                    - A valid integer is required.
+                  summary: Not a number
+          description: '`year` or `month` is invalid.'
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/analytics/monthly/:
+    get:
+      operationId: analytics_monthly_retrieve
+      description: Twelve monthly totals for charts. `year` defaults to the current
+        year.
+      summary: Income and expenses per month of a year
+      parameters:
+      - in: query
+        name: year
+        schema:
+          type: integer
+          maximum: 2100
+          minimum: 2000
+        description: 'Year (2000–2100). Default: the current year.'
+      tags:
+      - Analytics
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonthlyAnalytics'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                OutOfRange:
+                  value:
+                    year:
+                    - Ensure this value is greater than or equal to 2000.
+                    month:
+                    - Ensure this value is less than or equal to 12.
+                  summary: Out of range
+                NotANumber:
+                  value:
+                    year:
+                    - A valid integer is required.
+                  summary: Not a number
+          description: '`year` or `month` is invalid.'
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/auth/login/:
+    post:
+      operationId: auth_login_create
+      description: Exchanges email and password for an access token (15 min) and a
+        refresh token (7 days).
+      summary: Log in (obtain a token pair)
+      tags:
+      - Authentication
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            examples:
+              LogIn:
+                value:
+                  email: ada@example.com
+                  password: a-long-passphrase
+                summary: Log in
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenPair'
+          description: Logged in.
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                MissingFields:
+                  value:
+                    email:
+                    - This field is required.
+                    password:
+                    - This field is required.
+                  summary: Missing fields
+          description: Validation failed; nothing was changed. See the examples for
+            typical messages.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                WrongCredentials:
+                  value:
+                    detail: No active account found with the given credentials
+                  summary: Wrong credentials
+          description: Wrong email or password, or the account is deactivated. Deliberately
+            doesn't say which.
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          description: Rate limit exceeded (10 attempts per minute per IP). Retry
+            after the number of seconds in `Retry-After`.
+  /api/auth/logout/:
+    post:
+      operationId: auth_logout_create
+      description: Blacklists the given refresh token so it can never be used again.
+        Only the caller's own token can be revoked. The access token stays valid until
+        it expires (max 15 minutes) — clients should discard both.
+      summary: Log out (revoke the refresh token)
+      tags:
+      - Authentication
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+              examples:
+                Success:
+                  value:
+                    detail: Logged out successfully.
+          description: Refresh token revoked.
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                MissingToken:
+                  value:
+                    detail: Refresh token is required.
+                  summary: Missing token
+                InvalidToken:
+                  value:
+                    detail: Invalid or expired refresh token.
+                  summary: Invalid token
+          description: No token sent, or it is invalid, expired, already revoked or
+            belongs to another user (all answered the same way).
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/auth/me/:
+    get:
+      operationId: auth_me_retrieve
+      description: The profile of the user the access token belongs to. Use it to
+        check a stored token on app start.
+      summary: Get the signed-in user
+      tags:
+      - Users
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: The signed-in user.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/auth/refresh/:
+    post:
+      operationId: auth_refresh_create
+      description: |-
+        Returns a new access token **and a new refresh token**; the refresh token sent is invalidated immediately (rotation). Store the new one before doing anything else.
+
+        Clients should run at most one refresh at a time: concurrent refreshes with the same token all but one fail with `401`.
+      summary: Refresh the access token
+      tags:
+      - Authentication
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenPair'
+          description: New token pair.
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                MissingToken:
+                  value:
+                    refresh:
+                    - This field is required.
+                  summary: Missing token
+          description: Validation failed; nothing was changed. See the examples for
+            typical messages.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                AlreadyUsedOrRevoked:
+                  value:
+                    detail: Token is blacklisted
+                    code: token_not_valid
+                  summary: Already used or revoked
+                MalformedOrExpired:
+                  value:
+                    detail: Token is invalid
+                    code: token_not_valid
+                  summary: Malformed or expired
+          description: 'The refresh token is invalid, expired, already used (tokens
+            rotate) or revoked by logout. The session is over: log in again.'
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          description: Rate limit exceeded (30 refreshes per minute per IP). Retry
+            after the number of seconds in `Retry-After`.
+  /api/auth/register/:
+    post:
+      operationId: auth_register_create
+      description: |-
+        Creates a user and seeds their 10 default categories (Housing, Food, Transport, Shopping, Entertainment, Health, Bills, Travel, Other as expense; Salary as income).
+
+        Registration does **not** log the user in — call `POST /api/auth/login/` next. The email is stored lower-cased and must be unique regardless of letter case. The password must satisfy Django's validators: at least 8 characters, not too similar to the name/email, not a common password, not entirely numeric.
+      summary: Create an account
+      tags:
+      - Authentication
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+            examples:
+              Register:
+                value:
+                  email: ada@example.com
+                  first_name: Ada
+                  last_name: Lovelace
+                  password: a-long-passphrase
+                  password_confirm: a-long-passphrase
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Register'
+              examples:
+                Created:
+                  value:
+                    id: 42
+                    email: ada@example.com
+                    first_name: Ada
+                    last_name: Lovelace
+          description: Account created.
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                EmailAlreadyRegistered:
+                  value:
+                    email:
+                    - A user with this email already exists.
+                  summary: Email already registered
+                InvalidEmail:
+                  value:
+                    email:
+                    - Enter a valid email address.
+                  summary: Invalid email
+                WeakPassword:
+                  value:
+                    password:
+                    - This password is too common.
+                    - This password is entirely numeric.
+                  summary: Weak password
+                PasswordsDiffer:
+                  value:
+                    password_confirm:
+                    - Passwords do not match.
+                  summary: Passwords differ
+                MissingFields:
+                  value:
+                    email:
+                    - This field is required.
+                    password:
+                    - This field is required.
+                  summary: Missing fields
+          description: Validation failed; nothing was changed. See the examples for
+            typical messages.
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          description: Rate limit exceeded (10 registrations per hour per IP). Retry
+            after the number of seconds in `Retry-After`.
+  /api/budgets/:
+    get:
+      operationId: budgets_list
+      description: |-
+        A budget caps the **expenses** of one calendar month — either for one expense category, or, with `category: null`, for all expenses together (the *overall* budget). There is at most one budget per category (or overall) per month. `spent_amount`, `remaining_amount` and `usage_percentage` are computed live from the month's expense transactions.
+
+        All months, newest first. Not paginated.
+      summary: List budgets
+      tags:
+      - Budgets
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Budget'
+          description: ''
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+    post:
+      operationId: budgets_create
+      description: |-
+        A budget caps the **expenses** of one calendar month — either for one expense category, or, with `category: null`, for all expenses together (the *overall* budget). There is at most one budget per category (or overall) per month. `spent_amount`, `remaining_amount` and `usage_percentage` are computed live from the month's expense transactions.
+
+        If the month's spending already exceeds 80 % / 100 % of the new budget, a push notification is sent.
+      summary: Create a budget
+      tags:
+      - Budgets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BudgetRequest'
+            examples:
+              CategoryBudget:
+                value:
+                  category: 206
+                  amount: '60.00'
+                  year: 2026
+                  month: 9
+                summary: Category budget
+              OverallBudget:
+                value:
+                  category: null
+                  amount: '1500.00'
+                  year: 2026
+                  month: 9
+                summary: Overall budget
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BudgetRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BudgetRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Budget'
+              examples:
+                Created:
+                  value:
+                    id: 21
+                    category: 206
+                    amount: '60.00'
+                    year: 2026
+                    month: 9
+                    spent_amount: '45.90'
+                    remaining_amount: '14.10'
+                    usage_percentage: 76.5
+                    created_at: '2026-09-26T09:49:59.164661Z'
+                    updated_at: '2026-09-26T09:49:59.164690Z'
+          description: Created.
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                Duplicate:
+                  value:
+                    non_field_errors:
+                    - A budget for this category and month already exists.
+                IncomeCategory:
+                  value:
+                    category:
+                    - Budgets can only be set for expense categories.
+                  summary: Income category
+                OutOfRange:
+                  value:
+                    amount:
+                    - Ensure this value is greater than or equal to 0.01.
+                    year:
+                    - Ensure this value is greater than or equal to 2000.
+                    month:
+                    - Ensure this value is less than or equal to 12.
+                  summary: Out of range
+          description: Validation failed; nothing was changed. See the examples for
+            typical messages.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/budgets/{id}/:
+    get:
+      operationId: budgets_retrieve
+      summary: Get a budget
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - Budgets
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Budget'
+          description: ''
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '404':
+          description: No such object for the signed-in user. Objects of other users
+            are reported exactly the same way.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NotFound:
+                  value:
+                    detail: No Budget matches the given query.
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+    patch:
+      operationId: budgets_partial_update
+      description: Changes any subset of fields. A change that puts usage past 80
+        % or 100 % sends the budget push notification (once per budget and threshold).
+      summary: Update a budget
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - Budgets
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedBudgetRequest'
+            examples:
+              RaiseTheLimit:
+                value:
+                  amount: '80.00'
+                summary: Raise the limit
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedBudgetRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedBudgetRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Budget'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                Duplicate:
+                  value:
+                    non_field_errors:
+                    - A budget for this category and month already exists.
+                IncomeCategory:
+                  value:
+                    category:
+                    - Budgets can only be set for expense categories.
+                  summary: Income category
+                OutOfRange:
+                  value:
+                    amount:
+                    - Ensure this value is greater than or equal to 0.01.
+                    year:
+                    - Ensure this value is greater than or equal to 2000.
+                    month:
+                    - Ensure this value is less than or equal to 12.
+                  summary: Out of range
+          description: Validation failed; nothing was changed. See the examples for
+            typical messages.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '404':
+          description: No such object for the signed-in user. Objects of other users
+            are reported exactly the same way.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NotFound:
+                  value:
+                    detail: No Budget matches the given query.
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+    delete:
+      operationId: budgets_destroy
+      description: Transactions are not affected.
+      summary: Delete a budget
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - Budgets
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: Deleted.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '404':
+          description: No such object for the signed-in user. Objects of other users
+            are reported exactly the same way.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NotFound:
+                  value:
+                    detail: No Budget matches the given query.
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/categories/:
+    get:
+      operationId: categories_list
+      description: All of the user's categories — the 10 system defaults created at
+        registration plus their own — sorted by name. Not paginated. Filter by `type`
+        on the client if needed.
+      summary: List categories
+      tags:
+      - Categories
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Category'
+          description: Every category of the user.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+    post:
+      operationId: categories_create
+      description: Names must be unique per user and type, ignoring letter case (an
+        income and an expense category may share a name).
+      summary: Create a category
+      tags:
+      - Categories
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryRequest'
+            examples:
+              CustomExpenseCategory:
+                value:
+                  name: Gym
+                  type: expense
+                  color: '#16A34A'
+                  icon: dumbbell
+                summary: Custom expense category
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CategoryRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CategoryRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+              examples:
+                Created:
+                  value:
+                    id: 206
+                    name: Gym
+                    type: expense
+                    color: '#16A34A'
+                    icon: dumbbell
+                    is_system: false
+                    created_at: '2026-09-26T09:49:56.163778Z'
+                    updated_at: '2026-09-26T09:49:56.163806Z'
+          description: Created.
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                DuplicateName:
+                  value:
+                    name:
+                    - You already have a category with this name and type.
+                  summary: Duplicate name
+                InvalidColour:
+                  value:
+                    color:
+                    - 'Color must be a hex code, e.g. #6366F1.'
+                  summary: Invalid colour
+                InvalidType:
+                  value:
+                    type:
+                    - '"other" is not a valid choice.'
+                  summary: Invalid type
+                MissingFields:
+                  value:
+                    name:
+                    - This field is required.
+                    type:
+                    - This field is required.
+                  summary: Missing fields
+          description: Validation failed; nothing was changed. See the examples for
+            typical messages.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/categories/{id}/:
+    get:
+      operationId: categories_retrieve
+      summary: Get a category
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - Categories
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+          description: ''
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '404':
+          description: No such object for the signed-in user. Objects of other users
+            are reported exactly the same way.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NotFound:
+                  value:
+                    detail: No Category matches the given query.
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+    patch:
+      operationId: categories_partial_update
+      description: |-
+        Changes any subset of `name`, `type`, `color`, `icon`. System categories are read-only (`403`).
+
+        **Caution:** changing `type` does not touch the category's existing transactions — they keep their own `type`, and can't be edited again until the types match. Create a new category instead of switching the type of one that is in use.
+      summary: Update a category
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - Categories
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCategoryRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedCategoryRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedCategoryRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                DuplicateName:
+                  value:
+                    name:
+                    - You already have a category with this name and type.
+                  summary: Duplicate name
+                InvalidColour:
+                  value:
+                    color:
+                    - 'Color must be a hex code, e.g. #6366F1.'
+                  summary: Invalid colour
+                InvalidType:
+                  value:
+                    type:
+                    - '"other" is not a valid choice.'
+                  summary: Invalid type
+                MissingFields:
+                  value:
+                    name:
+                    - This field is required.
+                    type:
+                    - This field is required.
+                  summary: Missing fields
+          description: Validation failed; nothing was changed. See the examples for
+            typical messages.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                SystemCategory:
+                  value:
+                    detail: You do not have permission to perform this action.
+                  summary: System category
+          description: System (default) categories can't be changed or deleted.
+        '404':
+          description: No such object for the signed-in user. Objects of other users
+            are reported exactly the same way.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NotFound:
+                  value:
+                    detail: No Category matches the given query.
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+    delete:
+      operationId: categories_destroy
+      description: Only custom categories that no transaction or recurring transaction
+        uses can be deleted. Budgets of the category are deleted with it.
+      summary: Delete a category
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - Categories
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: Deleted.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                SystemCategory:
+                  value:
+                    detail: You do not have permission to perform this action.
+                  summary: System category
+          description: System (default) categories can't be changed or deleted.
+        '404':
+          description: No such object for the signed-in user. Objects of other users
+            are reported exactly the same way.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NotFound:
+                  value:
+                    detail: No Category matches the given query.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                InUse:
+                  value:
+                    detail: This category is used by existing transactions and cannot
+                      be deleted.
+                  summary: In use
+          description: The category is still used by transactions or recurring transactions.
+            Move or delete those first.
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/devices/:
+    get:
+      operationId: devices_list
+      description: |-
+        The user's registered app installations, most recently seen first. Not paginated.
+
+        **Mobile only** — the web client never registers a device. Delivery goes through the Expo push service.
+
+        Every push carries `data` with `kind`, `notification_id` and the `screen` to open on tap:
+
+        | `kind` | Sent when | At most once per | `data.screen` |
+        |---|---|---|---|
+        | `budget_warning` | An expense or budget change brings a budget to ≥ 80 % (and ≤ 100 %) | budget | `budgets` |
+        | `budget_exceeded` | … above 100 % (the warning is skipped if both happen at once) | budget | `budgets` |
+        | `recurring_due` | An active recurring expense is due within `recurring_reminder_days` | recurring item + date | `recurring` |
+        | `insight` | An `alert` insight other than a budget one (e.g. `overspending`) | insight + month | `dashboard` |
+
+        Devices that haven't re-registered for longer than the refresh-token lifetime (7 days) are not sent to.
+      summary: List push devices
+      tags:
+      - Notifications
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Device'
+          description: ''
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+    post:
+      operationId: devices_create
+      description: Call on every signed-in app start (after the OS granted notification
+        permission). **Idempotent on the token:** an already registered token is updated
+        (`200`) — refreshing `last_seen_at` and re-activating it — instead of creating
+        a duplicate. A token registered by another account moves to the caller (same
+        phone, different user).
+      summary: Register this device for push
+      tags:
+      - Notifications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceRequest'
+            examples:
+              Register:
+                value:
+                  expo_push_token: ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]
+                  platform: android
+                  name: Pixel 8
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DeviceRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DeviceRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+          description: 'Token already known: updated.'
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+              examples:
+                Registered:
+                  value:
+                    id: 4
+                    expo_push_token: ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]
+                    platform: android
+                    name: Pixel 8
+                    is_active: true
+                    last_seen_at: '2026-09-26T09:50:01.957921Z'
+                    created_at: '2026-09-26T09:50:01.993330Z'
+          description: New device registered.
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                InvalidToken:
+                  value:
+                    expo_push_token:
+                    - Not a valid Expo push token.
+                  summary: Invalid token
+                UnknownPlatform:
+                  value:
+                    platform:
+                    - '"windows" is not a valid choice.'
+                  summary: Unknown platform
+          description: Validation failed; nothing was changed. See the examples for
+            typical messages.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/devices/{id}/:
+    delete:
+      operationId: devices_destroy
+      description: Stops push to that installation. The app calls it on logout and
+        when push is switched off.
+      summary: Unregister a device
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - Notifications
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: Removed.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '404':
+          description: No such object for the signed-in user. Objects of other users
+            are reported exactly the same way.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NotFound:
+                  value:
+                    detail: No Device matches the given query.
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/health/:
+    get:
+      operationId: health_retrieve
+      description: Answers `200` whenever the process can serve HTTP. Checks no dependencies,
+        so a database outage never makes an orchestrator restart healthy containers.
+        Public, unthrottled, exempt from the HTTPS redirect.
+      summary: Liveness probe
+      tags:
+      - Health
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Liveness'
+          description: ''
+  /api/health/ready/:
+    get:
+      operationId: health_ready_retrieve
+      description: Checks everything a normal request needs (database, cache). Route
+        traffic here only while it answers `200`. The reason for a failure is written
+        to the server log, never to the response.
+      summary: Readiness probe
+      tags:
+      - Health
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Readiness'
+          description: Ready to serve traffic.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Readiness'
+              examples:
+                DatabaseDown:
+                  value:
+                    status: error
+                    checks:
+                      database: error
+                      cache: error
+                  summary: Database down
+          description: At least one dependency failed.
+  /api/notifications/preferences/:
+    get:
+      operationId: notifications_preferences_retrieve
+      description: Which push notifications the user wants; applies to all of their
+        devices. Created with the defaults (everything on, reminders 2 days ahead)
+        on first access.
+      summary: Get notification preferences
+      tags:
+      - Notifications
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPreference'
+              examples:
+                Defaults:
+                  value:
+                    budget_warnings: true
+                    budget_exceeded: true
+                    recurring_reminders: true
+                    insights: true
+                    recurring_reminder_days: 2
+                    updated_at: '2026-09-26T09:49:57.384766Z'
+          description: ''
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+    patch:
+      operationId: notifications_preferences_partial_update
+      description: Changes any subset of the switches.
+      summary: Update notification preferences
+      tags:
+      - Notifications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedNotificationPreferenceRequest'
+            examples:
+              TurnOffInsights:
+                value:
+                  insights: false
+                summary: Turn off insights
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedNotificationPreferenceRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedNotificationPreferenceRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPreference'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                OutOfRange:
+                  value:
+                    recurring_reminder_days:
+                    - Ensure this value is less than or equal to 7.
+                  summary: Out of range
+                NotABoolean:
+                  value:
+                    insights:
+                    - Must be a valid boolean.
+                  summary: Not a boolean
+          description: Validation failed; nothing was changed. See the examples for
+            typical messages.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/receipts/scan/:
+    post:
+      operationId: receipts_scan_create
+      description: |-
+        Reads a receipt photo with OCR (English and Hungarian) and **suggests** the merchant, total, date and an expense category. Nothing is saved: show the suggestions to the user, let them confirm or correct them, then create the transaction with `POST /api/transactions/`.
+
+        Each field comes with a confidence; fields that couldn't be read are `null`. The photo is processed in memory and discarded. Limited to 30 scans per hour per user.
+      summary: Scan a receipt photo
+      tags:
+      - Receipt Scanning
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReceiptImageRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReceiptScan'
+              examples:
+                GroceryReceipt:
+                  value:
+                    merchant:
+                      value: SPAR Magyarorszag Kft
+                      confidence: high
+                    amount:
+                      value: '1358.00'
+                      confidence: high
+                    date:
+                      value: '2026-09-20'
+                      confidence: high
+                    category:
+                      id: 2
+                      name: Food
+                      source: rules
+                    text_found: true
+                  summary: Grocery receipt
+                UnreadablePhoto:
+                  value:
+                    merchant:
+                      value: null
+                      confidence: low
+                    amount:
+                      value: null
+                      confidence: low
+                    date:
+                      value: null
+                      confidence: low
+                    category: null
+                    text_found: false
+                  summary: Unreadable photo
+          description: Suggestions (possibly partial).
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                NoImage:
+                  value:
+                    image:
+                    - This field is required.
+                  summary: No image
+                NotAnImage:
+                  value:
+                    image:
+                    - The file is not a readable image.
+                  summary: Not an image
+                UnsupportedFormat:
+                  value:
+                    image:
+                    - Please upload a JPEG or PNG photo.
+                  summary: Unsupported format
+                ResolutionTooHigh:
+                  value:
+                    image:
+                    - The photo's resolution is too high.
+                  summary: Resolution too high
+          description: Validation failed; nothing was changed. See the examples for
+            typical messages.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                TooLarge:
+                  value:
+                    image:
+                    - The photo is too large (max 10 MB).
+                  summary: Too large
+          description: The upload is larger than 10 MB.
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          description: Rate limit exceeded (30 scans per hour per user). Retry after
+            the number of seconds in `Retry-After`.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                OCRDown:
+                  value:
+                    detail: Receipt scanning is temporarily unavailable. Please add
+                      the transaction manually.
+                  summary: OCR down
+          description: The OCR engine is unavailable. Let the user enter the transaction
+            manually.
+  /api/recurring-transactions/:
+    get:
+      operationId: recurring_transactions_list
+      description: |-
+        A recurring transaction is a **template** for a repeating payment or income (rent, salary, subscriptions). It currently powers the upcoming-payment push reminders and the *recurring share* insight; it does **not** create transactions automatically yet — record each actual payment as a normal transaction.
+
+        Not paginated; sorted by `next_occurrence_date`.
+      summary: List recurring transactions
+      tags:
+      - Recurring Transactions
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RecurringTransaction'
+          description: ''
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+    post:
+      operationId: recurring_transactions_create
+      description: |-
+        A recurring transaction is a **template** for a repeating payment or income (rent, salary, subscriptions). It currently powers the upcoming-payment push reminders and the *recurring share* insight; it does **not** create transactions automatically yet — record each actual payment as a normal transaction.
+
+        `next_occurrence_date` starts at `start_date`.
+      summary: Create a recurring transaction
+      tags:
+      - Recurring Transactions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecurringTransactionRequest'
+            examples:
+              MonthlyGymMembership:
+                value:
+                  name: Gym membership
+                  category: 206
+                  type: expense
+                  amount: '45.90'
+                  frequency: monthly
+                  start_date: '2026-10-01'
+                summary: Monthly gym membership
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RecurringTransactionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RecurringTransactionRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecurringTransaction'
+              examples:
+                Created:
+                  value:
+                    id: 13
+                    name: Gym membership
+                    category: 206
+                    type: expense
+                    amount: '45.90'
+                    frequency: monthly
+                    start_date: '2026-10-01'
+                    end_date: null
+                    next_occurrence_date: '2026-10-01'
+                    is_active: true
+                    description: ''
+                    created_at: '2026-09-26T09:50:00.589170Z'
+                    updated_at: '2026-09-26T09:50:00.589195Z'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                EndBeforeStart:
+                  value:
+                    end_date:
+                    - End date must be on or after the start date.
+                  summary: End before start
+                TypeDiffersFromCategory:
+                  value:
+                    type:
+                    - Recurring transaction type must match the selected category's
+                      type.
+                  summary: Type differs from category
+                UnknownFrequency:
+                  value:
+                    frequency:
+                    - '"daily" is not a valid choice.'
+                  summary: Unknown frequency
+                MissingFields:
+                  value:
+                    name:
+                    - This field is required.
+                    start_date:
+                    - This field is required.
+                  summary: Missing fields
+          description: Validation failed; nothing was changed. See the examples for
+            typical messages.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/recurring-transactions/{id}/:
+    get:
+      operationId: recurring_transactions_retrieve
+      summary: Get a recurring transaction
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - Recurring Transactions
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecurringTransaction'
+          description: ''
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '404':
+          description: No such object for the signed-in user. Objects of other users
+            are reported exactly the same way.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NotFound:
+                  value:
+                    detail: No RecurringTransaction matches the given query.
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+    patch:
+      operationId: recurring_transactions_partial_update
+      description: Changes any subset of fields. Changing `start_date` resets `next_occurrence_date`
+        to it. Set `is_active` to `false` to pause reminders without deleting the
+        template.
+      summary: Update a recurring transaction
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - Recurring Transactions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedRecurringTransactionRequest'
+            examples:
+              Pause:
+                value:
+                  is_active: false
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedRecurringTransactionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedRecurringTransactionRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecurringTransaction'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                EndBeforeStart:
+                  value:
+                    end_date:
+                    - End date must be on or after the start date.
+                  summary: End before start
+                TypeDiffersFromCategory:
+                  value:
+                    type:
+                    - Recurring transaction type must match the selected category's
+                      type.
+                  summary: Type differs from category
+                UnknownFrequency:
+                  value:
+                    frequency:
+                    - '"daily" is not a valid choice.'
+                  summary: Unknown frequency
+                MissingFields:
+                  value:
+                    name:
+                    - This field is required.
+                    start_date:
+                    - This field is required.
+                  summary: Missing fields
+          description: Validation failed; nothing was changed. See the examples for
+            typical messages.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '404':
+          description: No such object for the signed-in user. Objects of other users
+            are reported exactly the same way.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NotFound:
+                  value:
+                    detail: No RecurringTransaction matches the given query.
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+    delete:
+      operationId: recurring_transactions_destroy
+      description: Transactions recorded earlier are kept.
+      summary: Delete a recurring transaction
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - Recurring Transactions
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: Deleted.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '404':
+          description: No such object for the signed-in user. Objects of other users
+            are reported exactly the same way.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NotFound:
+                  value:
+                    detail: No RecurringTransaction matches the given query.
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/transactions/:
+    get:
+      operationId: transactions_list
+      description: The user's transactions, newest first, **paginated** (`count`,
+        `next`, `previous`, `results`). All filters can be combined; `date_from` +
+        `date_to` give a date range.
+      summary: List transactions
+      parameters:
+      - in: query
+        name: category
+        schema:
+          type: integer
+        description: Category id; must be one of the user's categories.
+      - in: query
+        name: category_name
+        schema:
+          type: string
+        description: Category name, exact match ignoring case (e.g. `food`).
+      - in: query
+        name: date_from
+        schema:
+          type: string
+          format: date
+        description: Only transactions on or after this date.
+      - in: query
+        name: date_to
+        schema:
+          type: string
+          format: date
+        description: Only transactions on or before this date.
+      - in: query
+        name: ordering
+        schema:
+          type: string
+        description: 'Sort by `date`, `amount` or `created_at`; prefix `-` for descending,
+          comma-separate for several (`-amount,date`). Default: `-date,-created_at`
+          (newest first). Unknown fields are ignored.'
+      - in: query
+        name: page
+        schema:
+          type: integer
+        description: Page number, starting at 1.
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+        description: Results per page. Default 20, max 100.
+      - in: query
+        name: search
+        schema:
+          type: string
+        description: Case-insensitive substring of `description`.
+      - in: query
+        name: type
+        schema:
+          type: string
+          enum:
+          - expense
+          - income
+        description: Only income or only expense transactions.
+      tags:
+      - Transactions
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedTransactionList'
+          description: One page of transactions.
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                InvalidFilters:
+                  value:
+                    type:
+                    - Select a valid choice. foo is not one of the available choices.
+                    category:
+                    - Select a valid choice. That choice is not one of the available
+                      choices.
+                    date_from:
+                    - Enter a valid date.
+                  summary: Invalid filters
+          description: A filter value is invalid.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                PastTheEnd:
+                  value:
+                    detail: Invalid page.
+                  summary: Past the end
+          description: '`page` is past the last page.'
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+    post:
+      operationId: transactions_create
+      description: |-
+        `type` must equal the category's type; `amount` is positive with at most 2 decimals.
+
+        **Idempotency:** send a `client_id` (UUID, generated once per transaction) to make retries safe. If a transaction with the same `client_id` already exists, it is returned with `200` and nothing new is created — the body of the retry is ignored.
+
+        Creating an expense re-checks the month's budgets and may send a budget push notification.
+      summary: Create a transaction
+      tags:
+      - Transactions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionRequest'
+            examples:
+              Expense:
+                value:
+                  amount: '45.90'
+                  type: expense
+                  category: 206
+                  description: Monthly gym pass
+                  date: '2026-09-12'
+              Offline-safe(withClientId):
+                value:
+                  amount: '2500.00'
+                  type: income
+                  category: 9
+                  description: Salary
+                  date: '2026-09-01'
+                  client_id: 3f2b7c1e-8a4d-4f6b-9c2e-1d5a7b9e0f13
+                summary: Offline-safe (with client_id)
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TransactionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TransactionRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+          description: 'Replay of an already stored `client_id`: the existing transaction.'
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+              examples:
+                Created:
+                  value:
+                    id: 116
+                    amount: '45.90'
+                    type: expense
+                    category: 206
+                    description: Monthly gym pass
+                    date: '2026-09-12'
+                    client_id: null
+                    created_at: '2026-09-26T09:49:57.360831Z'
+                    updated_at: '2026-09-26T09:49:57.360857Z'
+          description: Created.
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                TypeDiffersFromCategory:
+                  value:
+                    type:
+                    - Transaction type must match the selected category's type.
+                  summary: Type differs from category
+                AmountTooSmall:
+                  value:
+                    amount:
+                    - Ensure this value is greater than or equal to 0.01.
+                  summary: Amount too small
+                TooManyDecimals:
+                  value:
+                    amount:
+                    - Ensure that there are no more than 2 decimal places.
+                  summary: Too many decimals
+                UnknownOrForeignCategory:
+                  value:
+                    category:
+                    - Invalid pk "999999" - object does not exist.
+                  summary: Unknown or foreign category
+                BadDate:
+                  value:
+                    date:
+                    - 'Date has wrong format. Use one of these formats instead: YYYY-MM-DD.'
+                  summary: Bad date
+                BadClientId:
+                  value:
+                    client_id:
+                    - Must be a valid UUID.
+                  summary: Bad client_id
+                MissingFields:
+                  value:
+                    category:
+                    - This field is required.
+                    date:
+                    - This field is required.
+                  summary: Missing fields
+          description: Validation failed; nothing was changed. See the examples for
+            typical messages.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/transactions/{id}/:
+    get:
+      operationId: transactions_retrieve
+      summary: Get a transaction
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - Transactions
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+          description: ''
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '404':
+          description: No such object for the signed-in user. Objects of other users
+            are reported exactly the same way.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NotFound:
+                  value:
+                    detail: No Transaction matches the given query.
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+    put:
+      operationId: transactions_update
+      description: 'Full update: send every writable field. `client_id` can''t be
+        changed after creation and is ignored.'
+      summary: Replace a transaction
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - Transactions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TransactionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TransactionRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                TypeDiffersFromCategory:
+                  value:
+                    type:
+                    - Transaction type must match the selected category's type.
+                  summary: Type differs from category
+                AmountTooSmall:
+                  value:
+                    amount:
+                    - Ensure this value is greater than or equal to 0.01.
+                  summary: Amount too small
+                TooManyDecimals:
+                  value:
+                    amount:
+                    - Ensure that there are no more than 2 decimal places.
+                  summary: Too many decimals
+                UnknownOrForeignCategory:
+                  value:
+                    category:
+                    - Invalid pk "999999" - object does not exist.
+                  summary: Unknown or foreign category
+                BadDate:
+                  value:
+                    date:
+                    - 'Date has wrong format. Use one of these formats instead: YYYY-MM-DD.'
+                  summary: Bad date
+                BadClientId:
+                  value:
+                    client_id:
+                    - Must be a valid UUID.
+                  summary: Bad client_id
+                MissingFields:
+                  value:
+                    category:
+                    - This field is required.
+                    date:
+                    - This field is required.
+                  summary: Missing fields
+          description: Validation failed; nothing was changed. See the examples for
+            typical messages.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '404':
+          description: No such object for the signed-in user. Objects of other users
+            are reported exactly the same way.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NotFound:
+                  value:
+                    detail: No Transaction matches the given query.
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+    patch:
+      operationId: transactions_partial_update
+      description: Changes any subset of fields. The type/category rule is checked
+        against the resulting transaction, so changing both at once works. `client_id`
+        is ignored.
+      summary: Update a transaction
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - Transactions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedTransactionRequest'
+            examples:
+              FixTheAmount:
+                value:
+                  amount: '49.90'
+                summary: Fix the amount
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedTransactionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedTransactionRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                TypeDiffersFromCategory:
+                  value:
+                    type:
+                    - Transaction type must match the selected category's type.
+                  summary: Type differs from category
+                AmountTooSmall:
+                  value:
+                    amount:
+                    - Ensure this value is greater than or equal to 0.01.
+                  summary: Amount too small
+                TooManyDecimals:
+                  value:
+                    amount:
+                    - Ensure that there are no more than 2 decimal places.
+                  summary: Too many decimals
+                UnknownOrForeignCategory:
+                  value:
+                    category:
+                    - Invalid pk "999999" - object does not exist.
+                  summary: Unknown or foreign category
+                BadDate:
+                  value:
+                    date:
+                    - 'Date has wrong format. Use one of these formats instead: YYYY-MM-DD.'
+                  summary: Bad date
+                BadClientId:
+                  value:
+                    client_id:
+                    - Must be a valid UUID.
+                  summary: Bad client_id
+                MissingFields:
+                  value:
+                    category:
+                    - This field is required.
+                    date:
+                    - This field is required.
+                  summary: Missing fields
+          description: Validation failed; nothing was changed. See the examples for
+            typical messages.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '404':
+          description: No such object for the signed-in user. Objects of other users
+            are reported exactly the same way.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NotFound:
+                  value:
+                    detail: No Transaction matches the given query.
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+    delete:
+      operationId: transactions_destroy
+      summary: Delete a transaction
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - Transactions
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: Deleted.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '404':
+          description: No such object for the signed-in user. Objects of other users
+            are reported exactly the same way.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NotFound:
+                  value:
+                    detail: No Transaction matches the given query.
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/transactions/import/:
+    post:
+      operationId: transactions_import_create
+      description: |-
+        Creates transactions from a bank-export style CSV file (`multipart/form-data`, field `file`).
+
+        **Format** — a header row with (at least) these columns, in any order and letter case; other columns are ignored:
+
+        ```csv
+        date,description,amount
+        2026-09-03,Tesco groceries,-23.40
+        03/09/2026,Salary,"2,500.00"
+        ```
+
+        | Column | Rules |
+        |---|---|
+        | `date` | `YYYY-MM-DD` or `DD/MM/YYYY` |
+        | `amount` | Signed decimal with a **dot** as decimal separator. Negative = expense, positive = income, zero is rejected. Thousands separators (`,` and spaces) and `€ $ £` are removed. |
+        | `description` | Free text, max 255 characters. Also used to pick the category. |
+
+        **Category detection:** keyword rules on the description map each row to one of the user's categories
+        (e.g. *Tesco* → Food, *Salary* → Salary). Unmatched expenses go to **Other**; unmatched income rows fail.
+
+        **Duplicates:** a row with the same date, amount and description (ignoring case) as an existing
+        transaction — or an earlier row of the same file — is `skipped`.
+
+        **Outcome:** row problems don't stop the import: every valid row is saved and every other row is
+        reported in `details` (status `200` even if some rows failed). Problems with the file itself (not CSV,
+        missing columns, too many rows, empty, binary, unreadable encoding) reject the whole upload with `400`
+        and nothing is saved. UTF-8 (with or without BOM) and Latin-1 are accepted.
+
+        Imported expenses re-check the affected months' budgets (push notifications as usual).
+      summary: Import transactions from CSV
+      tags:
+      - CSV Import
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CsvImportRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CsvImportResult'
+              examples:
+                MixedResult:
+                  value:
+                    imported: 2
+                    skipped: 1
+                    failed: 2
+                    details:
+                    - row: 4
+                      status: failed
+                      reason: Could not detect a category for 'Mystery income'.
+                    - row: 5
+                      status: failed
+                      reason: Unrecognized amount 'abc'.
+                    - row: 6
+                      status: skipped
+                      reason: Duplicate of an existing transaction.
+                  summary: Mixed result
+          description: Import finished (possibly with skipped or failed rows).
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                NoFile:
+                  value:
+                    file:
+                    - This field is required.
+                  summary: No file
+                NotA.csvFile:
+                  value:
+                    file:
+                    - Please upload a .csv file.
+                  summary: Not a .csv file
+                MissingColumns:
+                  value:
+                    file:
+                    - 'Missing required column(s): amount, date, description.'
+                  summary: Missing columns
+                TooManyRows:
+                  value:
+                    file:
+                    - Too many rows — at most 5000 per import.
+                  summary: Too many rows
+                EmptyFile:
+                  value:
+                    file:
+                    - The uploaded file is empty.
+                  summary: Empty file
+                BinaryFile:
+                  value:
+                    file:
+                    - This doesn't look like a CSV file (it contains binary data).
+                  summary: Binary file
+          description: The file as a whole was rejected; nothing was imported.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                TooLarge:
+                  value:
+                    file:
+                    - The file is too large (max 2 MB).
+                  summary: Too large
+          description: The upload is larger than 2 MB.
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+components:
+  schemas:
+    Budget:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        category:
+          type: integer
+          nullable: true
+          description: Expense category id, or `null` for the overall budget of all
+            expenses.
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          description: 'Monthly limit: positive, max 2 decimals.'
+        year:
+          type: integer
+          maximum: 2100
+          minimum: 2000
+          description: 2000–2100.
+        month:
+          type: integer
+          maximum: 12
+          minimum: 1
+          description: 1–12.
+        spent_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          readOnly: true
+          description: Expenses counted against this budget so far.
+        remaining_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          readOnly: true
+          description: '`amount - spent_amount`; negative when over budget.'
+        usage_percentage:
+          type: number
+          format: double
+          readOnly: true
+          description: '`spent_amount / amount × 100`, rounded to 2 decimals; above
+            100 when over budget.'
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - amount
+      - created_at
+      - id
+      - month
+      - remaining_amount
+      - spent_amount
+      - updated_at
+      - usage_percentage
+      - year
+    BudgetRequest:
+      type: object
+      properties:
+        category:
+          type: integer
+          nullable: true
+          description: Expense category id, or `null` for the overall budget of all
+            expenses.
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          description: 'Monthly limit: positive, max 2 decimals.'
+        year:
+          type: integer
+          maximum: 2100
+          minimum: 2000
+          description: 2000–2100.
+        month:
+          type: integer
+          maximum: 12
+          minimum: 1
+          description: 1–12.
+      required:
+      - amount
+      - month
+      - year
+    BudgetUsage:
+      type: object
+      properties:
+        budget_id:
+          type: integer
+        category_id:
+          type: integer
+          nullable: true
+          description: '`null` for the overall budget.'
+        category_name:
+          type: string
+          description: The category name, or `"Overall"`.
+        budget_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          description: The monthly limit.
+        spent_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          description: Spent so far this month.
+        remaining_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          description: Negative when over budget.
+        usage_percentage:
+          type: number
+          format: double
+          description: '`spent / budget × 100`; above 100 when over budget.'
+      required:
+      - budget_amount
+      - budget_id
+      - category_id
+      - category_name
+      - remaining_amount
+      - spent_amount
+      - usage_percentage
+    Category:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          description: Unique per user and type, ignoring letter case.
+          maxLength: 100
+        type:
+          allOf:
+          - $ref: '#/components/schemas/TransactionTypeEnum'
+          description: |-
+            Transactions in this category must have the same type.
+
+            * `income` - Income
+            * `expense` - Expense
+        color:
+          type: string
+          description: Hex colour `#RRGGBB`, used in charts. Default `#6366F1`.
+          pattern: ^#[0-9A-Fa-f]{6}$
+          maxLength: 7
+        icon:
+          type: string
+          description: Optional icon name for the clients.
+          maxLength: 50
+        is_system:
+          type: boolean
+          readOnly: true
+          description: 'True for the 10 defaults created at registration: they can''t
+            be changed or deleted.'
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - is_system
+      - name
+      - type
+      - updated_at
+    CategoryAnalytics:
+      type: object
+      properties:
+        year:
+          type: integer
+        month:
+          type: integer
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryShare'
+          description: Expense categories with spending, largest first.
+      required:
+      - categories
+      - month
+      - year
+    CategoryRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          description: Unique per user and type, ignoring letter case.
+          maxLength: 100
+        type:
+          allOf:
+          - $ref: '#/components/schemas/TransactionTypeEnum'
+          description: |-
+            Transactions in this category must have the same type.
+
+            * `income` - Income
+            * `expense` - Expense
+        color:
+          type: string
+          minLength: 1
+          description: Hex colour `#RRGGBB`, used in charts. Default `#6366F1`.
+          pattern: ^#[0-9A-Fa-f]{6}$
+          maxLength: 7
+        icon:
+          type: string
+          description: Optional icon name for the clients.
+          maxLength: 50
+      required:
+      - name
+      - type
+    CategoryShare:
+      type: object
+      properties:
+        category_id:
+          type: integer
+        category_name:
+          type: string
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          description: Spent in this category.
+        percentage:
+          type: number
+          format: double
+          description: Share of the month's total expenses, 0–100.
+      required:
+      - amount
+      - category_id
+      - category_name
+      - percentage
+    Comparison:
+      type: object
+      properties:
+        current_month:
+          $ref: '#/components/schemas/MonthSummary'
+        previous_month:
+          $ref: '#/components/schemas/MonthSummary'
+        difference:
+          allOf:
+          - $ref: '#/components/schemas/ComparisonValues'
+          description: Absolute change, current minus previous.
+        percentage_difference:
+          allOf:
+          - $ref: '#/components/schemas/ComparisonPercentages'
+          description: Change relative to the previous month; `null` where the previous
+            value was 0.
+      required:
+      - current_month
+      - difference
+      - percentage_difference
+      - previous_month
+    ComparisonPercentages:
+      type: object
+      properties:
+        total_income:
+          type: number
+          format: double
+          nullable: true
+        total_expenses:
+          type: number
+          format: double
+          nullable: true
+        balance:
+          type: number
+          format: double
+          nullable: true
+      required:
+      - balance
+      - total_expenses
+      - total_income
+    ComparisonValues:
+      type: object
+      properties:
+        total_income:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          description: Current minus previous month.
+        total_expenses:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          description: Current minus previous month.
+        balance:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          description: Current minus previous month.
+      required:
+      - balance
+      - total_expenses
+      - total_income
+    CsvImportRequest:
+      type: object
+      properties:
+        file:
+          type: string
+          format: binary
+          description: The `.csv` file (max 2 MB, 5000 data rows).
+      required:
+      - file
+    CsvImportResult:
+      type: object
+      properties:
+        imported:
+          type: integer
+          description: Transactions created.
+        skipped:
+          type: integer
+          description: Rows ignored as duplicates.
+        failed:
+          type: integer
+          description: Rows that couldn't be imported.
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImportRowResult'
+          description: One entry per skipped or failed row, in file order. Imported
+            rows aren't listed.
+      required:
+      - details
+      - failed
+      - imported
+      - skipped
+    Dashboard:
+      type: object
+      properties:
+        year:
+          type: integer
+        month:
+          type: integer
+        total_income:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          description: Sum of income transactions.
+        total_expenses:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          description: Sum of expense transactions.
+        balance:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          description: '`total_income - total_expenses`; negative when overspent.'
+        transaction_count:
+          type: integer
+        top_spending_category:
+          allOf:
+          - $ref: '#/components/schemas/TopCategory'
+          nullable: true
+          description: The expense category with the highest total; `null` without
+            expenses.
+        budget_usage:
+          type: array
+          items:
+            $ref: '#/components/schemas/BudgetUsage'
+          description: Every budget of the month.
+      required:
+      - balance
+      - budget_usage
+      - month
+      - top_spending_category
+      - total_expenses
+      - total_income
+      - transaction_count
+      - year
+    Device:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        expo_push_token:
+          type: string
+          description: From `Notifications.getExpoPushTokenAsync()`, e.g. `ExponentPushToken[…]`.
+          maxLength: 255
+        platform:
+          allOf:
+          - $ref: '#/components/schemas/DevicePlatformEnum'
+          description: |-
+            `ios` or `android`.
+
+            * `ios` - iOS
+            * `android` - Android
+        name:
+          type: string
+          description: Optional label shown to the user, e.g. the phone model.
+          maxLength: 100
+        is_active:
+          type: boolean
+          readOnly: true
+          description: False once Expo reported the token as no longer registered.
+        last_seen_at:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Last registration from this device (every signed-in app start).
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - expo_push_token
+      - id
+      - is_active
+      - last_seen_at
+      - platform
+    DevicePlatformEnum:
+      enum:
+      - ios
+      - android
+      type: string
+      description: |-
+        * `ios` - iOS
+        * `android` - Android
+    DeviceRequest:
+      type: object
+      properties:
+        expo_push_token:
+          type: string
+          minLength: 1
+          description: From `Notifications.getExpoPushTokenAsync()`, e.g. `ExponentPushToken[…]`.
+          maxLength: 255
+        platform:
+          allOf:
+          - $ref: '#/components/schemas/DevicePlatformEnum'
+          description: |-
+            `ios` or `android`.
+
+            * `ios` - iOS
+            * `android` - Android
+        name:
+          type: string
+          description: Optional label shown to the user, e.g. the phone model.
+          maxLength: 100
+      required:
+      - expo_push_token
+      - platform
+    Error:
+      type: object
+      properties:
+        detail:
+          type: string
+          description: Human-readable message; safe to show to the user.
+        code:
+          type: string
+          description: Machine-readable reason, e.g. `token_not_valid` for a bad or
+            expired JWT.
+        messages:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          description: 'JWT errors only: why each token type rejected the token.'
+      required:
+      - detail
+    FrequencyEnum:
+      enum:
+      - weekly
+      - monthly
+      - yearly
+      type: string
+      description: |-
+        * `weekly` - Weekly
+        * `monthly` - Monthly
+        * `yearly` - Yearly
+    HealthStatusEnum:
+      enum:
+      - ok
+      - error
+      type: string
+      description: |-
+        * `ok` - ok
+        * `error` - error
+    ImportRowResult:
+      type: object
+      properties:
+        row:
+          type: integer
+          description: Line number in the file; the header is line 1.
+        status:
+          allOf:
+          - $ref: '#/components/schemas/ImportRowStatusEnum'
+          description: |-
+            `skipped`: duplicate, not an error. `failed`: the row couldn't be imported (see `reason`).
+
+            * `skipped` - skipped
+            * `failed` - failed
+        reason:
+          type: string
+          description: Human-readable explanation, safe to show.
+      required:
+      - reason
+      - row
+      - status
+    ImportRowStatusEnum:
+      enum:
+      - skipped
+      - failed
+      type: string
+      description: |-
+        * `skipped` - skipped
+        * `failed` - failed
+    Insight:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Stable id of this observation (e.g. `budget_exceeded:21`);
+            use it as a list key or to remember which insights the user dismissed.
+        type:
+          allOf:
+          - $ref: '#/components/schemas/InsightTypeEnum'
+          description: |-
+            What was observed (see the table above).
+
+            * `top_category` - top_category
+            * `category_increase` - category_increase
+            * `category_decrease` - category_decrease
+            * `budget_exceeded` - budget_exceeded
+            * `budget_warning` - budget_warning
+            * `recurring_share` - recurring_share
+            * `overspending` - overspending
+            * `savings` - savings
+        severity:
+          allOf:
+          - $ref: '#/components/schemas/InsightSeverityEnum'
+          description: |-
+            `alert` > `warning` > `positive` > `info`; the list is sorted by it.
+
+            * `alert` - alert
+            * `warning` - warning
+            * `positive` - positive
+            * `info` - info
+        message:
+          type: string
+          description: English sentence for the user. Contains no currency symbol.
+        category_id:
+          type: integer
+          nullable: true
+          description: The category concerned, if any.
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          nullable: true
+          description: The amount the insight is about (see the table); `null` if
+            none.
+        percentage:
+          type: number
+          format: double
+          nullable: true
+          description: The percentage the insight is about; `null` if none.
+      required:
+      - amount
+      - category_id
+      - id
+      - message
+      - percentage
+      - severity
+      - type
+    InsightList:
+      type: object
+      properties:
+        year:
+          type: integer
+        month:
+          type: integer
+        insights:
+          type: array
+          items:
+            $ref: '#/components/schemas/Insight'
+          description: Most urgent first. Empty when there is nothing to say.
+      required:
+      - insights
+      - month
+      - year
+    InsightSeverityEnum:
+      enum:
+      - alert
+      - warning
+      - positive
+      - info
+      type: string
+      description: |-
+        * `alert` - alert
+        * `warning` - warning
+        * `positive` - positive
+        * `info` - info
+    InsightTypeEnum:
+      enum:
+      - top_category
+      - category_increase
+      - category_decrease
+      - budget_exceeded
+      - budget_warning
+      - recurring_share
+      - overspending
+      - savings
+      type: string
+      description: |-
+        * `top_category` - top_category
+        * `category_increase` - category_increase
+        * `category_decrease` - category_decrease
+        * `budget_exceeded` - budget_exceeded
+        * `budget_warning` - budget_warning
+        * `recurring_share` - recurring_share
+        * `overspending` - overspending
+        * `savings` - savings
+    Liveness:
+      type: object
+      properties:
+        status:
+          allOf:
+          - $ref: '#/components/schemas/HealthStatusEnum'
+          description: |-
+            Always `ok`.
+
+            * `ok` - ok
+            * `error` - error
+      required:
+      - status
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+          description: Case-insensitive.
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - email
+      - password
+    Message:
+      type: object
+      properties:
+        detail:
+          type: string
+          description: Confirmation message.
+      required:
+      - detail
+    MonthSummary:
+      type: object
+      properties:
+        year:
+          type: integer
+        month:
+          type: integer
+        total_income:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          description: Sum of income transactions.
+        total_expenses:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          description: Sum of expense transactions.
+        balance:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          description: '`total_income - total_expenses`; negative when overspent.'
+        transaction_count:
+          type: integer
+      required:
+      - balance
+      - month
+      - total_expenses
+      - total_income
+      - transaction_count
+      - year
+    MonthlyAnalytics:
+      type: object
+      properties:
+        year:
+          type: integer
+        months:
+          type: array
+          items:
+            $ref: '#/components/schemas/MonthlyEntry'
+          description: Always 12 entries, January first; empty months are zero.
+      required:
+      - months
+      - year
+    MonthlyEntry:
+      type: object
+      properties:
+        month:
+          type: integer
+          description: 1–12.
+        month_name:
+          type: string
+          description: English month name.
+        income:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          description: Income that month.
+        expenses:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          description: Expenses that month.
+        balance:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          description: '`income - expenses`.'
+      required:
+      - balance
+      - expenses
+      - income
+      - month
+      - month_name
+    NotificationPreference:
+      type: object
+      properties:
+        budget_warnings:
+          type: boolean
+          description: Push when a budget reaches 80 %.
+        budget_exceeded:
+          type: boolean
+          description: Push when a budget is exceeded.
+        recurring_reminders:
+          type: boolean
+          description: Push before an active recurring expense is due.
+        insights:
+          type: boolean
+          description: Push for important (alert) insights such as overspending.
+        recurring_reminder_days:
+          type: integer
+          maximum: 7
+          minimum: 1
+          description: How many days before a recurring expense to remind (1–7).
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - updated_at
+    OcrConfidenceEnum:
+      enum:
+      - high
+      - low
+      type: string
+      description: |-
+        * `high` - high
+        * `low` - low
+    PaginatedTransactionList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+    PatchedBudgetRequest:
+      type: object
+      properties:
+        category:
+          type: integer
+          nullable: true
+          description: Expense category id, or `null` for the overall budget of all
+            expenses.
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          description: 'Monthly limit: positive, max 2 decimals.'
+        year:
+          type: integer
+          maximum: 2100
+          minimum: 2000
+          description: 2000–2100.
+        month:
+          type: integer
+          maximum: 12
+          minimum: 1
+          description: 1–12.
+    PatchedCategoryRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          description: Unique per user and type, ignoring letter case.
+          maxLength: 100
+        type:
+          allOf:
+          - $ref: '#/components/schemas/TransactionTypeEnum'
+          description: |-
+            Transactions in this category must have the same type.
+
+            * `income` - Income
+            * `expense` - Expense
+        color:
+          type: string
+          minLength: 1
+          description: Hex colour `#RRGGBB`, used in charts. Default `#6366F1`.
+          pattern: ^#[0-9A-Fa-f]{6}$
+          maxLength: 7
+        icon:
+          type: string
+          description: Optional icon name for the clients.
+          maxLength: 50
+    PatchedNotificationPreferenceRequest:
+      type: object
+      properties:
+        budget_warnings:
+          type: boolean
+          description: Push when a budget reaches 80 %.
+        budget_exceeded:
+          type: boolean
+          description: Push when a budget is exceeded.
+        recurring_reminders:
+          type: boolean
+          description: Push before an active recurring expense is due.
+        insights:
+          type: boolean
+          description: Push for important (alert) insights such as overspending.
+        recurring_reminder_days:
+          type: integer
+          maximum: 7
+          minimum: 1
+          description: How many days before a recurring expense to remind (1–7).
+    PatchedRecurringTransactionRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          description: Short label, e.g. `Rent`.
+          maxLength: 100
+        category:
+          type: integer
+          description: Id of one of the user's categories; its type must equal `type`.
+        type:
+          $ref: '#/components/schemas/TransactionTypeEnum'
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          description: 'Amount per occurrence: positive, max 2 decimals.'
+        frequency:
+          allOf:
+          - $ref: '#/components/schemas/FrequencyEnum'
+          description: |-
+            How often it repeats, counted from `start_date`.
+
+            * `weekly` - Weekly
+            * `monthly` - Monthly
+            * `yearly` - Yearly
+        start_date:
+          type: string
+          format: date
+          description: First occurrence.
+        end_date:
+          type: string
+          format: date
+          nullable: true
+          description: Last possible occurrence (inclusive); `null` = no end.
+        is_active:
+          type: boolean
+          description: '`false` pauses reminders and excludes the template from insights.'
+        description:
+          type: string
+          description: Optional free text.
+          maxLength: 255
+    PatchedTransactionRequest:
+      type: object
+      properties:
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          description: Positive, max 2 decimals (decimal string, e.g. `"45.90"`).
+        type:
+          allOf:
+          - $ref: '#/components/schemas/TransactionTypeEnum'
+          description: |-
+            Must equal the category's type.
+
+            * `income` - Income
+            * `expense` - Expense
+        category:
+          type: integer
+          description: Id of one of the user's categories.
+        description:
+          type: string
+          description: Optional free text, max 255 characters.
+          maxLength: 255
+        date:
+          type: string
+          format: date
+          description: Booking date (`YYYY-MM-DD`).
+        client_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Optional idempotency key (UUID) chosen by the client. Only
+            settable on create.
+    Readiness:
+      type: object
+      properties:
+        status:
+          allOf:
+          - $ref: '#/components/schemas/HealthStatusEnum'
+          description: |-
+            `ok` only if every check passed.
+
+            * `ok` - ok
+            * `error` - error
+        checks:
+          $ref: '#/components/schemas/ReadinessChecks'
+      required:
+      - checks
+      - status
+    ReadinessChecks:
+      type: object
+      properties:
+        database:
+          $ref: '#/components/schemas/HealthStatusEnum'
+        cache:
+          allOf:
+          - $ref: '#/components/schemas/HealthStatusEnum'
+          description: |-
+            Holds the rate-limit counters.
+
+            * `ok` - ok
+            * `error` - error
+      required:
+      - cache
+      - database
+    ReceiptImageRequest:
+      type: object
+      properties:
+        image:
+          type: string
+          format: binary
+          description: 'Receipt photo: JPEG, PNG or WebP, max 10 MB. Processed in
+            memory, never stored.'
+      required:
+      - image
+    ReceiptScan:
+      type: object
+      properties:
+        merchant:
+          $ref: '#/components/schemas/ScannedText'
+        amount:
+          $ref: '#/components/schemas/ScannedAmount'
+        date:
+          $ref: '#/components/schemas/ScannedDate'
+        category:
+          allOf:
+          - $ref: '#/components/schemas/SuggestedCategory'
+          nullable: true
+          description: Suggested expense category, if any.
+        text_found:
+          type: boolean
+          description: '`false` if the photo contained no readable text at all.'
+      required:
+      - amount
+      - category
+      - date
+      - merchant
+      - text_found
+    RecurringTransaction:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          description: Short label, e.g. `Rent`.
+          maxLength: 100
+        category:
+          type: integer
+          description: Id of one of the user's categories; its type must equal `type`.
+        type:
+          $ref: '#/components/schemas/TransactionTypeEnum'
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          description: 'Amount per occurrence: positive, max 2 decimals.'
+        frequency:
+          allOf:
+          - $ref: '#/components/schemas/FrequencyEnum'
+          description: |-
+            How often it repeats, counted from `start_date`.
+
+            * `weekly` - Weekly
+            * `monthly` - Monthly
+            * `yearly` - Yearly
+        start_date:
+          type: string
+          format: date
+          description: First occurrence.
+        end_date:
+          type: string
+          format: date
+          nullable: true
+          description: Last possible occurrence (inclusive); `null` = no end.
+        next_occurrence_date:
+          type: string
+          format: date
+          readOnly: true
+          description: 'Scheduling state: starts at `start_date`, reset when `start_date`
+            changes.'
+        is_active:
+          type: boolean
+          description: '`false` pauses reminders and excludes the template from insights.'
+        description:
+          type: string
+          description: Optional free text.
+          maxLength: 255
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - amount
+      - category
+      - created_at
+      - frequency
+      - id
+      - name
+      - next_occurrence_date
+      - start_date
+      - type
+      - updated_at
+    RecurringTransactionRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          description: Short label, e.g. `Rent`.
+          maxLength: 100
+        category:
+          type: integer
+          description: Id of one of the user's categories; its type must equal `type`.
+        type:
+          $ref: '#/components/schemas/TransactionTypeEnum'
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          description: 'Amount per occurrence: positive, max 2 decimals.'
+        frequency:
+          allOf:
+          - $ref: '#/components/schemas/FrequencyEnum'
+          description: |-
+            How often it repeats, counted from `start_date`.
+
+            * `weekly` - Weekly
+            * `monthly` - Monthly
+            * `yearly` - Yearly
+        start_date:
+          type: string
+          format: date
+          description: First occurrence.
+        end_date:
+          type: string
+          format: date
+          nullable: true
+          description: Last possible occurrence (inclusive); `null` = no end.
+        is_active:
+          type: boolean
+          description: '`false` pauses reminders and excludes the template from insights.'
+        description:
+          type: string
+          description: Optional free text.
+          maxLength: 255
+      required:
+      - amount
+      - category
+      - frequency
+      - name
+      - start_date
+      - type
+    RefreshTokenRequest:
+      type: object
+      properties:
+        refresh:
+          type: string
+          minLength: 1
+          description: The most recent refresh token.
+      required:
+      - refresh
+    Register:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        email:
+          type: string
+          format: email
+          description: Login name. Stored lower-cased; unique.
+          maxLength: 150
+        first_name:
+          type: string
+          description: Optional. Shown in the apps' greeting.
+          maxLength: 150
+        last_name:
+          type: string
+          description: Optional.
+          maxLength: 150
+      required:
+      - email
+      - id
+    RegisterRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+          description: Login name. Stored lower-cased; unique.
+          maxLength: 150
+        first_name:
+          type: string
+          description: Optional. Shown in the apps' greeting.
+          maxLength: 150
+        last_name:
+          type: string
+          description: Optional.
+          maxLength: 150
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+          description: At least 8 characters, not common, not only digits.
+        password_confirm:
+          type: string
+          writeOnly: true
+          minLength: 1
+          description: Must equal `password`.
+      required:
+      - email
+      - password
+      - password_confirm
+    ScannedAmount:
+      type: object
+      properties:
+        value:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          nullable: true
+          description: The receipt total; `null` if not found.
+        confidence:
+          allOf:
+          - $ref: '#/components/schemas/OcrConfidenceEnum'
+          description: |-
+            `high`: found by a specific rule (e.g. the TOTAL line). `low`: best guess — ask the user to check.
+
+            * `high` - high
+            * `low` - low
+      required:
+      - confidence
+      - value
+    ScannedDate:
+      type: object
+      properties:
+        value:
+          type: string
+          format: date
+          nullable: true
+          description: Purchase date; `null` if not found.
+        confidence:
+          allOf:
+          - $ref: '#/components/schemas/OcrConfidenceEnum'
+          description: |-
+            `high`: found by a specific rule (e.g. the TOTAL line). `low`: best guess — ask the user to check.
+
+            * `high` - high
+            * `low` - low
+      required:
+      - confidence
+      - value
+    ScannedText:
+      type: object
+      properties:
+        value:
+          type: string
+          nullable: true
+          description: '`null` if nothing usable was found.'
+        confidence:
+          allOf:
+          - $ref: '#/components/schemas/OcrConfidenceEnum'
+          description: |-
+            `high`: found by a specific rule (e.g. the TOTAL line). `low`: best guess — ask the user to check.
+
+            * `high` - high
+            * `low` - low
+      required:
+      - confidence
+      - value
+    SuggestedCategory:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        source:
+          allOf:
+          - $ref: '#/components/schemas/SuggestionSourceEnum'
+          description: |-
+            `history`: the category the user chose last time for this merchant. `rules`: keyword rules.
+
+            * `history` - history
+            * `rules` - rules
+      required:
+      - id
+      - name
+      - source
+    SuggestionSourceEnum:
+      enum:
+      - history
+      - rules
+      type: string
+      description: |-
+        * `history` - history
+        * `rules` - rules
+    TokenPair:
+      type: object
+      properties:
+        access:
+          type: string
+          description: 'JWT for the `Authorization: Bearer` header. Valid for 15 minutes.'
+        refresh:
+          type: string
+          description: JWT for `/api/auth/refresh/` and `/api/auth/logout/`. Valid
+            for 7 days, single use.
+      required:
+      - access
+      - refresh
+    TopCategory:
+      type: object
+      properties:
+        category_id:
+          type: integer
+        category_name:
+          type: string
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          description: Spent in this category this month.
+      required:
+      - amount
+      - category_id
+      - category_name
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          description: Positive, max 2 decimals (decimal string, e.g. `"45.90"`).
+        type:
+          allOf:
+          - $ref: '#/components/schemas/TransactionTypeEnum'
+          description: |-
+            Must equal the category's type.
+
+            * `income` - Income
+            * `expense` - Expense
+        category:
+          type: integer
+          description: Id of one of the user's categories.
+        description:
+          type: string
+          description: Optional free text, max 255 characters.
+          maxLength: 255
+        date:
+          type: string
+          format: date
+          description: Booking date (`YYYY-MM-DD`).
+        client_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Optional idempotency key (UUID) chosen by the client. Only
+            settable on create.
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - amount
+      - category
+      - created_at
+      - date
+      - id
+      - type
+      - updated_at
+    TransactionRequest:
+      type: object
+      properties:
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          description: Positive, max 2 decimals (decimal string, e.g. `"45.90"`).
+        type:
+          allOf:
+          - $ref: '#/components/schemas/TransactionTypeEnum'
+          description: |-
+            Must equal the category's type.
+
+            * `income` - Income
+            * `expense` - Expense
+        category:
+          type: integer
+          description: Id of one of the user's categories.
+        description:
+          type: string
+          description: Optional free text, max 255 characters.
+          maxLength: 255
+        date:
+          type: string
+          format: date
+          description: Booking date (`YYYY-MM-DD`).
+        client_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Optional idempotency key (UUID) chosen by the client. Only
+            settable on create.
+      required:
+      - amount
+      - category
+      - date
+      - type
+    TransactionTypeEnum:
+      enum:
+      - income
+      - expense
+      type: string
+      description: |-
+        * `income` - Income
+        * `expense` - Expense
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        first_name:
+          type: string
+          readOnly: true
+        last_name:
+          type: string
+          readOnly: true
+        date_joined:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Registration time (UTC).
+      required:
+      - date_joined
+      - email
+      - first_name
+      - id
+      - last_name
+    ValidationError:
+      type: object
+      description: One key per invalid field (or query parameter), each holding a
+        list of messages. Problems that concern the request as a whole are under `non_field_errors`.
+      properties:
+        non_field_errors:
+          type: array
+          items:
+            type: string
+      additionalProperties:
+        type: array
+        items:
+          type: string
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+tags:
+- name: Authentication
+  description: Register, obtain and refresh JWTs, log out.
+- name: Users
+  description: The signed-in user's profile.
+- name: Transactions
+  description: Income and expense records — the core of the API.
+- name: CSV Import
+  description: Bulk-create transactions from a bank export.
+- name: Categories
+  description: Income/expense categories, including the 10 system defaults.
+- name: Budgets
+  description: Monthly spending limits, overall or per category, with live usage.
+- name: Recurring Transactions
+  description: Templates for repeating income and expenses.
+- name: Analytics
+  description: Read-only monthly summaries computed on the server.
+- name: Financial Insights
+  description: Rule-based observations about a month's finances.
+- name: Receipt Scanning
+  description: OCR suggestions from a receipt photo.
+- name: Notifications
+  description: Push-notification devices and preferences (mobile app).
+- name: Health
+  description: Liveness and readiness probes for infrastructure.

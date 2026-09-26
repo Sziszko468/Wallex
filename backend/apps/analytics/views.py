@@ -4,9 +4,17 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from . import formatters, insights, services
+from .openapi import (
+    CATEGORIES_SCHEMA,
+    COMPARISON_SCHEMA,
+    DASHBOARD_SCHEMA,
+    INSIGHTS_SCHEMA,
+    MONTHLY_SCHEMA,
+)
 from .serializers import MonthQuerySerializer, YearQuerySerializer
 
 
+@DASHBOARD_SCHEMA
 class DashboardView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -19,6 +27,7 @@ class DashboardView(APIView):
         return Response(formatters.format_dashboard(dashboard))
 
 
+@MONTHLY_SCHEMA
 class MonthlyAnalyticsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -30,6 +39,7 @@ class MonthlyAnalyticsView(APIView):
         return Response({"year": year, "months": formatters.format_monthly_analytics(months)})
 
 
+@CATEGORIES_SCHEMA
 class CategoryAnalyticsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -44,6 +54,7 @@ class CategoryAnalyticsView(APIView):
         )
 
 
+@COMPARISON_SCHEMA
 class ComparisonView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -56,6 +67,7 @@ class ComparisonView(APIView):
         return Response(formatters.format_comparison(comparison))
 
 
+@INSIGHTS_SCHEMA
 class InsightsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 

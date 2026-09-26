@@ -4,10 +4,14 @@ from apps.common.permissions import IsOwner
 from apps.notifications.services import check_budget_thresholds
 
 from .models import Budget
+from .openapi import BUDGET_VIEWSET_SCHEMA
 from .serializers import BudgetSerializer
 
 
+@BUDGET_VIEWSET_SCHEMA
 class BudgetViewSet(viewsets.ModelViewSet):
+    # Only the model matters here (schema tooling); requests always go through get_queryset().
+    queryset = Budget.objects.none()
     serializer_class = BudgetSerializer
     permission_classes = [permissions.IsAuthenticated, IsOwner]
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]

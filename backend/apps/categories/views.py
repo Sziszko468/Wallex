@@ -5,11 +5,15 @@ from rest_framework.response import Response
 from apps.common.permissions import IsOwner
 
 from .models import Category
+from .openapi import CATEGORY_VIEWSET_SCHEMA
 from .permissions import IsNotSystemCategory
 from .serializers import CategorySerializer
 
 
+@CATEGORY_VIEWSET_SCHEMA
 class CategoryViewSet(viewsets.ModelViewSet):
+    # Only the model matters here (schema tooling); requests always go through get_queryset().
+    queryset = Category.objects.none()
     serializer_class = CategorySerializer
     permission_classes = [permissions.IsAuthenticated, IsOwner, IsNotSystemCategory]
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]

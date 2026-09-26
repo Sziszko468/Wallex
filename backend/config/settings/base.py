@@ -25,6 +25,7 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt.token_blacklist",
     "django_filters",
     "corsheaders",
+    "drf_spectacular",
     "apps.users",
     "apps.categories",
     "apps.transactions",
@@ -117,11 +118,9 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.IsAuthenticated",
     ),
-    "DEFAULT_FILTER_BACKENDS": (
-        "django_filters.rest_framework.DjangoFilterBackend",
-        "rest_framework.filters.SearchFilter",
-        "rest_framework.filters.OrderingFilter",
-    ),
+    # No DEFAULT_FILTER_BACKENDS: filtering/search/ordering is opt-in per view. A global
+    # OrderingFilter lets clients sort by *any* serializer field — including computed ones
+    # like a budget's spent_amount, which the database can't order by (500).
     # A generous ceiling for every authenticated user, plus stricter per-view scopes.
     "DEFAULT_THROTTLE_CLASSES": ("rest_framework.throttling.UserRateThrottle",),
     "DEFAULT_THROTTLE_RATES": {
@@ -135,6 +134,62 @@ REST_FRAMEWORK = {
     # clients by IP; with None, DRF trusts X-Forwarded-For as sent, which an
     # attacker can rotate freely. 0 = the socket address (no proxy, local dev).
     "NUM_PROXIES": env.int("DRF_NUM_PROXIES", default=0),
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+# --- OpenAPI documentation (drf-spectacular) --------------------------------------------
+# The schema is generated from the serializers and views themselves; per-endpoint docs
+# live in each app's openapi.py. Served at /api/schema/ (YAML) and /api/docs/ (Swagger
+# UI) when enabled; a committed copy lives in backend/openapi.yaml.
+API_DOCS_ENABLED = env.bool("API_DOCS_ENABLED", default=True)
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Spendly API",
+    "VERSION": "1.0.0",
+    "DESCRIPTION": (BASE_DIR / "config" / "api_description.md").read_text(encoding="utf-8"),
+    "SERVE_INCLUDE_SCHEMA": False,
+    # The docs are public: a stale or garbage Authorization header must not break them.
+    "SERVE_AUTHENTICATION": [],
+    "SERVE_PERMISSIONS": ["rest_framework.permissions.AllowAny"],
+    # Separate request/response components: read-only fields never show up as inputs,
+    # and PATCH bodies get their own all-optional component.
+    "COMPONENT_SPLIT_REQUEST": True,
+    "SCHEMA_PATH_PREFIX": r"/api/",
+    "ENUM_NAME_OVERRIDES": {
+        "TransactionTypeEnum": "apps.categories.models.TransactionType",
+        "FrequencyEnum": "apps.transactions.models.Frequency",
+        "DevicePlatformEnum": "apps.notifications.models.DevicePlatform",
+        "InsightTypeEnum": "apps.analytics.openapi.INSIGHT_TYPE_CHOICES",
+        "InsightSeverityEnum": "apps.analytics.openapi.INSIGHT_SEVERITY_CHOICES",
+        "ImportRowStatusEnum": "apps.transactions.openapi.IMPORT_ROW_STATUS_CHOICES",
+        "HealthStatusEnum": "apps.common.openapi.HEALTH_STATUS_CHOICES",
+        "OcrConfidenceEnum": "apps.receipts.openapi.CONFIDENCE_CHOICES",
+        "SuggestionSourceEnum": "apps.receipts.openapi.SOURCE_CHOICES",
+    },
+    "POSTPROCESSING_HOOKS": [
+        "drf_spectacular.hooks.postprocess_schema_enums",
+        "apps.common.openapi.add_standard_error_responses",
+    ],
+    "TAGS": [
+        {"name": "Authentication", "description": "Register, obtain and refresh JWTs, log out."},
+        {"name": "Users", "description": "The signed-in user's profile."},
+        {"name": "Transactions", "description": "Income and expense records — the core of the API."},
+        {"name": "CSV Import", "description": "Bulk-create transactions from a bank export."},
+        {"name": "Categories", "description": "Income/expense categories, including the 10 system defaults."},
+        {"name": "Budgets", "description": "Monthly spending limits, overall or per category, with live usage."},
+        {"name": "Recurring Transactions", "description": "Templates for repeating income and expenses."},
+        {"name": "Analytics", "description": "Read-only monthly summaries computed on the server."},
+        {"name": "Financial Insights", "description": "Rule-based observations about a month's finances."},
+        {"name": "Receipt Scanning", "description": "OCR suggestions from a receipt photo."},
+        {"name": "Notifications", "description": "Push-notification devices and preferences (mobile app)."},
+        {"name": "Health", "description": "Liveness and readiness probes for infrastructure."},
+    ],
+    "SWAGGER_UI_SETTINGS": {
+        "deepLinking": True,
+        "persistAuthorization": True,
+        "displayRequestDuration": True,
+        "defaultModelsExpandDepth": 0,
+    },
 }
 
 CORS_ALLOWED_ORIGINS = env.list(

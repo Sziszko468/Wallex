@@ -163,6 +163,24 @@ def test_production_logs_go_to_stdout():
     assert result.stdout.strip() == "['console'] logging.StreamHandler"
 
 
+def test_api_docs_are_opt_in_in_production():
+    code = (
+        "import django; django.setup(); from django.conf import settings; from django.test import Client;"
+        "c = Client(HTTP_HOST='api.spendly.example');"
+        "print(settings.API_DOCS_ENABLED, c.get('/api/docs/', secure=True).status_code,"
+        " c.get('/api/schema/', secure=True).status_code)"
+    )
+    # Rate limiting touches the cache; the production database cache table only exists after
+    # `createcachetable`, which this throwaway process doesn't run.
+    disabled = _run_without({"API_DOCS_ENABLED"}, code)
+    enabled = _run(code, API_DOCS_ENABLED="True", CACHE_URL="locmemcache://")
+
+    assert disabled.returncode == 0, disabled.stderr
+    assert disabled.stdout.split() == ["False", "404", "404"]
+    assert enabled.returncode == 0, enabled.stderr
+    assert enabled.stdout.split() == ["True", "200", "200"]
+
+
 def test_health_probes_skip_the_https_redirect_but_the_api_does_not():
     """Docker and load-balancer probes speak plain HTTP to the container."""
     result = _run(

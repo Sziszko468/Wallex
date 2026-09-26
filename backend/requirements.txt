@@ -9,3 +9,4 @@ pillow==12.3.0
 pytesseract==0.3.13
 gunicorn==26.2.0
 whitenoise==6.12.0
+drf-spectacular==0.30.0

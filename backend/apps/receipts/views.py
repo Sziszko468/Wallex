@@ -11,6 +11,7 @@ from django.conf import settings
 from apps.common.uploads import declared_body_exceeds, file_too_large
 
 from .ocr import OcrUnavailableError
+from .openapi import RECEIPT_SCAN_SCHEMA
 from .services import InvalidReceiptImageError, scan_receipt
 
 logger = logging.getLogger(__name__)
@@ -23,6 +24,7 @@ def _field(extracted, value=None):
     }
 
 
+@RECEIPT_SCAN_SCHEMA
 class ReceiptScanView(APIView):
     """POST /api/receipts/scan/ — multipart `image`. Returns suggested fields; never saves anything."""
 
