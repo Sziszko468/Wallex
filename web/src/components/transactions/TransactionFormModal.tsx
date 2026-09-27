@@ -6,7 +6,13 @@ import { createTransaction, updateTransaction } from "../../services/transaction
 import { convertAmount } from "../../services/currenciesService";
 import { useBaseCurrency } from "../../hooks/useBaseCurrency";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
-import { extractErrorMessage, extractFieldErrors, type FieldErrors } from "../../utils/errors";
+import {
+  conflictCurrent,
+  extractErrorMessage,
+  extractFieldErrors,
+  isNotFound,
+  type FieldErrors,
+} from "../../utils/errors";
 import { amountStep, hasValidPrecision } from "../../utils/currency";
 import { formatCurrency, formatDate } from "../../utils/format";
 import { toIsoDate } from "../../utils/date";
@@ -53,18 +59,26 @@ export function TransactionFormModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  // The server version the form was filled from (its updated_at): sent as If-Match, so an
+  // edit made meanwhile on another device is never silently overwritten.
+  const [version, setVersion] = useState<string | undefined>(undefined);
+
+  function fillFrom(source: Transaction) {
+    setType(source.type);
+    setAmount(source.amount);
+    setCurrency(source.currency);
+    setCategoryId(String(source.category));
+    setDescription(source.description);
+    setDate(source.date);
+    setVersion(source.updated_at);
+  }
 
   // Re-seed the form whenever the modal opens — either from the transaction
   // being edited, or a blank slate for a new one. Not a live sync while open.
   useEffect(() => {
     if (!isOpen) return;
     if (transaction) {
-      setType(transaction.type);
-      setAmount(transaction.amount);
-      setCurrency(transaction.currency);
-      setCategoryId(String(transaction.category));
-      setDescription(transaction.description);
-      setDate(transaction.date);
+      fillFrom(transaction);
     } else {
       setType("expense");
       setAmount("");
@@ -72,6 +86,7 @@ export function TransactionFormModal({
       setCategoryId("");
       setDescription("");
       setDate(toIsoDate(new Date()));
+      setVersion(undefined);
     }
     setErrorMessage(null);
     setFieldErrors({});
@@ -159,7 +174,7 @@ export function TransactionFormModal({
         date,
       };
       if (transaction) {
-        await updateTransaction(transaction.id, payload);
+        await updateTransaction(transaction.id, payload, version);
       } else {
         await createTransaction(payload);
       }
@@ -167,6 +182,20 @@ export function TransactionFormModal({
       onSaved();
     } catch (error) {
       setIsSubmitting(false);
+      const latest = conflictCurrent<Transaction>(error);
+      if (latest) {
+        // Changed on another device since the form was opened: show what is there now.
+        fillFrom(latest);
+        setFieldErrors({});
+        setErrorMessage(
+          "This transaction was just changed on another device. Its latest version is shown — make your change again and save."
+        );
+        return;
+      }
+      if (transaction && isNotFound(error)) {
+        setErrorMessage("This transaction no longer exists — it was deleted on another device.");
+        return;
+      }
       setFieldErrors((previous) => ({ ...previous, ...extractFieldErrors(error) }));
       setErrorMessage(extractErrorMessage(error));
     }

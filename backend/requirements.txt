@@ -10,3 +10,5 @@ pytesseract==0.3.13
 gunicorn==26.2.0
 whitenoise==6.12.0
 drf-spectacular==0.30.0
+# Encrypts two-factor (TOTP) secrets at rest (Fernet); keys come from the environment.
+cryptography==50.0.1

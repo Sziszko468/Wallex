@@ -10,25 +10,26 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 
 from apps.categories.models import TransactionType
+from apps.common.concurrency import ConditionalWriteMixin
+from apps.common.pagination import StandardPagination
 from apps.common.permissions import IsOwner
 from apps.common.uploads import declared_body_exceeds, file_too_large
-from apps.notifications.services import check_budget_thresholds
+from apps.notifications.rules import check_budget_thresholds
 
 from .filters import StableOrderingFilter, TransactionFilter
 from .models import RecurringTransaction, Transaction
 from .openapi import CSV_IMPORT_SCHEMA, RECURRING_VIEWSET_SCHEMA, TRANSACTION_VIEWSET_SCHEMA
-from .pagination import TransactionPagination
 from .serializers import RecurringTransactionSerializer, TransactionSerializer
 from .services import CsvValidationError, import_transactions_from_csv
 
 
 @TRANSACTION_VIEWSET_SCHEMA
-class TransactionViewSet(viewsets.ModelViewSet):
+class TransactionViewSet(ConditionalWriteMixin, viewsets.ModelViewSet):
     # Only the model matters here (schema tooling); requests always go through get_queryset().
     queryset = Transaction.objects.none()
     serializer_class = TransactionSerializer
     permission_classes = [permissions.IsAuthenticated, IsOwner]
-    pagination_class = TransactionPagination
+    pagination_class = StandardPagination
     filter_backends = [DjangoFilterBackend, SearchFilter, StableOrderingFilter]
     filterset_class = TransactionFilter
     search_fields = ["description"]
@@ -129,7 +130,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
 
 
 @RECURRING_VIEWSET_SCHEMA
-class RecurringTransactionViewSet(viewsets.ModelViewSet):
+class RecurringTransactionViewSet(ConditionalWriteMixin, viewsets.ModelViewSet):
     # Only the model matters here (schema tooling); requests always go through get_queryset().
     queryset = RecurringTransaction.objects.none()
     serializer_class = RecurringTransactionSerializer

@@ -30,7 +30,8 @@ export function SubscriptionDetailPage() {
   const fetchCategories = useCallback(() => listCategories(), []);
   const categories = useAsyncData(fetchCategories);
 
-  const [isEditing, setIsEditing] = useState(false);
+  // Snapshot taken when Edit is pressed: a background reload must not re-seed the open form.
+  const [editing, setEditing] = useState<Subscription | null>(null);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -48,7 +49,7 @@ export function SubscriptionDetailPage() {
   }
 
   function handleSaved() {
-    setIsEditing(false);
+    setEditing(null);
     subscription.refetch();
   }
 
@@ -79,7 +80,7 @@ export function SubscriptionDetailPage() {
               {subscription.data.merchant && <p className={styles.merchant}>{subscription.data.merchant}</p>}
             </div>
             <div className={styles.actions}>
-              <Button type="button" variant="secondary" onClick={() => setIsEditing(true)}>
+              <Button type="button" variant="secondary" onClick={() => setEditing(subscription.data)}>
                 Edit
               </Button>
               <Button type="button" variant="danger" onClick={() => setIsConfirmingDelete(true)}>
@@ -93,10 +94,10 @@ export function SubscriptionDetailPage() {
       )}
 
       <SubscriptionFormModal
-        isOpen={isEditing}
-        subscription={subscription.data}
+        isOpen={editing !== null}
+        subscription={editing}
         categories={categories.data ?? []}
-        onClose={() => setIsEditing(false)}
+        onClose={() => setEditing(null)}
         onSaved={handleSaved}
       />
 

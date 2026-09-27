@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { SyncProvider } from "../hooks/useSync";
 import styles from "./AppLayout.module.scss";
 
 const NAV_ITEMS = [
@@ -64,7 +65,10 @@ export function AppLayout() {
       </header>
 
       <main className={styles.main}>
-        <Outlet />
+        {/* Signed-in pages only: keeps them in step with the account's other devices. */}
+        <SyncProvider>
+          <Outlet />
+        </SyncProvider>
       </main>
     </div>
   );

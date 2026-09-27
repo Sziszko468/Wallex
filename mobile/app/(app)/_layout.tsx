@@ -5,6 +5,7 @@ import { SafeAreaInsetsContext, useSafeAreaInsets } from "react-native-safe-area
 import { colors } from "../../utils/theme";
 import { usePushNotifications } from "../../hooks/usePushNotifications";
 import { OfflineBanner } from "../../components/OfflineBanner";
+import { SyncProvider } from "../../hooks/useSync";
 
 export default function AppLayout() {
   usePushNotifications();
@@ -20,7 +21,10 @@ export default function AppLayout() {
         <OfflineBanner />
       </View>
       <SafeAreaInsetsContext.Provider value={insetsBelowBanner}>
-        <AppStack />
+        {/* Signed-in screens only: keeps them in step with the account's other devices. */}
+        <SyncProvider>
+          <AppStack />
+        </SyncProvider>
       </SafeAreaInsetsContext.Provider>
     </View>
   );

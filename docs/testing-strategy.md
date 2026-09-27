@@ -51,7 +51,8 @@ Expo push (`push_outbox` autouse fixture), OCR (`FakeOcrProvider` via the
 | CSV import | `apps/transactions/test_csv_import.py` | Formats, per-row failures, duplicates, only the user's own categories. |
 | Recurring | `test_recurring_api.py`, `test_recurrence.py` | Validation, scheduling state, month-end/leap-year occurrence maths. |
 | Financial insights | `apps/analytics/test_insights.py` | Each rule, thresholds, month-to-date alignment, isolation, 6-query budget. |
-| Notifications | `apps/notifications/` | Thresholds notify once, preferences respected, nothing pushed before commit, retry/backoff, stale devices skipped, device ownership. |
+| Notifications | `apps/notifications/`, `apps/analytics/test_anomalies.py` | Every rule's decision and text, thresholds notify once, preferences respected, unusual-spending baseline, read/unread and inbox isolation, nothing pushed before commit, retry/backoff, stale devices skipped, device ownership. |
+| Multi-device sync | `tests/test_sync.py`, `web/src/hooks/useSync.test.tsx`, `mobile/__tests__/sync/` | Two logins of one account see each other's writes; every write endpoint moves the sync version and no read does; responses are never cacheable; stale `If-Match` edits/deletes get `412` and change nothing (every editable resource); CORS allows `If-Match`; clients reload in the background on a change, never re-seed an open form, dedupe shifted pages, and recover when the first check came late. |
 | **Offline sync (server side)** | `apps/transactions/test_client_id.py` | Same `client_id` → 200 + existing row (no duplicate), even with a now-invalid payload, and under a concurrent race. |
 | Receipts | `apps/receipts/` | Parser rules, never saves, fake-provider API tests, one real-Tesseract test. |
 

@@ -2,6 +2,7 @@ from datetime import timedelta
 from pathlib import Path
 
 import environ
+from corsheaders.defaults import default_headers
 from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -39,6 +40,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "apps.common.middleware.ApiNeverCacheMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -166,6 +168,8 @@ SPECTACULAR_SETTINGS = {
         "AchievementCategoryEnum": "apps.analytics.openapi.ACHIEVEMENT_CATEGORY_CHOICES",
         "AchievementUnitEnum": "apps.analytics.openapi.ACHIEVEMENT_UNIT_CHOICES",
         "DevicePlatformEnum": "apps.notifications.models.DevicePlatform",
+        "NotificationKindEnum": "apps.notifications.models.NotificationKind",
+        "RelatedObjectTypeEnum": "apps.notifications.models.RelatedType",
         "InsightTypeEnum": "apps.analytics.openapi.INSIGHT_TYPE_CHOICES",
         "InsightSeverityEnum": "apps.analytics.openapi.INSIGHT_SEVERITY_CHOICES",
         "ComparisonAgainstEnum": "apps.analytics.openapi.COMPARISON_AGAINST_CHOICES",
@@ -195,7 +199,8 @@ SPECTACULAR_SETTINGS = {
         {"name": "Financial Insights", "description": "Rule-based observations about a month's finances."},
         {"name": "Achievements", "description": "Milestones earned from the user's own data, with progress."},
         {"name": "Receipt Scanning", "description": "OCR suggestions from a receipt photo."},
-        {"name": "Notifications", "description": "Push-notification devices and preferences (mobile app)."},
+        {"name": "Notifications", "description": "In-app notifications decided by the server, their preferences, and push devices."},
+        {"name": "Sync", "description": "Keeping web, iPhone and Android in step: change detection, never-cached responses."},
         {"name": "Health", "description": "Liveness and readiness probes for infrastructure."},
     ],
     "SWAGGER_UI_SETTINGS": {
@@ -209,6 +214,11 @@ SPECTACULAR_SETTINGS = {
 CORS_ALLOWED_ORIGINS = env.list(
     "CORS_ALLOWED_ORIGINS", default=["http://localhost:5173", "http://localhost:8081"]
 )
+# If-Match carries the version a conditional write is based on (apps/common/concurrency.py);
+# a browser on another origin may only send it once the preflight allows it. ETag is exposed
+# so browser clients can read it too.
+CORS_ALLOW_HEADERS = (*default_headers, "if-match")
+CORS_EXPOSE_HEADERS = ["ETag"]
 
 # Receipt scanning. The OCR engine is swappable: any class implementing
 # apps.receipts.ocr.OcrProvider, e.g. a cloud OCR adapter.

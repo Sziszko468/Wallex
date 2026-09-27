@@ -8,6 +8,7 @@ import {
   dashboard,
   emptyPage,
   insights,
+  makeSyncStatus,
   merchants,
   monthly,
   savingsSummary,
@@ -46,6 +47,8 @@ export const defaultHandlers = [
   http.get(`${API}/savings-goals/`, () => HttpResponse.json([])),
   http.get(`${API}/achievements/`, () => HttpResponse.json([])),
   http.post(`${API}/achievements/mark-seen/`, () => HttpResponse.json({ marked: 0 })),
+  // Nothing changes on other devices unless a test says so.
+  http.get(`${API}/sync/status/`, () => HttpResponse.json(makeSyncStatus())),
 ];
 
 export const server = setupServer(...defaultHandlers);

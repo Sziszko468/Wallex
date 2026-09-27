@@ -8,7 +8,8 @@ from apps.analytics.views import AchievementViewSet
 from apps.budgets.views import BudgetViewSet, SavingsGoalViewSet
 from apps.categories.views import CategoryViewSet
 from apps.common.health import LivenessView, ReadinessView
-from apps.notifications.views import DeviceViewSet
+from apps.common.sync import SyncStatusView
+from apps.notifications.views import DeviceViewSet, NotificationViewSet
 from apps.subscriptions.views import SubscriptionViewSet
 from apps.transactions.views import RecurringTransactionViewSet, TransactionViewSet
 
@@ -22,6 +23,7 @@ router.register(
 )
 router.register("subscriptions", SubscriptionViewSet, basename="subscription")
 router.register("devices", DeviceViewSet, basename="device")
+router.register("notifications", NotificationViewSet, basename="notification")
 router.register("achievements", AchievementViewSet, basename="achievement")
 
 urlpatterns = [
@@ -31,6 +33,7 @@ urlpatterns = [
     path("api/auth/", include("apps.users.urls")),
     path("api/analytics/", include("apps.analytics.urls")),
     path("api/currencies/", include("apps.currencies.urls")),
+    path("api/sync/status/", SyncStatusView.as_view(), name="sync-status"),
     path("api/notifications/", include("apps.notifications.urls")),
     path("api/receipts/", include("apps.receipts.urls")),
     path("api/", include(router.urls)),

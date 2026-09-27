@@ -49,6 +49,10 @@ rendered exactly as the API returns them.**
 - Errors follow DRF's default shape: `{"detail": "..."}` for auth/permission/not-found errors,
   or `{"field_name": ["message"]}` for validation errors. Both clients parse this uniformly via
   `utils/errors.ts` (`extractErrorMessage` / `extractFieldErrors`).
+- Multi-device: every device (web, iPhone, Android) reads and writes the same data through
+  this API. Responses are never cacheable (`Cache-Control: no-store`); `GET /api/sync/status/`
+  tells a device when to reload, and `If-Match` stops a stale edit from overwriting a newer
+  one — see **Multi-device sync** below.
 
 ## Shared types
 
@@ -120,7 +124,7 @@ export interface DashboardStats {
   }[];
 }
 
-/** DRF's PageNumberPagination envelope — only the transaction list uses it. */
+/** DRF's PageNumberPagination envelope — used by the transaction and notification lists. */
 export interface PaginatedResponse<T> {
   count: number;
   next: string | null;
@@ -239,8 +243,13 @@ being changed).
 
 **Response** `200 OK` — the updated `Transaction`. Same `400` shape as create on validation errors.
 
-**Client function:** `updateTransaction(id: number, payload: UpdateTransactionPayload): Promise<Transaction>`.
-Used by both clients (web's Transactions page, mobile's transaction edit screen).
+Send `If-Match: "<updated_at as loaded>"` to make the edit conditional: if the transaction
+changed since (another device), the answer is `412` with `{"detail", "current"}` and nothing is
+saved. `404` if it was deleted meanwhile.
+
+**Client function:** `updateTransaction(id: number, payload: UpdateTransactionPayload, version?: string): Promise<Transaction>`
+(`version` = the loaded `updated_at`, sent as `If-Match`). Used by both clients (web's
+Transactions page, mobile's transaction edit screen); on `412` both show the `current` version.
 
 ---
 
@@ -250,8 +259,12 @@ Deletes a transaction owned by the current user (404 for any other user's transa
 `PROTECT` relations point at `Transaction` (unlike `Category`), so this never fails with a 409 —
 it's always a clean `204 No Content` once ownership/existence checks pass.
 
-**Client function:** `deleteTransaction(id: number): Promise<void>`. Used by both clients (web's
-Transactions page, mobile's transaction details screen).
+Accepts `If-Match` like `PATCH` (`412` = changed on another device, not deleted).
+
+**Client function:** `deleteTransaction(id: number, version?: string): Promise<void>`. Used by both
+clients (web's Transactions page — optimistic, the row disappears at once and comes back only if
+the server refuses; mobile's transaction details screen). A `404` means another device already
+deleted it: both clients treat that as done.
 
 ---
 
@@ -696,13 +709,120 @@ timeout, offline) and the `unsupported` / `unreadable` outcomes to a message and
 
 ---
 
-## Push notifications — `/api/devices/`, `/api/notifications/preferences/`
+## Notifications — `/api/notifications/`, `/api/notifications/preferences/`, `/api/devices/`
+
+**The backend decides everything.** `apps/notifications/rules.py` is the only place that
+decides whether something is worth a notification and writes its `title` and `body` (amounts
+already formatted in the right currency). The clients show the stored text, the read state
+and the unread count — they never rebuild a message or apply a threshold themselves.
+
+Every notification is stored once (the in-app inbox, web and mobile alike) and pushed to the
+user's phones (mobile only). A kind switched off in the preferences is not created at all.
+
+### Notification kinds
+
+| `kind` | Created when | At most once per | `related_object.type` | `data.screen` |
+|---|---|---|---|---|
+| `budget_warning` | an expense or budget change brings a budget to ≥ 80% (and ≤ 100%) | budget | `budget` | `budgets` |
+| `budget_exceeded` | … above 100% (the warning is skipped if both happen at once) | budget | `budget` | `budgets` |
+| `subscription_due` | scheduled: a subscription payment is due within `recurring_reminder_days` | payment | `subscription` | `subscriptions` |
+| `recurring_due` | scheduled: any other recurring expense is due within `recurring_reminder_days` | payment | `recurring_transaction` | `recurring` |
+| `savings_goal` | money added (or the target lowered) takes a goal past 25 / 50 / 75 / 90 / 100% | goal + milestone | `savings_goal` | `savings_goals` |
+| `unusual_spending` | scheduled: a category is ≥ 20% above its usual level by this day of the month | category + month | `category` | `transactions` |
+| `monthly_summary` | scheduled, days 1–7: last month's spending and income vs. the month before | month | — | `dashboard` |
+| `insight` | scheduled: an `alert`-severity insight other than a budget one (e.g. `overspending`) | insight + month | `category` or — | `dashboard` |
+
+Example texts: *"You've used 82% of your Food budget for September."*, *"Netflix payment
+expected tomorrow."*, *"Your Shopping expenses increased by 21% compared to your usual
+spending so far this month."*, *"You are €150 away from your Japan trip goal (90% saved)."*,
+*"You spent €920.50 and earned €2,000 in August. Spending was 8% lower than in July."*
+
+**Unusual spending** compares this month's spending up to today with the average of the same
+days in the previous 3 months (months before the user started tracking don't count; at least
+2 are needed). The increase must also be at least 5% of the user's usual monthly spending, so
+the rule works the same in euros and forints and ignores big percentages of small amounts.
+See `apps/analytics/anomalies.py`.
+
+The scheduled job is `python manage.py send_scheduled_notifications` (idempotent; run
+hourly from cron). It evaluates every active user — with or without a phone — and retries
+failed push deliveries (up to 3 attempts within 24 h).
+
+### `GET /api/notifications/`
+
+The inbox, newest first, **paginated** like transactions (`page`, `page_size` ≤ 100).
+Filters: `is_read=true|false`, `kind=<kind>` (unknown kind → `400`).
+
+```json
+{
+  "count": 2, "next": null, "previous": null,
+  "results": [
+    {
+      "id": 42,
+      "kind": "budget_warning",
+      "title": "Budget almost used",
+      "body": "You've used 82% of your Food budget for September.",
+      "is_read": false,
+      "read_at": null,
+      "related_object": {"type": "budget", "id": 12},
+      "data": {"screen": "budgets", "budget_id": 12, "year": 2026, "month": 9},
+      "created_at": "2026-09-27T08:15:02Z"
+    },
+    {
+      "id": 41,
+      "kind": "monthly_summary",
+      "title": "Your August summary",
+      "body": "You spent €920.50 and earned €2,000 in August. Spending was 8% lower than in July.",
+      "is_read": true,
+      "read_at": "2026-09-01T07:02:44Z",
+      "related_object": null,
+      "data": {"screen": "dashboard", "year": 2026, "month": 8},
+      "created_at": "2026-09-01T06:00:03Z"
+    }
+  ]
+}
+```
+
+`related_object` is what the notification is about (`null` for summaries and general
+insights). The object may have been deleted since — the notification stays.
+
+### `GET /api/notifications/{id}/`, `PATCH /api/notifications/{id}/`
+
+`PATCH {"is_read": true}` / `{"is_read": false}` — the only writable field; others are
+ignored. Marking read again keeps the first `read_at`. `PUT`, `POST` and `DELETE` → `405`:
+notifications are only created by the server, and the stored row is what stops the same
+event from notifying again. Another user's notification → `404`.
+
+### `GET /api/notifications/unread-count/`, `POST /api/notifications/mark-all-read/`
+
+`{"unread_count": 3}` for the badge; `{"marked": 3}` (how many were unread).
+
+### `GET /api/notifications/preferences/`, `PATCH /api/notifications/preferences/`
+
+One switch per kind; applies to the app and **all** of the user's phones. Created with the
+defaults below on first access. `PUT` → `405`.
+
+```json
+{
+  "budget_warnings": true,
+  "budget_exceeded": true,
+  "subscription_reminders": true,
+  "recurring_reminders": true,
+  "savings_goals": true,
+  "unusual_spending": true,
+  "monthly_summary": true,
+  "insights": true,
+  "recurring_reminder_days": 2,
+  "updated_at": "2026-09-24T17:02:11Z"
+}
+```
+
+`recurring_reminder_days` (1–7) applies to subscription and other recurring reminders.
+
+### Push devices — `POST /api/devices/`
 
 **Mobile only.** The web client never registers a device, so it never receives push
-notifications. Delivery goes through the Expo push service; see
-`apps/notifications/services.py` for when notifications are created.
-
-### `POST /api/devices/`
+notifications. Delivery goes through the Expo push service; every push carries `data` with
+`kind`, `notification_id`, `screen` and that screen's ids.
 
 Registers the calling app installation for the signed-in user. Idempotent on the token:
 re-registering refreshes `last_seen_at` (the app does this on every signed-in launch) and
@@ -732,41 +852,86 @@ The app deletes its device on logout and when push is turned off on that phone.
 Devices that haven't re-registered for longer than the refresh-token lifetime (7 days) are
 not sent to — the session on them can no longer be valid.
 
-### `GET /api/notifications/preferences/`, `PATCH /api/notifications/preferences/`
+**Client functions:** `listNotifications`, `getUnreadNotificationCount`,
+`setNotificationRead`, `markAllNotificationsRead`, `getNotificationPreferences`,
+`updateNotificationPreferences` in both `web/src/services/notificationsService.ts` and
+`mobile/services/notificationsService.ts`; `registerDevice`, `deleteDevice` in mobile only.
 
-What the user wants to be notified about; applies to **all** of their devices. Created
-with the defaults below on first access. `PUT` → `405`.
+---
+
+## Multi-device sync — `GET /api/sync/status/`, `ETag` / `If-Match`
+
+The web app and the phones never keep their own copy of the truth: they all read and write the
+same PostgreSQL data through this API, so there is nothing to merge. A device is in sync as soon
+as it reloads what changed; the only question is *when*. (Offline mode on mobile — the read
+cache and the create-only outbox — is separate and unchanged.)
+
+### `GET /api/sync/status/`
+
+One query, no data downloaded:
 
 ```json
 {
-  "budget_warnings": true,
-  "budget_exceeded": true,
-  "recurring_reminders": true,
-  "insights": true,
-  "recurring_reminder_days": 2,
-  "updated_at": "2026-09-24T17:02:11Z"
+  "version": "5f0c1e9b2a7d4c38e1aa",
+  "server_time": "2026-09-27T14:05:12.861020Z",
+  "resources": {
+    "transactions": {"count": 128, "last_modified": "2026-09-27T14:05:10.004211Z"},
+    "categories": {"count": 11, "last_modified": "2026-09-20T08:11:02.300118Z"},
+    "budgets": {"count": 4, "last_modified": "2026-09-01T07:30:45.001922Z"},
+    "recurring_transactions": {"count": 6, "last_modified": "2026-09-26T19:02:13.515003Z"},
+    "savings_goals": {"count": 0, "last_modified": null}
+  }
 }
 ```
 
-`recurring_reminder_days` must be 1–7.
+- `version` fingerprints all of it (plus the base currency). Reload when it differs from the
+  last one seen. A deletion lowers `count`; every other write moves `last_modified`.
+- Timestamps are the server's (`updated_at`, set by Django). Never compare them with a device
+  clock.
+- Reads never change it (tested for every list, analytics and achievements endpoint), so clients
+  can't end up reloading in a loop.
 
-### Notification kinds (push payload)
+**When the clients ask:**
 
-Every push carries `data` with `kind`, `notification_id` and a `screen` the app opens on tap.
+| | Web (`hooks/useSync.tsx`) | Mobile (`hooks/useSync.tsx`) |
+|---|---|---|
+| Start | before the page's views load | before the screens load (also if started in the background) |
+| Polling | every 30 s while the tab is visible | every 30 s while in the foreground and online |
+| Coming back | tab visible / window focus / `online` | app to foreground / connection back |
+| Own writes | right after every successful POST/PATCH/DELETE (`services/localWrites.ts`) | same |
 
-| `kind` | Trigger | Deduplicated per | `data.screen` |
-|---|---|---|---|
-| `budget_warning` | an expense or budget change brings a budget to ≥ 80% (and ≤ 100%) | budget | `budgets` |
-| `budget_exceeded` | … above 100% (the warning is skipped if both happen at once) | budget | `budgets` |
-| `recurring_due` | scheduled job: an active recurring expense is due within `recurring_reminder_days` | recurring item + date | `recurring` |
-| `insight` | scheduled job: an `alert`-severity insight other than a budget one (e.g. `overspending`) | insight + month | `dashboard` |
+On a change, every mounted view reloads **in the background** (`useAsyncData` → `revalidate`):
+the old data stays on screen until the new data arrives, and unchanged data keeps its identity
+(no re-render). A view that loaded after the change was detected skips the reload. Edit forms
+opt out (`useAsyncData(fetcher, { live: false })` on mobile, a snapshot on web). They keep the
+version the user started from.
 
-The scheduled job is `python manage.py send_scheduled_notifications` (idempotent; run
-hourly from cron). It also retries failed deliveries (up to 3 attempts within 24 h).
+### `ETag` / `If-Match` (optimistic concurrency)
 
-**Client functions (mobile only):** `registerDevice`, `deleteDevice`,
-`getNotificationPreferences`, `updateNotificationPreferences` in
-`mobile/services/notificationsService.ts`.
+Transactions, categories, budgets, recurring transactions, subscriptions and savings goals:
+
+- `GET`/`PATCH` on an object answers with `ETag: "<updated_at>"`, the same value as in the body.
+- `PATCH`/`PUT`/`DELETE` may send `If-Match: "<updated_at as loaded>"`. If the object has
+  changed since, the answer is `412 Precondition Failed`, nothing is written, and the body
+  includes the object as it is now:
+  `{"detail": "This transaction was changed on another device after you loaded it. …", "current": {…}}`.
+- The check and the write run in one transaction with the row locked, so two devices saving
+  the same version at the same moment can't both succeed. `*` and weak tags (`W/"…"`) are
+  accepted. Without the header the last write wins, as before.
+- CORS allows the `If-Match` request header and exposes `ETag`.
+
+The clients use it for transaction edits and deletes (web and mobile).
+
+### No HTTP caching
+
+Every `/api/` response carries `Cache-Control: max-age=0, no-cache, no-store, must-revalidate,
+private` (`apps/common/middleware.py`). No browser, phone HTTP stack or proxy may hand one device
+an old copy of data another device changed, and financial data isn't written to disk caches.
+The mobile offline cache never stores `/sync/status/`, since an old answer would hide real
+changes.
+
+**Client functions:** `getSyncStatus()` in `services/syncService.ts` (both clients); `ifMatch()` in
+`services/concurrency.ts`; `isConflict()`, `conflictCurrent()`, `isNotFound()` in `utils/errors.ts`.
 
 ---
 

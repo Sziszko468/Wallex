@@ -6,7 +6,12 @@ import type { NotificationScreen } from "../types/notification";
 
 const ROUTES: Record<NotificationScreen, Href> = {
   budgets: "/budgets",
+  // Subscriptions are recurring expenses; the mobile app lists them there (no own screen yet).
+  subscriptions: "/recurring",
   recurring: "/recurring",
+  // No savings goals screen on mobile yet.
+  savings_goals: "/dashboard",
+  transactions: "/transactions",
   dashboard: "/dashboard",
 };
 

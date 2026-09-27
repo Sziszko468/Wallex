@@ -2,6 +2,7 @@ from django.db.models import RestrictedError
 from rest_framework import permissions, status, viewsets
 from rest_framework.response import Response
 
+from apps.common.concurrency import ConditionalWriteMixin
 from apps.common.permissions import IsOwner
 
 from .models import Category
@@ -11,7 +12,7 @@ from .serializers import CategorySerializer
 
 
 @CATEGORY_VIEWSET_SCHEMA
-class CategoryViewSet(viewsets.ModelViewSet):
+class CategoryViewSet(ConditionalWriteMixin, viewsets.ModelViewSet):
     # Only the model matters here (schema tooling); requests always go through get_queryset().
     queryset = Category.objects.none()
     serializer_class = CategorySerializer

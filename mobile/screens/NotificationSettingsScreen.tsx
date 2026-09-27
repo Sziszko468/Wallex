@@ -20,16 +20,29 @@ import { extractErrorMessage } from "../utils/errors";
 import { colors, fontSize, radius, spacing } from "../utils/theme";
 import type { NotificationPreferences, NotificationPreferencesUpdate } from "../types/notification";
 
-type PreferenceToggle = "budget_warnings" | "budget_exceeded" | "recurring_reminders" | "insights";
+type PreferenceToggle = Exclude<keyof NotificationPreferences, "recurring_reminder_days" | "updated_at">;
 
+// Only labels live here: when to notify, and what the notification says, is decided by the backend.
 const TOGGLES: { field: PreferenceToggle; label: string; hint: string }[] = [
   { field: "budget_warnings", label: "Budget almost used", hint: "When a budget reaches 80%." },
   { field: "budget_exceeded", label: "Budget exceeded", hint: "When you spend more than a budget." },
   {
-    field: "recurring_reminders",
-    label: "Upcoming payments",
-    hint: "Before a recurring expense is due.",
+    field: "subscription_reminders",
+    label: "Subscription payments",
+    hint: "Before a subscription is charged.",
   },
+  {
+    field: "recurring_reminders",
+    label: "Other recurring payments",
+    hint: "Before rent, bills and other recurring expenses are due.",
+  },
+  { field: "savings_goals", label: "Savings goals", hint: "Milestones on the way to a goal." },
+  {
+    field: "unusual_spending",
+    label: "Unusual spending",
+    hint: "When a category costs clearly more than usual.",
+  },
+  { field: "monthly_summary", label: "Monthly summary", hint: "Last month's spending, early in the month." },
   {
     field: "insights",
     label: "Important insights",
@@ -167,7 +180,7 @@ function PreferencesSection() {
               />
             ))}
 
-            {preferences.recurring_reminders && (
+            {(preferences.subscription_reminders || preferences.recurring_reminders) && (
               <View style={styles.daysRow}>
                 <Text style={styles.label}>Remind me</Text>
                 <View style={styles.chips}>
@@ -189,7 +202,7 @@ function PreferencesSection() {
                     );
                   })}
                 </View>
-                <Text style={styles.hint}>before a recurring expense is due.</Text>
+                <Text style={styles.hint}>before a subscription or other recurring payment is due.</Text>
               </View>
             )}
           </>

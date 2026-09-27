@@ -1794,6 +1794,8 @@ paths:
   /api/budgets/{id}/:
     get:
       operationId: budgets_retrieve
+      description: 'For ModelViewSets of objects with `updated_at`: ETag on reads,
+        If-Match on writes.'
       summary: Get a budget
       parameters:
       - in: path
@@ -1813,6 +1815,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/Budget'
           description: ''
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: 'The object''s version: its `updated_at` in quotes. Send
+                it back as `If-Match` when changing it.'
         '401':
           description: 'No valid access token: missing, malformed or expired. Refresh
             it with `POST /api/auth/refresh/` and retry once; if the refresh fails
@@ -1872,6 +1880,15 @@ paths:
           type: string
           pattern: ^\d+$
         required: true
+      - in: header
+        name: If-Match
+        required: false
+        schema:
+          type: string
+        description: 'Optional optimistic-concurrency check: the object''s `updated_at`
+          as you last loaded it, in quotes (`"2026-09-27T14:03:31.357564Z"`, the `ETag`
+          of its GET). If it has changed since — on another device or tab — nothing
+          is written and the answer is `412`. Without the header the last write wins.'
       tags:
       - Budgets
       requestBody:
@@ -1899,6 +1916,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/Budget'
           description: ''
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: 'The object''s version: its `updated_at` in quotes. Send
+                it back as `If-Match` when changing it.'
         '400':
           content:
             application/json:
@@ -1956,6 +1979,32 @@ paths:
                 NotFound:
                   value:
                     detail: No Budget matches the given query.
+        '412':
+          description: '`If-Match` didn''t match: the object was changed after you
+            loaded it (on another device or tab). Nothing was written. `current` is
+            the object as it is now — show it, or reload.'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    description: Safe to show to the user.
+                  current:
+                    $ref: '#/components/schemas/Budget'
+                required:
+                - detail
+                - current
+              examples:
+                ChangedElsewhere:
+                  value:
+                    detail: This transaction was changed on another device after you
+                      loaded it. Nothing was saved; review the current version and
+                      try again.
+                    current:
+                      id: 42
+                      updated_at: '2026-09-27T14:05:10.004211Z'
         '429':
           description: Rate limit exceeded (see *Rate limits* in the introduction).
             Retry after `Retry-After` seconds.
@@ -1983,6 +2032,15 @@ paths:
           type: string
           pattern: ^\d+$
         required: true
+      - in: header
+        name: If-Match
+        required: false
+        schema:
+          type: string
+        description: 'Optional optimistic-concurrency check: the object''s `updated_at`
+          as you last loaded it, in quotes (`"2026-09-27T14:03:31.357564Z"`, the `ETag`
+          of its GET). If it has changed since — on another device or tab — nothing
+          is written and the answer is `412`. Without the header the last write wins.'
       tags:
       - Budgets
       security:
@@ -2021,6 +2079,32 @@ paths:
                 NotFound:
                   value:
                     detail: No Budget matches the given query.
+        '412':
+          description: '`If-Match` didn''t match: the object was changed after you
+            loaded it (on another device or tab). Nothing was written. `current` is
+            the object as it is now — show it, or reload.'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    description: Safe to show to the user.
+                  current:
+                    $ref: '#/components/schemas/Budget'
+                required:
+                - detail
+                - current
+              examples:
+                ChangedElsewhere:
+                  value:
+                    detail: This transaction was changed on another device after you
+                      loaded it. Nothing was saved; review the current version and
+                      try again.
+                    current:
+                      id: 42
+                      updated_at: '2026-09-27T14:05:10.004211Z'
         '429':
           description: Rate limit exceeded (see *Rate limits* in the introduction).
             Retry after `Retry-After` seconds.
@@ -2215,6 +2299,8 @@ paths:
   /api/categories/{id}/:
     get:
       operationId: categories_retrieve
+      description: 'For ModelViewSets of objects with `updated_at`: ETag on reads,
+        If-Match on writes.'
       summary: Get a category
       parameters:
       - in: path
@@ -2234,6 +2320,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/Category'
           description: ''
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: 'The object''s version: its `updated_at` in quotes. Send
+                it back as `If-Match` when changing it.'
         '401':
           description: 'No valid access token: missing, malformed or expired. Refresh
             it with `POST /api/auth/refresh/` and retry once; if the refresh fails
@@ -2295,6 +2387,15 @@ paths:
           type: string
           pattern: ^\d+$
         required: true
+      - in: header
+        name: If-Match
+        required: false
+        schema:
+          type: string
+        description: 'Optional optimistic-concurrency check: the object''s `updated_at`
+          as you last loaded it, in quotes (`"2026-09-27T14:03:31.357564Z"`, the `ETag`
+          of its GET). If it has changed since — on another device or tab — nothing
+          is written and the answer is `412`. Without the header the last write wins.'
       tags:
       - Categories
       requestBody:
@@ -2317,6 +2418,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/Category'
           description: ''
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: 'The object''s version: its `updated_at` in quotes. Send
+                it back as `If-Match` when changing it.'
         '400':
           content:
             application/json:
@@ -2395,6 +2502,32 @@ paths:
                 NotFound:
                   value:
                     detail: No Category matches the given query.
+        '412':
+          description: '`If-Match` didn''t match: the object was changed after you
+            loaded it (on another device or tab). Nothing was written. `current` is
+            the object as it is now — show it, or reload.'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    description: Safe to show to the user.
+                  current:
+                    $ref: '#/components/schemas/Category'
+                required:
+                - detail
+                - current
+              examples:
+                ChangedElsewhere:
+                  value:
+                    detail: This transaction was changed on another device after you
+                      loaded it. Nothing was saved; review the current version and
+                      try again.
+                    current:
+                      id: 42
+                      updated_at: '2026-09-27T14:05:10.004211Z'
         '429':
           description: Rate limit exceeded (see *Rate limits* in the introduction).
             Retry after `Retry-After` seconds.
@@ -2423,6 +2556,15 @@ paths:
           type: string
           pattern: ^\d+$
         required: true
+      - in: header
+        name: If-Match
+        required: false
+        schema:
+          type: string
+        description: 'Optional optimistic-concurrency check: the object''s `updated_at`
+          as you last loaded it, in quotes (`"2026-09-27T14:03:31.357564Z"`, the `ETag`
+          of its GET). If it has changed since — on another device or tab — nothing
+          is written and the answer is `412`. Without the header the last write wins.'
       tags:
       - Categories
       security:
@@ -2485,6 +2627,32 @@ paths:
                   summary: In use
           description: The category is still used by transactions or recurring transactions.
             Move or delete those first.
+        '412':
+          description: '`If-Match` didn''t match: the object was changed after you
+            loaded it (on another device or tab). Nothing was written. `current` is
+            the object as it is now — show it, or reload.'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    description: Safe to show to the user.
+                  current:
+                    $ref: '#/components/schemas/Category'
+                required:
+                - detail
+                - current
+              examples:
+                ChangedElsewhere:
+                  value:
+                    detail: This transaction was changed on another device after you
+                      loaded it. Nothing was saved; review the current version and
+                      try again.
+                    current:
+                      id: 42
+                      updated_at: '2026-09-27T14:05:10.004211Z'
         '429':
           description: Rate limit exceeded (see *Rate limits* in the introduction).
             Retry after `Retry-After` seconds.
@@ -2646,18 +2814,10 @@ paths:
       description: |-
         The user's registered app installations, most recently seen first. Not paginated.
 
-        **Mobile only** — the web client never registers a device. Delivery goes through the Expo push service.
-
-        Every push carries `data` with `kind`, `notification_id` and the `screen` to open on tap:
-
-        | `kind` | Sent when | At most once per | `data.screen` |
-        |---|---|---|---|
-        | `budget_warning` | An expense or budget change brings a budget to ≥ 80 % (and ≤ 100 %) | budget | `budgets` |
-        | `budget_exceeded` | … above 100 % (the warning is skipped if both happen at once) | budget | `budgets` |
-        | `recurring_due` | An active recurring expense is due within `recurring_reminder_days` | recurring item + date | `recurring` |
-        | `insight` | An `alert` insight other than a budget one (e.g. `overspending`) | insight + month | `dashboard` |
-
-        Devices that haven't re-registered for longer than the refresh-token lifetime (7 days) are not sent to.
+        **Push (mobile only)** — the web client never registers a device. Every notification is also pushed
+        through the Expo push service to the user's devices; the push `data` carries `kind`, `notification_id`,
+        `screen` and that screen's ids. Devices that haven't re-registered for longer than the refresh-token
+        lifetime (7 days) are not sent to.
       summary: List push devices
       tags:
       - Notifications
@@ -2932,10 +3092,442 @@ paths:
                       cache: error
                   summary: Database down
           description: At least one dependency failed.
+  /api/notifications/:
+    get:
+      operationId: notifications_list
+      description: |-
+        The user's in-app notifications, newest first, **paginated** (`count`, `next`, `previous`, `results`). Filter with `is_read` (`true` / `false`; any other value is ignored) and `kind`.
+
+        Every notification is decided and written by the server — the apps only show `title` and `body`.
+
+        | `kind` | Created when | At most once per | `related_object.type` | `data.screen` |
+        |---|---|---|---|---|
+        | `budget_warning` | An expense or budget change brings a budget to ≥ 80 % (and ≤ 100 %) | budget | `budget` | `budgets` |
+        | `budget_exceeded` | … above 100 % (the warning is skipped if both happen at once) | budget | `budget` | `budgets` |
+        | `subscription_due` | A subscription payment is due within `recurring_reminder_days` | payment | `subscription` | `subscriptions` |
+        | `recurring_due` | Any other recurring expense is due within `recurring_reminder_days` | payment | `recurring_transaction` | `recurring` |
+        | `savings_goal` | Money added (or the target lowered) takes a goal past 25, 50, 75, 90 or 100 % | goal + milestone | `savings_goal` | `savings_goals` |
+        | `unusual_spending` | A category is ≥ 20 % above its usual level for this point of the month (3-month baseline) | category + month | `category` | `transactions` |
+        | `monthly_summary` | In the first 7 days of a month: last month's spending and income | month | — | `dashboard` |
+        | `insight` | An `alert` insight other than a budget one (e.g. `overspending`) | insight + month | `category` or — | `dashboard` |
+
+        Budget and savings notifications are created by the request that changed the data; the others by the
+        hourly `send_scheduled_notifications` job. A kind switched off in the preferences isn't created at all.
+
+        **Push (mobile only)** — the web client never registers a device. Every notification is also pushed
+        through the Expo push service to the user's devices; the push `data` carries `kind`, `notification_id`,
+        `screen` and that screen's ids. Devices that haven't re-registered for longer than the refresh-token
+        lifetime (7 days) are not sent to.
+      summary: List notifications
+      parameters:
+      - in: query
+        name: is_read
+        schema:
+          type: boolean
+        description: '`false`: unread only, `true`: read only.'
+      - in: query
+        name: kind
+        schema:
+          type: string
+          enum:
+          - budget_exceeded
+          - budget_warning
+          - insight
+          - monthly_summary
+          - recurring_due
+          - savings_goal
+          - subscription_due
+          - unusual_spending
+        description: |-
+          Only this kind of notification.
+
+          * `budget_warning` - Budget almost used
+          * `budget_exceeded` - Budget exceeded
+          * `subscription_due` - Subscription payment approaching
+          * `recurring_due` - Upcoming recurring expense
+          * `savings_goal` - Savings goal progress
+          * `unusual_spending` - Unusual spending
+          * `monthly_summary` - Monthly spending summary
+          * `insight` - Important insight
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - Notifications
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedNotificationList'
+              examples:
+                Page:
+                  value:
+                    count: 123
+                    next: http://api.example.org/accounts/?page=4
+                    previous: http://api.example.org/accounts/?page=2
+                    results:
+                    - count: 2
+                      next: null
+                      previous: null
+                      results:
+                      - id: 42
+                        kind: budget_warning
+                        title: Budget almost used
+                        body: You've used 82% of your Food budget for September.
+                        is_read: false
+                        read_at: null
+                        related_object:
+                          type: budget
+                          id: 12
+                        data:
+                          screen: budgets
+                          budget_id: 12
+                          year: 2026
+                          month: 9
+                        created_at: '2026-09-27T08:15:02.113240Z'
+                      - id: 41
+                        kind: monthly_summary
+                        title: Your August summary
+                        body: You spent €1,234.56 and earned €2,000 in August. Spending
+                          was 8% lower than in July.
+                        is_read: true
+                        read_at: '2026-09-01T07:02:44.101000Z'
+                        related_object: null
+                        data:
+                          screen: dashboard
+                          year: 2026
+                          month: 8
+                        created_at: '2026-09-01T06:00:03.527781Z'
+          description: One page of notifications.
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                UnknownKind:
+                  value:
+                    kind:
+                    - Select a valid choice. foo is not one of the available choices.
+                  summary: Unknown kind
+          description: '`kind` is not a notification kind.'
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                PastTheEnd:
+                  value:
+                    detail: Invalid page.
+                  summary: Past the end
+          description: '`page` is past the last page.'
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/notifications/{id}/:
+    get:
+      operationId: notifications_retrieve
+      description: |-
+        The signed-in user's in-app notifications, newest first.
+
+        Read-only apart from the read state: notifications are only ever created by the
+        server's rules (apps/notifications/rules.py). No DELETE: the stored row is also what
+        stops the same event from notifying again.
+      summary: Get a notification
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - Notifications
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+              examples:
+                BudgetWarning:
+                  value:
+                    id: 42
+                    kind: budget_warning
+                    title: Budget almost used
+                    body: You've used 82% of your Food budget for September.
+                    is_read: false
+                    read_at: null
+                    related_object:
+                      type: budget
+                      id: 12
+                    data:
+                      screen: budgets
+                      budget_id: 12
+                      year: 2026
+                      month: 9
+                    created_at: '2026-09-27T08:15:02.113240Z'
+                  summary: Budget warning
+          description: ''
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '404':
+          description: No such object for the signed-in user. Objects of other users
+            are reported exactly the same way.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NotFound:
+                  value:
+                    detail: No Notification matches the given query.
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+    patch:
+      operationId: notifications_partial_update
+      description: '`is_read` is the only field that can change; others are ignored.
+        Marking a notification read again keeps its first `read_at`.'
+      summary: Mark a notification read or unread
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - Notifications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedNotificationRequest'
+            examples:
+              MarkRead:
+                value:
+                  is_read: true
+                summary: Mark read
+              MarkUnread:
+                value:
+                  is_read: false
+                summary: Mark unread
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedNotificationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedNotificationRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                NotABoolean:
+                  value:
+                    is_read:
+                    - Must be a valid boolean.
+                  summary: Not a boolean
+          description: Validation failed; nothing was changed. See the examples for
+            typical messages.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '404':
+          description: No such object for the signed-in user. Objects of other users
+            are reported exactly the same way.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NotFound:
+                  value:
+                    detail: No Notification matches the given query.
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/notifications/mark-all-read/:
+    post:
+      operationId: notifications_mark_all_read_create
+      description: 'Idempotent: calling it again reports `marked: 0`.'
+      summary: Mark every notification read
+      tags:
+      - Notifications
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarkAllRead'
+              examples:
+                Marked:
+                  value:
+                    marked: 3
+          description: ''
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
   /api/notifications/preferences/:
     get:
       operationId: notifications_preferences_retrieve
-      description: Which push notifications the user wants; applies to all of their
+      description: One switch per notification `kind`; a switched-off kind is not
+        created at all — neither in the app nor as a push. Applies to all of the user's
         devices. Created with the defaults (everything on, reminders 2 days ahead)
         on first access.
       summary: Get notification preferences
@@ -2954,7 +3546,11 @@ paths:
                   value:
                     budget_warnings: true
                     budget_exceeded: true
+                    subscription_reminders: true
                     recurring_reminders: true
+                    savings_goals: true
+                    unusual_spending: true
+                    monthly_summary: true
                     insights: true
                     recurring_reminder_days: 2
                     updated_at: '2026-09-26T09:49:57.384766Z'
@@ -3007,10 +3603,10 @@ paths:
             schema:
               $ref: '#/components/schemas/PatchedNotificationPreferenceRequest'
             examples:
-              TurnOffInsights:
+              TurnOffTheMonthlySummary:
                 value:
-                  insights: false
-                summary: Turn off insights
+                  monthly_summary: false
+                summary: Turn off the monthly summary
           application/x-www-form-urlencoded:
             schema:
               $ref: '#/components/schemas/PatchedNotificationPreferenceRequest'
@@ -3044,6 +3640,64 @@ paths:
                   summary: Not a boolean
           description: Validation failed; nothing was changed. See the examples for
             typical messages.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/notifications/unread-count/:
+    get:
+      operationId: notifications_unread_count_retrieve
+      description: 'For the badge on the notifications icon. Cheap: poll it on app
+        start and when the app returns to the foreground.'
+      summary: Count unread notifications
+      tags:
+      - Notifications
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnreadCount'
+              examples:
+                ThreeUnread:
+                  value:
+                    unread_count: 3
+                  summary: Three unread
+          description: ''
         '401':
           description: 'No valid access token: missing, malformed or expired. Refresh
             it with `POST /api/auth/refresh/` and retry once; if the refresh fails
@@ -3481,6 +4135,8 @@ paths:
   /api/recurring-transactions/{id}/:
     get:
       operationId: recurring_transactions_retrieve
+      description: 'For ModelViewSets of objects with `updated_at`: ETag on reads,
+        If-Match on writes.'
       summary: Get a recurring transaction
       parameters:
       - in: path
@@ -3500,6 +4156,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/RecurringTransaction'
           description: ''
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: 'The object''s version: its `updated_at` in quotes. Send
+                it back as `If-Match` when changing it.'
         '401':
           description: 'No valid access token: missing, malformed or expired. Refresh
             it with `POST /api/auth/refresh/` and retry once; if the refresh fails
@@ -3560,6 +4222,15 @@ paths:
           type: string
           pattern: ^\d+$
         required: true
+      - in: header
+        name: If-Match
+        required: false
+        schema:
+          type: string
+        description: 'Optional optimistic-concurrency check: the object''s `updated_at`
+          as you last loaded it, in quotes (`"2026-09-27T14:03:31.357564Z"`, the `ETag`
+          of its GET). If it has changed since — on another device or tab — nothing
+          is written and the answer is `412`. Without the header the last write wins.'
       tags:
       - Recurring Transactions
       requestBody:
@@ -3586,6 +4257,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/RecurringTransaction'
           description: ''
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: 'The object''s version: its `updated_at` in quotes. Send
+                it back as `If-Match` when changing it.'
         '400':
           content:
             application/json:
@@ -3658,6 +4335,32 @@ paths:
                 NotFound:
                   value:
                     detail: No RecurringTransaction matches the given query.
+        '412':
+          description: '`If-Match` didn''t match: the object was changed after you
+            loaded it (on another device or tab). Nothing was written. `current` is
+            the object as it is now — show it, or reload.'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    description: Safe to show to the user.
+                  current:
+                    $ref: '#/components/schemas/RecurringTransaction'
+                required:
+                - detail
+                - current
+              examples:
+                ChangedElsewhere:
+                  value:
+                    detail: This transaction was changed on another device after you
+                      loaded it. Nothing was saved; review the current version and
+                      try again.
+                    current:
+                      id: 42
+                      updated_at: '2026-09-27T14:05:10.004211Z'
         '429':
           description: Rate limit exceeded (see *Rate limits* in the introduction).
             Retry after `Retry-After` seconds.
@@ -3685,6 +4388,15 @@ paths:
           type: string
           pattern: ^\d+$
         required: true
+      - in: header
+        name: If-Match
+        required: false
+        schema:
+          type: string
+        description: 'Optional optimistic-concurrency check: the object''s `updated_at`
+          as you last loaded it, in quotes (`"2026-09-27T14:03:31.357564Z"`, the `ETag`
+          of its GET). If it has changed since — on another device or tab — nothing
+          is written and the answer is `412`. Without the header the last write wins.'
       tags:
       - Recurring Transactions
       security:
@@ -3723,6 +4435,32 @@ paths:
                 NotFound:
                   value:
                     detail: No RecurringTransaction matches the given query.
+        '412':
+          description: '`If-Match` didn''t match: the object was changed after you
+            loaded it (on another device or tab). Nothing was written. `current` is
+            the object as it is now — show it, or reload.'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    description: Safe to show to the user.
+                  current:
+                    $ref: '#/components/schemas/RecurringTransaction'
+                required:
+                - detail
+                - current
+              examples:
+                ChangedElsewhere:
+                  value:
+                    detail: This transaction was changed on another device after you
+                      loaded it. Nothing was saved; review the current version and
+                      try again.
+                    current:
+                      id: 42
+                      updated_at: '2026-09-27T14:05:10.004211Z'
         '429':
           description: Rate limit exceeded (see *Rate limits* in the introduction).
             Retry after `Retry-After` seconds.
@@ -3952,6 +4690,8 @@ paths:
   /api/savings-goals/{id}/:
     get:
       operationId: savings_goals_retrieve
+      description: 'For ModelViewSets of objects with `updated_at`: ETag on reads,
+        If-Match on writes.'
       summary: Get a savings goal
       parameters:
       - in: path
@@ -3971,6 +4711,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/SavingsGoal'
           description: ''
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: 'The object''s version: its `updated_at` in quotes. Send
+                it back as `If-Match` when changing it.'
         '401':
           description: 'No valid access token: missing, malformed or expired. Refresh
             it with `POST /api/auth/refresh/` and retry once; if the refresh fails
@@ -4032,6 +4778,15 @@ paths:
           type: string
           pattern: ^\d+$
         required: true
+      - in: header
+        name: If-Match
+        required: false
+        schema:
+          type: string
+        description: 'Optional optimistic-concurrency check: the object''s `updated_at`
+          as you last loaded it, in quotes (`"2026-09-27T14:03:31.357564Z"`, the `ETag`
+          of its GET). If it has changed since — on another device or tab — nothing
+          is written and the answer is `412`. Without the header the last write wins.'
       tags:
       - Savings Goals
       requestBody:
@@ -4062,6 +4817,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/SavingsGoal'
           description: ''
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: 'The object''s version: its `updated_at` in quotes. Send
+                it back as `If-Match` when changing it.'
         '400':
           content:
             application/json:
@@ -4144,6 +4905,32 @@ paths:
                 NotFound:
                   value:
                     detail: No SavingsGoal matches the given query.
+        '412':
+          description: '`If-Match` didn''t match: the object was changed after you
+            loaded it (on another device or tab). Nothing was written. `current` is
+            the object as it is now — show it, or reload.'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    description: Safe to show to the user.
+                  current:
+                    $ref: '#/components/schemas/SavingsGoal'
+                required:
+                - detail
+                - current
+              examples:
+                ChangedElsewhere:
+                  value:
+                    detail: This transaction was changed on another device after you
+                      loaded it. Nothing was saved; review the current version and
+                      try again.
+                    current:
+                      id: 42
+                      updated_at: '2026-09-27T14:05:10.004211Z'
         '429':
           description: Rate limit exceeded (see *Rate limits* in the introduction).
             Retry after `Retry-After` seconds.
@@ -4171,6 +4958,15 @@ paths:
           type: string
           pattern: ^\d+$
         required: true
+      - in: header
+        name: If-Match
+        required: false
+        schema:
+          type: string
+        description: 'Optional optimistic-concurrency check: the object''s `updated_at`
+          as you last loaded it, in quotes (`"2026-09-27T14:03:31.357564Z"`, the `ETag`
+          of its GET). If it has changed since — on another device or tab — nothing
+          is written and the answer is `412`. Without the header the last write wins.'
       tags:
       - Savings Goals
       security:
@@ -4209,6 +5005,32 @@ paths:
                 NotFound:
                   value:
                     detail: No SavingsGoal matches the given query.
+        '412':
+          description: '`If-Match` didn''t match: the object was changed after you
+            loaded it (on another device or tab). Nothing was written. `current` is
+            the object as it is now — show it, or reload.'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    description: Safe to show to the user.
+                  current:
+                    $ref: '#/components/schemas/SavingsGoal'
+                required:
+                - detail
+                - current
+              examples:
+                ChangedElsewhere:
+                  value:
+                    detail: This transaction was changed on another device after you
+                      loaded it. Nothing was saved; review the current version and
+                      try again.
+                    current:
+                      id: 42
+                      updated_at: '2026-09-27T14:05:10.004211Z'
         '429':
           description: Rate limit exceeded (see *Rate limits* in the introduction).
             Retry after `Retry-After` seconds.
@@ -4762,6 +5584,8 @@ paths:
   /api/subscriptions/{id}/:
     get:
       operationId: subscriptions_retrieve
+      description: 'For ModelViewSets of objects with `updated_at`: ETag on reads,
+        If-Match on writes.'
       summary: Get a subscription
       parameters:
       - in: path
@@ -4781,6 +5605,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/Subscription'
           description: ''
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: 'The object''s version: its `updated_at` in quotes. Send
+                it back as `If-Match` when changing it.'
         '401':
           description: 'No valid access token: missing, malformed or expired. Refresh
             it with `POST /api/auth/refresh/` and retry once; if the refresh fails
@@ -4841,6 +5671,15 @@ paths:
           type: string
           pattern: ^\d+$
         required: true
+      - in: header
+        name: If-Match
+        required: false
+        schema:
+          type: string
+        description: 'Optional optimistic-concurrency check: the object''s `updated_at`
+          as you last loaded it, in quotes (`"2026-09-27T14:03:31.357564Z"`, the `ETag`
+          of its GET). If it has changed since — on another device or tab — nothing
+          is written and the answer is `412`. Without the header the last write wins.'
       tags:
       - Subscriptions
       requestBody:
@@ -4874,6 +5713,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/Subscription'
           description: ''
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: 'The object''s version: its `updated_at` in quotes. Send
+                it back as `If-Match` when changing it.'
         '400':
           content:
             application/json:
@@ -4955,6 +5800,32 @@ paths:
                 NotFound:
                   value:
                     detail: No Subscription matches the given query.
+        '412':
+          description: '`If-Match` didn''t match: the object was changed after you
+            loaded it (on another device or tab). Nothing was written. `current` is
+            the object as it is now — show it, or reload.'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    description: Safe to show to the user.
+                  current:
+                    $ref: '#/components/schemas/Subscription'
+                required:
+                - detail
+                - current
+              examples:
+                ChangedElsewhere:
+                  value:
+                    detail: This transaction was changed on another device after you
+                      loaded it. Nothing was saved; review the current version and
+                      try again.
+                    current:
+                      id: 42
+                      updated_at: '2026-09-27T14:05:10.004211Z'
         '429':
           description: Rate limit exceeded (see *Rate limits* in the introduction).
             Retry after `Retry-After` seconds.
@@ -4983,6 +5854,15 @@ paths:
           type: string
           pattern: ^\d+$
         required: true
+      - in: header
+        name: If-Match
+        required: false
+        schema:
+          type: string
+        description: 'Optional optimistic-concurrency check: the object''s `updated_at`
+          as you last loaded it, in quotes (`"2026-09-27T14:03:31.357564Z"`, the `ETag`
+          of its GET). If it has changed since — on another device or tab — nothing
+          is written and the answer is `412`. Without the header the last write wins.'
       tags:
       - Subscriptions
       security:
@@ -5021,6 +5901,32 @@ paths:
                 NotFound:
                   value:
                     detail: No Subscription matches the given query.
+        '412':
+          description: '`If-Match` didn''t match: the object was changed after you
+            loaded it (on another device or tab). Nothing was written. `current` is
+            the object as it is now — show it, or reload.'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    description: Safe to show to the user.
+                  current:
+                    $ref: '#/components/schemas/Subscription'
+                required:
+                - detail
+                - current
+              examples:
+                ChangedElsewhere:
+                  value:
+                    detail: This transaction was changed on another device after you
+                      loaded it. Nothing was saved; review the current version and
+                      try again.
+                    current:
+                      id: 42
+                      updated_at: '2026-09-27T14:05:10.004211Z'
         '429':
           description: Rate limit exceeded (see *Rate limits* in the introduction).
             Retry after `Retry-After` seconds.
@@ -5085,6 +5991,82 @@ paths:
                     unconverted_currencies: []
                   summary: Five subscriptions
           description: Totals and upcoming payments.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/sync/status/:
+    get:
+      operationId: sync_status_retrieve
+      description: |-
+        Every device (web, iPhone, Android) reads and writes the same data through this API, so a device is in sync as soon as it reloads what changed. This answers *whether* to reload, cheaply (one query, no data): compare `version` with the last one you saw and reload your views when it differs. The web and mobile apps ask every 30 s while visible, when they come back to the foreground, and right after their own writes.
+
+        `last_modified` comes from the server clock (`updated_at`); never compare it with the device's own clock. A deletion lowers `count`, every other write moves `last_modified`, and changing the base currency changes `version` as well. API responses are never cacheable (`Cache-Control: no-store`), so a reload always gets the current data.
+      summary: Has anything changed?
+      tags:
+      - Sync
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncStatus'
+              examples:
+                Status:
+                  value:
+                    version: 5f0c1e9b2a7d4c38e1aa
+                    server_time: '2026-09-27T14:05:12.861020Z'
+                    resources:
+                      transactions:
+                        count: 128
+                        last_modified: '2026-09-27T14:05:10.004211Z'
+                      categories:
+                        count: 11
+                        last_modified: '2026-09-20T08:11:02.300118Z'
+                      budgets:
+                        count: 4
+                        last_modified: '2026-09-01T07:30:45.001922Z'
+                      recurring_transactions:
+                        count: 6
+                        last_modified: '2026-09-26T19:02:13.515003Z'
+                      savings_goals:
+                        count: 0
+                        last_modified: null
+          description: ''
         '401':
           description: 'No valid access token: missing, malformed or expired. Refresh
             it with `POST /api/auth/refresh/` and retry once; if the refresh fails
@@ -5444,6 +6426,8 @@ paths:
   /api/transactions/{id}/:
     get:
       operationId: transactions_retrieve
+      description: 'For ModelViewSets of objects with `updated_at`: ETag on reads,
+        If-Match on writes.'
       summary: Get a transaction
       parameters:
       - in: path
@@ -5463,6 +6447,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/Transaction'
           description: ''
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: 'The object''s version: its `updated_at` in quotes. Send
+                it back as `If-Match` when changing it.'
         '401':
           description: 'No valid access token: missing, malformed or expired. Refresh
             it with `POST /api/auth/refresh/` and retry once; if the refresh fails
@@ -5523,6 +6513,15 @@ paths:
           type: string
           pattern: ^\d+$
         required: true
+      - in: header
+        name: If-Match
+        required: false
+        schema:
+          type: string
+        description: 'Optional optimistic-concurrency check: the object''s `updated_at`
+          as you last loaded it, in quotes (`"2026-09-27T14:03:31.357564Z"`, the `ETag`
+          of its GET). If it has changed since — on another device or tab — nothing
+          is written and the answer is `412`. Without the header the last write wins.'
       tags:
       - Transactions
       requestBody:
@@ -5546,6 +6545,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/Transaction'
           description: ''
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: 'The object''s version: its `updated_at` in quotes. Send
+                it back as `If-Match` when changing it.'
         '400':
           content:
             application/json:
@@ -5643,6 +6648,32 @@ paths:
                 NotFound:
                   value:
                     detail: No Transaction matches the given query.
+        '412':
+          description: '`If-Match` didn''t match: the object was changed after you
+            loaded it (on another device or tab). Nothing was written. `current` is
+            the object as it is now — show it, or reload.'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    description: Safe to show to the user.
+                  current:
+                    $ref: '#/components/schemas/Transaction'
+                required:
+                - detail
+                - current
+              examples:
+                ChangedElsewhere:
+                  value:
+                    detail: This transaction was changed on another device after you
+                      loaded it. Nothing was saved; review the current version and
+                      try again.
+                    current:
+                      id: 42
+                      updated_at: '2026-09-27T14:05:10.004211Z'
         '429':
           description: Rate limit exceeded (see *Rate limits* in the introduction).
             Retry after `Retry-After` seconds.
@@ -5673,6 +6704,15 @@ paths:
           type: string
           pattern: ^\d+$
         required: true
+      - in: header
+        name: If-Match
+        required: false
+        schema:
+          type: string
+        description: 'Optional optimistic-concurrency check: the object''s `updated_at`
+          as you last loaded it, in quotes (`"2026-09-27T14:03:31.357564Z"`, the `ETag`
+          of its GET). If it has changed since — on another device or tab — nothing
+          is written and the answer is `412`. Without the header the last write wins.'
       tags:
       - Transactions
       requestBody:
@@ -5700,6 +6740,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/Transaction'
           description: ''
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: 'The object''s version: its `updated_at` in quotes. Send
+                it back as `If-Match` when changing it.'
         '400':
           content:
             application/json:
@@ -5797,6 +6843,32 @@ paths:
                 NotFound:
                   value:
                     detail: No Transaction matches the given query.
+        '412':
+          description: '`If-Match` didn''t match: the object was changed after you
+            loaded it (on another device or tab). Nothing was written. `current` is
+            the object as it is now — show it, or reload.'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    description: Safe to show to the user.
+                  current:
+                    $ref: '#/components/schemas/Transaction'
+                required:
+                - detail
+                - current
+              examples:
+                ChangedElsewhere:
+                  value:
+                    detail: This transaction was changed on another device after you
+                      loaded it. Nothing was saved; review the current version and
+                      try again.
+                    current:
+                      id: 42
+                      updated_at: '2026-09-27T14:05:10.004211Z'
         '429':
           description: Rate limit exceeded (see *Rate limits* in the introduction).
             Retry after `Retry-After` seconds.
@@ -5815,6 +6887,8 @@ paths:
               description: Seconds until the next request is allowed.
     delete:
       operationId: transactions_destroy
+      description: 'For ModelViewSets of objects with `updated_at`: ETag on reads,
+        If-Match on writes.'
       summary: Delete a transaction
       parameters:
       - in: path
@@ -5823,6 +6897,15 @@ paths:
           type: string
           pattern: ^\d+$
         required: true
+      - in: header
+        name: If-Match
+        required: false
+        schema:
+          type: string
+        description: 'Optional optimistic-concurrency check: the object''s `updated_at`
+          as you last loaded it, in quotes (`"2026-09-27T14:03:31.357564Z"`, the `ETag`
+          of its GET). If it has changed since — on another device or tab — nothing
+          is written and the answer is `412`. Without the header the last write wins.'
       tags:
       - Transactions
       security:
@@ -5861,6 +6944,32 @@ paths:
                 NotFound:
                   value:
                     detail: No Transaction matches the given query.
+        '412':
+          description: '`If-Match` didn''t match: the object was changed after you
+            loaded it (on another device or tab). Nothing was written. `current` is
+            the object as it is now — show it, or reload.'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    description: Safe to show to the user.
+                  current:
+                    $ref: '#/components/schemas/Transaction'
+                required:
+                - detail
+                - current
+              examples:
+                ChangedElsewhere:
+                  value:
+                    detail: This transaction was changed on another device after you
+                      loaded it. Nothing was saved; review the current version and
+                      try again.
+                    current:
+                      id: 42
+                      updated_at: '2026-09-27T14:05:10.004211Z'
         '429':
           description: Rate limit exceeded (see *Rate limits* in the introduction).
             Retry after `Retry-After` seconds.
@@ -7064,6 +8173,14 @@ components:
       required:
       - email
       - password
+    MarkAllRead:
+      type: object
+      properties:
+        marked:
+          type: integer
+          description: How many notifications were unread (and are read now).
+      required:
+      - marked
     MarkSeenResult:
       type: object
       properties:
@@ -7234,26 +8351,126 @@ components:
       - income
       - month
       - month_name
+    Notification:
+      type: object
+      description: An inbox entry. Only `is_read` can be changed.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/NotificationKindEnum'
+          readOnly: true
+          description: |-
+            What happened; see the table in the list endpoint's description.
+
+            * `budget_warning` - Budget almost used
+            * `budget_exceeded` - Budget exceeded
+            * `subscription_due` - Subscription payment approaching
+            * `recurring_due` - Upcoming recurring expense
+            * `savings_goal` - Savings goal progress
+            * `unusual_spending` - Unusual spending
+            * `monthly_summary` - Monthly spending summary
+            * `insight` - Important insight
+        title:
+          type: string
+          readOnly: true
+          description: Written by the server; show as is.
+        body:
+          type: string
+          readOnly: true
+          description: Written by the server, amounts already formatted; show as is.
+        is_read:
+          type: boolean
+          description: Set to mark the notification read (`true`) or unread (`false`).
+        read_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+          description: When it was first marked read; `null` while unread.
+        related_object:
+          allOf:
+          - $ref: '#/components/schemas/RelatedObject'
+          nullable: true
+          readOnly: true
+          description: What the notification is about; `null` for a summary or a general
+            insight.
+        data:
+          readOnly: true
+          description: 'Navigation hints, the same as in the push payload: `screen`
+            plus the ids, `year` and `month` that screen needs.'
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - body
+      - created_at
+      - data
+      - id
+      - is_read
+      - kind
+      - read_at
+      - related_object
+      - title
+    NotificationKindEnum:
+      enum:
+      - budget_warning
+      - budget_exceeded
+      - subscription_due
+      - recurring_due
+      - savings_goal
+      - unusual_spending
+      - monthly_summary
+      - insight
+      type: string
+      description: |-
+        * `budget_warning` - Budget almost used
+        * `budget_exceeded` - Budget exceeded
+        * `subscription_due` - Subscription payment approaching
+        * `recurring_due` - Upcoming recurring expense
+        * `savings_goal` - Savings goal progress
+        * `unusual_spending` - Unusual spending
+        * `monthly_summary` - Monthly spending summary
+        * `insight` - Important insight
     NotificationPreference:
       type: object
       properties:
         budget_warnings:
           type: boolean
-          description: Push when a budget reaches 80 %.
+          description: '`budget_warning`: a budget reaches 80 %.'
         budget_exceeded:
           type: boolean
-          description: Push when a budget is exceeded.
+          description: '`budget_exceeded`: a budget is exceeded.'
+        subscription_reminders:
+          type: boolean
+          description: '`subscription_due`: a subscription payment is due within `recurring_reminder_days`.'
         recurring_reminders:
           type: boolean
-          description: Push before an active recurring expense is due.
+          description: '`recurring_due`: any other recurring expense is due within
+            `recurring_reminder_days`.'
+        savings_goals:
+          type: boolean
+          description: '`savings_goal`: a savings goal reaches 25, 50, 75, 90 or 100
+            %.'
+        unusual_spending:
+          type: boolean
+          description: '`unusual_spending`: a category is clearly above its usual
+            level.'
+        monthly_summary:
+          type: boolean
+          description: '`monthly_summary`: last month''s spending, early in the month.'
         insights:
           type: boolean
-          description: Push for important (alert) insights such as overspending.
+          description: '`insight`: important (alert) insights such as overspending.'
         recurring_reminder_days:
           type: integer
           maximum: 7
           minimum: 1
-          description: How many days before a recurring expense to remind (1–7).
+          description: How many days before a subscription or other recurring payment
+            to remind (1–7).
         updated_at:
           type: string
           format: date-time
@@ -7271,6 +8488,29 @@ components:
       description: |-
         * `high` - high
         * `low` - low
+    PaginatedNotificationList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Notification'
     PaginatedTransactionList:
       type: object
       required:
@@ -7349,21 +8589,44 @@ components:
       properties:
         budget_warnings:
           type: boolean
-          description: Push when a budget reaches 80 %.
+          description: '`budget_warning`: a budget reaches 80 %.'
         budget_exceeded:
           type: boolean
-          description: Push when a budget is exceeded.
+          description: '`budget_exceeded`: a budget is exceeded.'
+        subscription_reminders:
+          type: boolean
+          description: '`subscription_due`: a subscription payment is due within `recurring_reminder_days`.'
         recurring_reminders:
           type: boolean
-          description: Push before an active recurring expense is due.
+          description: '`recurring_due`: any other recurring expense is due within
+            `recurring_reminder_days`.'
+        savings_goals:
+          type: boolean
+          description: '`savings_goal`: a savings goal reaches 25, 50, 75, 90 or 100
+            %.'
+        unusual_spending:
+          type: boolean
+          description: '`unusual_spending`: a category is clearly above its usual
+            level.'
+        monthly_summary:
+          type: boolean
+          description: '`monthly_summary`: last month''s spending, early in the month.'
         insights:
           type: boolean
-          description: Push for important (alert) insights such as overspending.
+          description: '`insight`: important (alert) insights such as overspending.'
         recurring_reminder_days:
           type: integer
           maximum: 7
           minimum: 1
-          description: How many days before a recurring expense to remind (1–7).
+          description: How many days before a subscription or other recurring payment
+            to remind (1–7).
+    PatchedNotificationRequest:
+      type: object
+      description: An inbox entry. Only `is_read` can be changed.
+      properties:
+        is_read:
+          type: boolean
+          description: Set to mark the notification read (`true`) or unread (`false`).
     PatchedRecurringTransactionRequest:
       type: object
       description: |-
@@ -7954,6 +9217,56 @@ components:
       - email
       - password
       - password_confirm
+    RelatedObject:
+      type: object
+      properties:
+        type:
+          allOf:
+          - $ref: '#/components/schemas/RelatedObjectTypeEnum'
+          description: |-
+            What kind of object it is.
+
+            * `budget` - Budget
+            * `subscription` - Subscription
+            * `recurring_transaction` - Recurring transaction
+            * `savings_goal` - Savings goal
+            * `category` - Category
+        id:
+          type: integer
+          description: Its id, e.g. for `GET /api/budgets/{id}/`. The object may have
+            been deleted since.
+      required:
+      - id
+      - type
+    RelatedObjectTypeEnum:
+      enum:
+      - budget
+      - subscription
+      - recurring_transaction
+      - savings_goal
+      - category
+      type: string
+      description: |-
+        * `budget` - Budget
+        * `subscription` - Subscription
+        * `recurring_transaction` - Recurring transaction
+        * `savings_goal` - Savings goal
+        * `category` - Category
+    ResourceState:
+      type: object
+      properties:
+        count:
+          type: integer
+          description: How many of these objects the user has.
+        last_modified:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the last one was created or changed (server clock); `null`
+            while there are none.
+      required:
+      - count
+      - last_modified
     SavingsGoal:
       type: object
       properties:
@@ -8633,6 +9946,44 @@ components:
       description: |-
         * `history` - history
         * `rules` - rules
+    SyncResources:
+      type: object
+      properties:
+        transactions:
+          $ref: '#/components/schemas/ResourceState'
+        categories:
+          $ref: '#/components/schemas/ResourceState'
+        budgets:
+          $ref: '#/components/schemas/ResourceState'
+        recurring_transactions:
+          allOf:
+          - $ref: '#/components/schemas/ResourceState'
+          description: Subscriptions included.
+        savings_goals:
+          $ref: '#/components/schemas/ResourceState'
+      required:
+      - budgets
+      - categories
+      - recurring_transactions
+      - savings_goals
+      - transactions
+    SyncStatus:
+      type: object
+      properties:
+        version:
+          type: string
+          description: Fingerprint of all the user's data. Reload your views when
+            it differs from the last one you saw.
+        server_time:
+          type: string
+          format: date-time
+          description: The server's clock, for display ("synced 2 min ago").
+        resources:
+          $ref: '#/components/schemas/SyncResources'
+      required:
+      - resources
+      - server_time
+      - version
     TokenPair:
       type: object
       properties:
@@ -8877,6 +10228,14 @@ components:
       - month
       - months
       - year
+    UnreadCount:
+      type: object
+      properties:
+        unread_count:
+          type: integer
+          description: Notifications not marked read yet.
+      required:
+      - unread_count
     UpcomingPayment:
       type: object
       properties:
@@ -9030,6 +10389,10 @@ tags:
 - name: Receipt Scanning
   description: OCR suggestions from a receipt photo.
 - name: Notifications
-  description: Push-notification devices and preferences (mobile app).
+  description: In-app notifications decided by the server, their preferences, and
+    push devices.
+- name: Sync
+  description: 'Keeping web, iPhone and Android in step: change detection, never-cached
+    responses.'
 - name: Health
   description: Liveness and readiness probes for infrastructure.

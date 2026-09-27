@@ -4,9 +4,10 @@ from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from apps.common.concurrency import ConditionalWriteMixin
 from apps.common.permissions import IsOwner
 from apps.currencies.rates import Converter
-from apps.notifications.services import check_budget_thresholds
+from apps.notifications.rules import check_budget_thresholds, check_savings_goal
 
 from . import savings
 from .models import Budget, SavingsGoal, SavingsGoalStatus
@@ -21,7 +22,7 @@ from .serializers import BudgetSerializer, MoneyMovementSerializer, SavingsGoalS
 
 
 @BUDGET_VIEWSET_SCHEMA
-class BudgetViewSet(viewsets.ModelViewSet):
+class BudgetViewSet(ConditionalWriteMixin, viewsets.ModelViewSet):
     # Only the model matters here (schema tooling); requests always go through get_queryset().
     queryset = Budget.objects.none()
     serializer_class = BudgetSerializer
@@ -48,8 +49,12 @@ class BudgetViewSet(viewsets.ModelViewSet):
         check_budget_thresholds(self.request.user, budget.year, budget.month)
 
 
+def _progress(goal: SavingsGoal):
+    return savings.progress_percentage(goal.current_amount, goal.target_amount)
+
+
 @SAVINGS_GOAL_VIEWSET_SCHEMA
-class SavingsGoalViewSet(viewsets.ModelViewSet):
+class SavingsGoalViewSet(ConditionalWriteMixin, viewsets.ModelViewSet):
     # Only the model matters here (schema tooling); requests always go through get_queryset().
     queryset = SavingsGoal.objects.none()
     serializer_class = SavingsGoalSerializer
@@ -81,7 +86,13 @@ class SavingsGoalViewSet(viewsets.ModelViewSet):
         return context
 
     def perform_create(self, serializer):
+        # No progress notification for a new goal: the user just entered its amounts.
         serializer.save(user=self.request.user)
+
+    def perform_update(self, serializer):
+        before = _progress(serializer.instance)
+        # A corrected saved amount or a lowered target can cross a milestone.
+        check_savings_goal(self.request.user, serializer.save(), before)
 
     @DEPOSIT_SCHEMA
     @action(detail=True, methods=["post"])
@@ -97,10 +108,12 @@ class SavingsGoalViewSet(viewsets.ModelViewSet):
         goal = self.get_object()  # 404 for another user's goal
         movement = MoneyMovementSerializer(data=request.data, context={"goal": goal})
         movement.is_valid(raise_exception=True)
+        before = _progress(goal)
         try:
             goal = savings.move_money(goal.pk, movement.validated_data["amount"], direction)
         except savings.MoneyMovementError as error:
             return Response({error.field: [str(error)]}, status=status.HTTP_400_BAD_REQUEST)
+        check_savings_goal(request.user, goal, before)  # a withdrawal never crosses a milestone upwards
         return Response(self.get_serializer(goal).data)
 
     @SAVINGS_SUMMARY_SCHEMA

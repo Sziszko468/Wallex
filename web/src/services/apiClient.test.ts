@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { apiClient, setOnAuthFailure } from "./apiClient";
 import { getAccessToken, getRefreshToken, setTokens } from "../utils/tokenStorage";
 import { API, server } from "../test/server";
+import { subscribeLocalWrites } from "./localWrites";
 
 describe("apiClient", () => {
   beforeEach(() => {
@@ -106,5 +107,60 @@ describe("apiClient", () => {
       response: { status: 400, data: { amount: ["Ensure this value is greater than or equal to 0.01."] } },
     });
     expect(getAccessToken()).toBe("old-access");
+  });
+});
+
+describe("apiClient and other tabs / devices", () => {
+  beforeEach(() => {
+    setTokens({ access: "old-access", refresh: "old-refresh" });
+  });
+
+  it("reports successful writes (so every view can reload) — but not reads, failures or token refreshes", async () => {
+    const writes = vi.fn();
+    const unsubscribe = subscribeLocalWrites(writes);
+    server.use(
+      http.post(`${API}/budgets/`, () => HttpResponse.json({ id: 1 }, { status: 201 })),
+      http.delete(`${API}/budgets/:id/`, () => HttpResponse.json({ detail: "Not found." }, { status: 404 })),
+      http.post(`${API}/auth/logout/`, () => HttpResponse.json({ detail: "ok" }))
+    );
+
+    await apiClient.get("/categories/");
+    await apiClient.post("/budgets/", {});
+    await apiClient.delete("/budgets/5/").catch(() => undefined);
+    await apiClient.post("/auth/logout/", {});
+    unsubscribe();
+
+    expect(writes).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses the token another tab just refreshed instead of spending the used-up one", async () => {
+    const refreshCalls = vi.fn();
+    server.use(
+      http.get(`${API}/categories/`, ({ request }) =>
+        request.headers.get("Authorization") === "Bearer tab2-access"
+          ? HttpResponse.json([{ id: 1 }])
+          : HttpResponse.json({ detail: "Token expired" }, { status: 401 })
+      ),
+      http.post(`${API}/auth/refresh/`, () => {
+        refreshCalls();
+        return HttpResponse.json({ detail: "Token is blacklisted" }, { status: 401 });
+      })
+    );
+    // While this tab waited for the lock, the other tab refreshed and stored the new pair.
+    const request = vi.fn(async (_name: string, task: () => Promise<unknown>) => {
+      setTokens({ access: "tab2-access", refresh: "tab2-refresh" });
+      return task();
+    });
+    Object.defineProperty(navigator, "locks", { value: { request }, configurable: true });
+    try {
+      const response = await apiClient.get("/categories/");
+
+      expect(response.data).toEqual([{ id: 1 }]);
+      expect(request).toHaveBeenCalledWith("spendly-token-refresh", expect.any(Function));
+      expect(refreshCalls).not.toHaveBeenCalled(); // the rotated-away token was never sent
+      expect(getRefreshToken()).toBe("tab2-refresh");
+    } finally {
+      Reflect.deleteProperty(navigator, "locks");
+    }
   });
 });

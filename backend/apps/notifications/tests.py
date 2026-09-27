@@ -12,7 +12,7 @@ from django.utils import timezone
 
 from apps.budgets.models import Budget
 from apps.categories.models import Category, TransactionType
-from apps.notifications import expo, services
+from apps.notifications import expo, rules, services
 from apps.notifications.models import (
     Device,
     Notification,
@@ -309,7 +309,7 @@ def _rent(user, category, start, **extra):
 def test_recurring_reminder_within_window(user, shopping, device):
     _rent(user, shopping, start=date(2026, 1, 12))
 
-    services.send_scheduled_notifications(date(2026, 9, 10))
+    rules.run_scheduled_rules(date(2026, 9, 10))
 
     notification = Notification.objects.get(user=user)
     assert notification.kind == NotificationKind.RECURRING_DUE
@@ -322,7 +322,7 @@ def test_recurring_reminder_within_window(user, shopping, device):
 def test_recurring_reminder_phrasing(user, shopping, device, today, phrase):
     _rent(user, shopping, start=date(2026, 1, 12))
 
-    services.send_scheduled_notifications(today)
+    rules.run_scheduled_rules(today)
 
     assert Notification.objects.get(user=user).body == f"Rent is due {phrase}."
 
@@ -332,7 +332,7 @@ def test_recurring_reminder_outside_window_or_inactive(user, shopping, device):
     _rent(user, shopping, start=date(2026, 1, 20))  # 10 days away
     _rent(user, shopping, start=date(2026, 1, 11), is_active=False)
 
-    services.send_scheduled_notifications(date(2026, 9, 10))
+    rules.run_scheduled_rules(date(2026, 9, 10))
 
     assert _kinds(user) == []
 
@@ -342,7 +342,7 @@ def test_reminder_window_follows_preference(user, shopping, device):
     NotificationPreference.objects.create(user=user, recurring_reminder_days=7)
     _rent(user, shopping, start=date(2026, 1, 16))
 
-    services.send_scheduled_notifications(date(2026, 9, 10))
+    rules.run_scheduled_rules(date(2026, 9, 10))
 
     assert _kinds(user) == [NotificationKind.RECURRING_DUE]
 
@@ -352,19 +352,23 @@ def test_scheduled_run_is_idempotent(user, shopping, device, push_outbox, django
     _rent(user, shopping, start=date(2026, 1, 12))
 
     with django_capture_on_commit_callbacks(execute=True):
-        services.send_scheduled_notifications(date(2026, 9, 10))
-        services.send_scheduled_notifications(date(2026, 9, 11))
+        rules.run_scheduled_rules(date(2026, 9, 10))
+        rules.run_scheduled_rules(date(2026, 9, 11))
 
     assert Notification.objects.filter(user=user).count() == 1
     assert len(push_outbox) == 1
 
 
 @pytest.mark.django_db
-def test_users_without_reachable_devices_are_skipped(user, shopping):
+def test_users_without_devices_still_get_in_app_notifications(user, shopping, push_outbox):
     _rent(user, shopping, start=date(2026, 1, 12))
 
-    assert services.send_scheduled_notifications(date(2026, 9, 10)) == 0
-    assert _kinds(user) == []
+    assert rules.run_scheduled_rules(date(2026, 9, 10)) == 1
+
+    notification = Notification.objects.get(user=user)
+    assert notification.kind == NotificationKind.RECURRING_DUE
+    assert notification.status == NotificationStatus.PENDING  # SKIPPED once delivery runs: no phone
+    assert push_outbox == []
 
 
 @pytest.mark.django_db
@@ -375,7 +379,7 @@ def test_important_insight_notification(user, shopping, salary, device):
     # Budget alerts are notified in real time, never again as an insight.
     Budget.objects.create(user=user, category=shopping, amount=Decimal("100.00"), year=2026, month=9)
 
-    services.send_scheduled_notifications(today)
+    rules.run_scheduled_rules(today)
 
     [notification] = Notification.objects.filter(user=user, kind=NotificationKind.INSIGHT)
     assert notification.body == "Expenses exceeded income by 20% this month."
@@ -389,7 +393,7 @@ def test_insight_notifications_can_be_disabled(user, shopping, salary, device):
     Transaction.objects.create(user=user, category=salary, type="income", amount=Decimal("1000.00"), date=today)
     Transaction.objects.create(user=user, category=shopping, type="expense", amount=Decimal("1200.00"), date=today)
 
-    services.send_scheduled_notifications(today)
+    rules.run_scheduled_rules(today)
 
     assert _kinds(user) == []
 

@@ -1,3 +1,4 @@
+import type { SyncStatus } from "../types/sync";
 import type { User } from "../types/auth";
 import type { Category } from "../types/category";
 import type { Transaction } from "../types/transaction";
@@ -337,3 +338,18 @@ export const spendingPatterns: SpendingPatterns = {
   fixed_percentage: 28.57,
   recurring_commitments: "650.00",
 };
+
+export function makeSyncStatus(version = "v1"): SyncStatus {
+  const state = { count: 0, last_modified: null };
+  return {
+    version,
+    server_time: "2026-09-27T12:00:00Z",
+    resources: {
+      transactions: state,
+      categories: state,
+      budgets: state,
+      recurring_transactions: state,
+      savings_goals: state,
+    },
+  };
+}

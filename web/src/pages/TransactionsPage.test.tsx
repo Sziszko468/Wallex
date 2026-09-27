@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
-import { conversionPreview, makeTransaction, page } from "../test/fixtures";
+import { conversionPreview, makeSyncStatus, makeTransaction, page } from "../test/fixtures";
 import { renderApp, signIn } from "../test/render";
 import { API, server } from "../test/server";
 import type { Transaction } from "../types/transaction";
@@ -235,5 +235,113 @@ describe("Transactions page", () => {
 
     await waitFor(() => expect(requests).toEqual([{ method: "DELETE", id: "7" }]));
     await waitFor(() => expect(screen.queryByText("Groceries")).not.toBeInTheDocument());
+  });
+});
+
+describe("Transactions page — another device uses the same account", () => {
+  beforeEach(() => signIn());
+
+  function syncVersion(initial = "v1") {
+    const state = { version: initial };
+    server.use(http.get(`${API}/sync/status/`, () => HttpResponse.json(makeSyncStatus(state.version))));
+    return state;
+  }
+
+  it("shows a transaction added on the phone, keeping the table on screen meanwhile", async () => {
+    const rows = [makeTransaction({ id: 1, description: "Groceries" })];
+    server.use(http.get(`${API}/transactions/`, () => HttpResponse.json(page(rows))));
+    const sync = syncVersion();
+    renderApp("/transactions");
+    await screen.findByText("Groceries");
+
+    rows.unshift(makeTransaction({ id: 2, description: "Coffee from the phone" }));
+    sync.version = "v2";
+    window.dispatchEvent(new Event("focus")); // the user looks back at the browser
+
+    expect(await screen.findByText("Coffee from the phone")).toBeInTheDocument();
+    expect(screen.getByText("Groceries")).toBeInTheDocument();
+  });
+
+  it("deletes optimistically: the row is gone before the server answers", async () => {
+    let answer: (() => void) | null = null;
+    server.use(
+      http.get(`${API}/transactions/`, () => HttpResponse.json(page([makeTransaction({ id: 7, description: "Groceries" })]))),
+      http.delete(`${API}/transactions/:id/`, () => new Promise<Response>((resolve) => {
+        answer = () => resolve(new HttpResponse(null, { status: 204 }));
+      }))
+    );
+    const { user } = renderApp("/transactions");
+
+    await user.click(await screen.findByRole("button", { name: "Delete Groceries" }));
+    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Delete" }));
+
+    expect(screen.queryByText("Groceries")).not.toBeInTheDocument();
+    await waitFor(() => expect(answer).not.toBeNull());
+    answer!();
+  });
+
+  it("puts the row back when the phone changed it meanwhile (412)", async () => {
+    const headers: (string | null)[] = [];
+    const row = makeTransaction({ id: 7, description: "Groceries", updated_at: "2026-09-27T10:00:00.123456Z" });
+    server.use(
+      http.get(`${API}/transactions/`, () => HttpResponse.json(page([row]))),
+      http.delete(`${API}/transactions/:id/`, ({ request }) => {
+        headers.push(request.headers.get("If-Match"));
+        return HttpResponse.json({ detail: "changed", current: row }, { status: 412 });
+      })
+    );
+    const { user } = renderApp("/transactions");
+
+    await user.click(await screen.findByRole("button", { name: "Delete Groceries" }));
+    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Delete" }));
+
+    expect(await screen.findByText(/just changed on another device, so it wasn't deleted/)).toBeInTheDocument();
+    expect(screen.getByText("Groceries")).toBeInTheDocument();
+    expect(headers).toEqual(['"2026-09-27T10:00:00.123456Z"']);
+  });
+
+  it("treats a transaction already deleted on the phone as deleted (404)", async () => {
+    let rows = [makeTransaction({ id: 7, description: "Groceries" })];
+    server.use(
+      http.get(`${API}/transactions/`, () => HttpResponse.json(page(rows))),
+      http.delete(`${API}/transactions/:id/`, () => {
+        rows = [];
+        return HttpResponse.json({ detail: "No Transaction matches the given query." }, { status: 404 });
+      })
+    );
+    const { user } = renderApp("/transactions");
+
+    await user.click(await screen.findByRole("button", { name: "Delete Groceries" }));
+    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Delete" }));
+
+    await waitFor(() => expect(screen.queryByText("Groceries")).not.toBeInTheDocument());
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("an edit sends the loaded version and, on a conflict, shows the phone's version instead", async () => {
+    const loaded = makeTransaction({ id: 7, description: "Groceries", amount: "12.50", updated_at: "2026-09-27T10:00:00Z" });
+    const fromPhone = { ...loaded, amount: "99.00", updated_at: "2026-09-27T10:05:00Z" };
+    const ifMatch: (string | null)[] = [];
+    server.use(
+      http.get(`${API}/transactions/`, () => HttpResponse.json(page([loaded]))),
+      http.patch(`${API}/transactions/:id/`, ({ request }) => {
+        ifMatch.push(request.headers.get("If-Match"));
+        return HttpResponse.json({ detail: "changed", current: fromPhone }, { status: 412 });
+      })
+    );
+    const { user } = renderApp("/transactions");
+
+    await user.click(await screen.findByRole("button", { name: "Edit Groceries" }));
+    const dialog = await screen.findByRole("dialog");
+    await enterAmount(user, within(dialog).getByLabelText("Amount"), "15.00");
+    await user.click(within(dialog).getByRole("button", { name: "Save changes" }));
+
+    expect(await within(dialog).findByText(/just changed on another device/)).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("Amount")).toHaveValue(99);
+    expect(ifMatch).toEqual(['"2026-09-27T10:00:00Z"']);
+
+    // Saving again now sends the version that is on the server.
+    await user.click(within(dialog).getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(ifMatch).toEqual(['"2026-09-27T10:00:00Z"', '"2026-09-27T10:05:00Z"']));
   });
 });

@@ -8,7 +8,8 @@ from django.db import IntegrityError, transaction
 
 from apps.categories.models import TransactionType
 from apps.notifications.models import Notification
-from apps.notifications.services import get_preferences, send_recurring_reminders
+from apps.notifications.rules import send_payment_reminders
+from apps.notifications.services import get_preferences
 from apps.transactions.models import Frequency, RecurringTransaction
 
 from . import services
@@ -258,7 +259,8 @@ def test_month_overview_query_count(user, make_subscription, django_assert_num_q
 def test_payment_reminders_include_subscriptions(user, make_subscription):
     make_subscription("Netflix", "17.99", start_date=date(2026, 1, 28))
 
-    send_recurring_reminders(user, get_preferences(user), TODAY)
+    send_payment_reminders(user, get_preferences(user), TODAY)
 
     reminder = Notification.objects.get(user=user)
-    assert reminder.body == "Netflix is due tomorrow."
+    assert reminder.kind == "subscription_due"
+    assert reminder.body == "Netflix payment expected tomorrow."

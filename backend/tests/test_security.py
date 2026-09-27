@@ -15,7 +15,7 @@ from rest_framework import status
 
 from apps.budgets.models import Budget, SavingsGoal
 from apps.categories.models import Category, TransactionType
-from apps.notifications.models import Device
+from apps.notifications.models import Device, Notification, NotificationKind
 from apps.subscriptions.models import Subscription
 from apps.transactions.models import Frequency, RecurringTransaction, Transaction
 
@@ -110,6 +110,12 @@ def _device(user):
     return Device.objects.create(user=user, expo_push_token="ExponentPushToken[theirs]", platform="ios")
 
 
+def _notification(user):
+    return Notification.objects.create(
+        user=user, kind=NotificationKind.INSIGHT, title="Financial insight", body="Theirs.", dedupe_key="theirs"
+    )
+
+
 # url name prefix -> factory for an object owned by the given user
 OWNED_RESOURCES = {
     "category": _category,
@@ -119,7 +125,10 @@ OWNED_RESOURCES = {
     "recurringtransaction": _recurring,
     "subscription": _subscription,
     "device": _device,
+    "notification": _notification,
 }
+# Deleting a notification would let its event notify again (see NotificationViewSet).
+UNDELETABLE = {"notification"}
 
 
 def test_every_detail_endpoint_is_in_the_isolation_matrix():
@@ -137,7 +146,8 @@ def test_other_users_objects_are_invisible_and_untouchable(auth_client, other_us
     # 404, not 403: the API must not even confirm that the object exists.
     assert auth_client.get(detail).status_code in (404, 405)
     assert auth_client.patch(detail, {"amount": "1.00", "name": "hacked"}, format="json").status_code in (404, 405)
-    assert auth_client.delete(detail).status_code == 404
+    # Resources that offer no DELETE at all refuse it before any lookup.
+    assert auth_client.delete(detail).status_code == (405 if resource in UNDELETABLE else 404)
 
     obj.refresh_from_db()  # still there, unchanged
     listing = auth_client.get(reverse(f"{resource}-list"))
@@ -186,7 +196,7 @@ def test_analytics_never_include_other_users_money(auth_client, other_user):
 
 @pytest.mark.django_db
 @pytest.mark.parametrize(
-    "resource", ["category", "transaction", "budget", "savingsgoal", "recurringtransaction", "subscription"]
+    "resource", ["category", "transaction", "budget", "savingsgoal", "recurringtransaction", "subscription", "notification"]
 )
 def test_owner_cannot_be_changed_by_mass_assignment(auth_client, user, other_user, resource):
     obj = OWNED_RESOURCES[resource](user)

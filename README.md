@@ -104,6 +104,20 @@ Design goals:
   data there is).
 - **Financial insights:** 8 rule types, e.g. budget exceeded/warning, overspending, savings
   rate, category spikes and drops, recurring share of income, top category.
+- **Smart notifications:** the server watches the user's own data and writes each message —
+  *You've used 82% of your Food budget*, *Netflix payment expected tomorrow*, *Your Shopping
+  expenses increased by 21%*, *You are €150 away from your Japan trip goal*, a monthly
+  summary, and important insights. Budget and savings checks run the moment the data
+  changes; the rest run from an hourly, idempotent job. Every event notifies once, each of
+  the 8 kinds can be switched off, and notifications keep a read/unread state and a link to
+  what they're about. The clients only display them.
+- **Multi-device sync:** web, iPhone and Android share one account through the same API and
+  database. A transaction added on the phone appears on the open web page (and the reverse)
+  without a reload: each client asks a cheap `GET /api/sync/status/` every 30 s while visible,
+  when it comes back to the foreground and after its own writes, then refreshes what's on
+  screen in the background. Edits carry the version they started from (`If-Match`), so a
+  stale edit on one device can never silently overwrite a newer one: the user sees the other
+  device's version instead. API responses are never cached.
 - **Multi-currency:** EUR, HUF, USD, GBP, JPY and CHF. A transaction keeps the amount and
   currency it was paid in; its value in the user's base currency is fixed with the ECB
   reference rate of its date. Every total is in the base currency, and changing the base
@@ -128,8 +142,8 @@ Design goals:
 - **Offline mode:**
   - cached screens stay readable without a connection,
   - new transactions are queued and synced automatically (idempotent, never duplicated).
-- **Push notifications:** budget warnings, upcoming recurring expenses and important
-  insights, each configurable.
+- **Push notifications:** every smart notification also arrives as a push; a tap opens the
+  related screen.
 - **Biometric lock:** Face ID or fingerprint. The app locks again after 60 s in the background.
 - **Secure token storage:** the refresh token is kept in the iOS Keychain / Android Keystore.
 
@@ -271,7 +285,8 @@ Router). The platform differences are handled by Expo modules:
 | Achievements | `GET /api/achievements/` · `POST /api/achievements/mark-seen/` |
 | Currencies | `GET /api/currencies/convert/` (conversion preview with ECB rates) |
 | Receipts | `POST /api/receipts/scan/` (multipart photo → suggestions, nothing saved) |
-| Notifications | `GET POST /api/devices/` · `DELETE /api/devices/{id}/` · `GET PATCH /api/notifications/preferences/` |
+| Notifications | `GET /api/notifications/` · `GET PATCH …/{id}/` · `GET …/unread-count/` · `POST …/mark-all-read/` · `GET PATCH …/preferences/` · `GET POST /api/devices/` · `DELETE /api/devices/{id}/` |
+| Sync | `GET /api/sync/status/` (has anything changed?) · `ETag` / `If-Match` → `412` on every editable object |
 | Health | `GET /api/health/` (liveness) · `GET /api/health/ready/` (database + cache) |
 
 **Conventions:**
@@ -554,9 +569,10 @@ spendly/
 - **Automatic recurring transactions:** templates (subscriptions included) currently drive
   reminders, insights and totals; next, a scheduled job should create the actual transactions
   from them (opt-in per template, so manually entered payments aren't duplicated).
-- **Smart subscription notifications:** renewal reminders with the amount, price-change and
-  "unused subscription" hints — the building blocks (`next_payment_date`, `upcoming_payments()`
-  in `apps/subscriptions/services.py`) are in place.
+- **Notification inbox screens:** the API (list, read/unread, unread count, mark all read)
+  and both clients' services exist; the web bell/inbox and the mobile inbox screen don't yet.
+- **Smarter subscription notifications:** price-change and "unused subscription" hints on top
+  of the payment reminders.
 - **Subscriptions, savings goals and achievements on mobile:** the types and API services
   exist; the screens don't yet.
 - **Achievement notifications:** a push when a milestone is unlocked (the stored `unlocked_at`,

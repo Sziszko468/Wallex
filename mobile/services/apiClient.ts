@@ -4,6 +4,7 @@ import { isOfflineError } from "../utils/network";
 import { getValidAccessToken, isSessionActive, refreshSession } from "./session";
 import { cacheKeyFor, readResponse, storeResponse } from "./responseCache";
 import { reportApiReachable, reportApiUnreachable, reportServedFromCache } from "./connectivity";
+import { notifyLocalWrite } from "./localWrites";
 
 export { API_BASE_URL };
 
@@ -13,6 +14,16 @@ export const apiClient = axios.create({ baseURL: API_BASE_URL, timeout: REQUEST_
 
 interface RetryableRequestConfig extends InternalAxiosRequestConfig {
   _retry?: boolean;
+}
+
+// "Has anything changed?" is meaningless from the cache: an old answer would hide real changes.
+const NEVER_CACHED = ["/sync/status/"];
+// Requests that change no user data (signing in and out, token refresh).
+const NOT_DATA_WRITES = ["/auth/login/", "/auth/register/", "/auth/refresh/", "/auth/logout/"];
+const READ_METHODS = ["get", "head", "options"];
+
+function isCacheable(config: InternalAxiosRequestConfig): boolean {
+  return config.method === "get" && !NEVER_CACHED.some((path) => config.url?.includes(path));
 }
 
 // Proactive: attach a token that is guaranteed not to expire mid-flight.
@@ -35,8 +46,12 @@ apiClient.interceptors.request.use(async (config) => {
 apiClient.interceptors.response.use(
   (response) => {
     reportApiReachable();
-    if (response.config.method === "get") {
+    const { method = "get", url = "" } = response.config;
+    if (isCacheable(response.config)) {
       storeResponse(cacheKeyFor(response.config), response.data);
+    } else if (!READ_METHODS.includes(method.toLowerCase()) && !NOT_DATA_WRITES.some((path) => url.includes(path))) {
+      // A write went through: let SyncProvider reload every screen it may have affected.
+      notifyLocalWrite();
     }
     return response;
   },
@@ -49,7 +64,7 @@ apiClient.interceptors.response.use(
     // Offline: show the last data loaded for this exact request, if any.
     if (isOfflineError(error)) {
       reportApiUnreachable();
-      if (originalRequest.method === "get") {
+      if (isCacheable(originalRequest)) {
         const cached = await readResponse(cacheKeyFor(originalRequest));
         if (cached) {
           reportServedFromCache(cached.storedAt);

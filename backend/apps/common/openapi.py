@@ -5,7 +5,8 @@ Error bodies are DRF's defaults:
 - everything else → {"detail": "message"} (+ "code" / "messages" for JWT errors)
 
 `add_standard_error_responses` (a drf-spectacular post-processing hook) adds the 401,
-404 and 429 responses that apply to whole groups of endpoints, so each endpoint only
+404 and 429 responses that apply to whole groups of endpoints — and the ETag / If-Match /
+412 contract of every editable object (apps/common/concurrency.py) — so each endpoint only
 documents the errors specific to it.
 """
 
@@ -14,6 +15,8 @@ from typing import Any
 from drf_spectacular.extensions import OpenApiSerializerExtension
 from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema, inline_serializer
 from rest_framework import serializers
+
+from .serializers import SyncStatusSerializer
 
 HEALTH_STATUS_CHOICES = [("ok", "ok"), ("error", "error")]
 
@@ -134,6 +137,7 @@ _MODEL_BY_RESOURCE = {
     "recurring-transactions": "RecurringTransaction",
     "subscriptions": "Subscription",
     "devices": "Device",
+    "notifications": "Notification",
 }
 
 
@@ -156,10 +160,86 @@ THROTTLED = {
 
 UNTHROTTLED_PREFIXES = ("/api/health/",)
 
+# Resources whose viewsets use ConditionalWriteMixin (tests/test_sync.py keeps the two in step).
+CONDITIONAL_RESOURCES = {
+    "transactions",
+    "categories",
+    "budgets",
+    "savings-goals",
+    "recurring-transactions",
+    "subscriptions",
+}
+
+IF_MATCH = {
+    "in": "header",
+    "name": "If-Match",
+    "required": False,
+    "schema": {"type": "string"},
+    "description": (
+        "Optional optimistic-concurrency check: the object's `updated_at` as you last loaded it, in quotes "
+        '(`"2026-09-27T14:03:31.357564Z"`, the `ETag` of its GET). If it has changed since — on another '
+        "device or tab — nothing is written and the answer is `412`. Without the header the last write wins."
+    ),
+}
+
+ETAG = {
+    "ETag": {
+        "schema": {"type": "string"},
+        "description": "The object's version: its `updated_at` in quotes. Send it back as `If-Match` when changing it.",
+    }
+}
+
+
+def _precondition_failed(object_schema: dict) -> dict[str, Any]:
+    return {
+        "description": (
+            "`If-Match` didn't match: the object was changed after you loaded it (on another device or tab). "
+            "Nothing was written. `current` is the object as it is now — show it, or reload."
+        ),
+        "content": {
+            "application/json": {
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "detail": {"type": "string", "description": "Safe to show to the user."},
+                        "current": object_schema,
+                    },
+                    "required": ["detail", "current"],
+                },
+                "examples": {
+                    "ChangedElsewhere": {
+                        "value": {
+                            "detail": (
+                                "This transaction was changed on another device after you loaded it. "
+                                "Nothing was saved; review the current version and try again."
+                            ),
+                            "current": {"id": 42, "updated_at": "2026-09-27T14:05:10.004211Z"},
+                        }
+                    }
+                },
+            }
+        },
+    }
+
+
+def _document_conditional_writes(path: str, operations: dict) -> None:
+    parts = path.strip("/").split("/")  # ["api", "<resource>", "{id}"]
+    if len(parts) != 3 or parts[1] not in CONDITIONAL_RESOURCES or parts[2] != "{id}":
+        return
+    object_schema = operations["get"]["responses"]["200"]["content"]["application/json"]["schema"]
+    for method, operation in operations.items():
+        if method in ("get", "patch", "put"):
+            operation["responses"]["200"].setdefault("headers", {}).update(ETAG)
+        if method in ("patch", "put", "delete"):
+            operation.setdefault("parameters", []).append(IF_MATCH)
+            operation["responses"].setdefault("412", _precondition_failed(object_schema))
+
 
 def add_standard_error_responses(result: dict, generator, request, public) -> dict:
-    """Post-processing hook: 401 on authenticated operations, 404 on object URLs, 429 everywhere throttled."""
+    """Post-processing hook: 401 on authenticated operations, 404 on object URLs, 429 everywhere
+    throttled, and ETag / If-Match / 412 on editable objects."""
     for path, operations in result.get("paths", {}).items():
+        _document_conditional_writes(path, operations)
         for operation in operations.values():
             responses = operation.setdefault("responses", {})
             secured = any("jwtAuth" in requirement for requirement in operation.get("security", []))
@@ -223,5 +303,45 @@ READINESS_SCHEMA = extend_schema(
                 )
             ],
         ),
+    },
+)
+
+
+# --- Multi-device sync -----------------------------------------------------------------------
+
+SYNC_STATUS_SCHEMA = extend_schema(
+    tags=["Sync"],
+    summary="Has anything changed?",
+    description=(
+        "Every device (web, iPhone, Android) reads and writes the same data through this API, so a device "
+        "is in sync as soon as it reloads what changed. This answers *whether* to reload, cheaply (one "
+        "query, no data): compare `version` with the last one you saw and reload your views when it "
+        "differs. The web and mobile apps ask every 30 s while visible, when they come back to the "
+        "foreground, and right after their own writes.\n\n"
+        "`last_modified` comes from the server clock (`updated_at`); never compare it with the device's "
+        "own clock. A deletion lowers `count`, every other write moves `last_modified`, and changing the "
+        "base currency changes `version` as well. API responses are never cacheable "
+        "(`Cache-Control: no-store`), so a reload always gets the current data."
+    ),
+    responses={
+        200: OpenApiResponse(
+            SyncStatusSerializer,
+            examples=[
+                OpenApiExample(
+                    "Status",
+                    value={
+                        "version": "5f0c1e9b2a7d4c38e1aa",
+                        "server_time": "2026-09-27T14:05:12.861020Z",
+                        "resources": {
+                            "transactions": {"count": 128, "last_modified": "2026-09-27T14:05:10.004211Z"},
+                            "categories": {"count": 11, "last_modified": "2026-09-20T08:11:02.300118Z"},
+                            "budgets": {"count": 4, "last_modified": "2026-09-01T07:30:45.001922Z"},
+                            "recurring_transactions": {"count": 6, "last_modified": "2026-09-26T19:02:13.515003Z"},
+                            "savings_goals": {"count": 0, "last_modified": None},
+                        },
+                    },
+                )
+            ],
+        )
     },
 )

@@ -6,7 +6,13 @@ import { useBaseCurrency } from "../hooks/useBaseCurrency";
 import { useCreateTransaction } from "../hooks/useCreateTransaction";
 import { listCategories } from "../services/categoriesService";
 import { getTransaction, updateTransaction } from "../services/transactionsService";
-import { extractErrorMessage, extractFieldErrors, type FieldErrors } from "../utils/errors";
+import {
+  conflictCurrent,
+  extractErrorMessage,
+  extractFieldErrors,
+  isNotFound,
+  type FieldErrors,
+} from "../utils/errors";
 import { toIsoDate, isValidIsoDate } from "../utils/date";
 import { hasValidPrecision } from "../utils/currency";
 import { Screen } from "../components/Screen";
@@ -18,6 +24,7 @@ import { TypeToggle } from "../components/TypeToggle";
 import { CategoryChipPicker } from "../components/CategoryChipPicker";
 import { QuickDateField } from "../components/QuickDateField";
 import type { TransactionType } from "../types/category";
+import type { Transaction } from "../types/transaction";
 import { colors, fontSize, spacing } from "../utils/theme";
 
 /** Small fixed delay so the "Saved ✓" state is actually visible before the
@@ -36,11 +43,14 @@ export function TransactionFormScreen() {
   const isEditMode = transactionId !== null;
   const { create, isOffline } = useCreateTransaction();
 
+  // Not live: the form keeps the version the user started editing (sent as If-Match),
+  // instead of being re-seeded when another device changes the transaction.
   const existingTransaction = useAsyncData(
     useCallback(() => {
       if (transactionId === null) return Promise.resolve(null);
       return getTransaction(transactionId);
-    }, [transactionId])
+    }, [transactionId]),
+    { live: false }
   );
   const categories = useAsyncData(useCallback(() => listCategories(), []));
   // New transactions are recorded in the base currency (the API's default); an edited one keeps its own.
@@ -57,16 +67,22 @@ export function TransactionFormScreen() {
   const [savedOffline, setSavedOffline] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  // The server version the form was filled from (its updated_at), sent as If-Match.
+  const [version, setVersion] = useState<string | undefined>(undefined);
 
-  // Seed the form once the transaction being edited has loaded.
-  useEffect(() => {
-    if (!isEditMode || !existingTransaction.data) return;
-    const transaction = existingTransaction.data;
+  function fillFrom(transaction: Transaction) {
     setType(transaction.type);
     setAmount(transaction.amount);
     setCategoryId(transaction.category);
     setDescription(transaction.description);
     setDate(transaction.date);
+    setVersion(transaction.updated_at);
+  }
+
+  // Seed the form once the transaction being edited has loaded.
+  useEffect(() => {
+    if (!isEditMode || !existingTransaction.data) return;
+    fillFrom(existingTransaction.data);
   }, [isEditMode, existingTransaction.data]);
 
   const availableCategories = useMemo(
@@ -129,7 +145,7 @@ export function TransactionFormScreen() {
         date,
       };
       if (transactionId !== null) {
-        await updateTransaction(transactionId, payload);
+        await updateTransaction(transactionId, payload, version);
       } else {
         const { savedOffline: queued } = await create(payload);
         setSavedOffline(queued);
@@ -141,6 +157,20 @@ export function TransactionFormScreen() {
       setTimeout(() => router.back(), SUCCESS_DISMISS_DELAY_MS);
     } catch (error) {
       setIsSubmitting(false);
+      const latest = conflictCurrent<Transaction>(error);
+      if (latest) {
+        // Changed on another device since the form was opened: show what is there now.
+        fillFrom(latest);
+        setFieldErrors({});
+        setErrorMessage(
+          "This transaction was just changed on another device. Its latest version is shown — make your change again and save."
+        );
+        return;
+      }
+      if (isEditMode && isNotFound(error)) {
+        setErrorMessage("This transaction no longer exists — it was deleted on another device.");
+        return;
+      }
       setFieldErrors((previous) => ({ ...previous, ...extractFieldErrors(error) }));
       setErrorMessage(extractErrorMessage(error));
     }

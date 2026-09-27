@@ -298,9 +298,9 @@ What connects it to this deployment:
 
 `python manage.py send_scheduled_notifications` must run **every hour**. It:
 
-- retries failed push deliveries,
-- sends recurring-transaction reminders,
-- sends important-insight notifications.
+- runs the scheduled notification rules for every active user: subscription and recurring
+  payment reminders, unusual spending, the monthly summary (days 1–7) and important insights,
+- retries failed push deliveries.
 
 It is idempotent, so a missed or doubled run is harmless.
 

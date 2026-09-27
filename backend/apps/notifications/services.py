@@ -1,34 +1,23 @@
-"""Deciding *when* to notify, and delivering notifications as push messages.
+"""Storing, reading and delivering notifications.
 
-Flow: a trigger (a transaction/budget change, or the scheduled command) calls
-`notify()`, which respects the user's preferences, deduplicates on the event
-key and stores a `Notification`. Delivery happens after the database commit;
-if it fails, the row stays FAILED/PENDING and the scheduled command retries it.
+Flow: a rule (apps/notifications/rules.py — the only place that decides *whether*
+something is worth a notification) calls `notify()`, which respects the user's
+preferences, deduplicates on the event key and stores a `Notification`. The row is
+the user's in-app inbox entry at once; the push to their phones happens after the
+database commit. If the push fails, the row stays FAILED/PENDING and the scheduled
+command retries it.
 """
 
-import calendar
 import logging
-from datetime import date, timedelta
+from datetime import timedelta
 
 from django.conf import settings
-from django.contrib.auth import get_user_model
-from django.db import transaction
+from django.contrib.contenttypes.models import ContentType
+from django.db import models, transaction
 from django.utils import timezone
 
-from apps.analytics import services as analytics
-from apps.analytics.insights import (
-    BUDGET_WARNING_PERCENT,
-    InsightType,
-    Severity,
-    generate_insights,
-    whole_percent,
-)
-from apps.categories.models import TransactionType
-from apps.transactions.models import RecurringTransaction
-from apps.transactions.recurrence import next_occurrence_on_or_after
-
 from . import expo
-from .models import Device, Notification, NotificationKind, NotificationPreference, NotificationStatus
+from .models import RELATED_TYPES, Device, Notification, NotificationPreference, NotificationStatus
 
 logger = logging.getLogger(__name__)
 
@@ -38,8 +27,8 @@ RETRY_WINDOW = timedelta(hours=24)
 PENDING_GRACE_PERIOD = timedelta(minutes=5)
 ANDROID_CHANNEL_ID = "default"
 
-# Budget insights are already covered by the real-time budget notifications.
-_BUDGET_INSIGHT_TYPES = {InsightType.BUDGET_EXCEEDED, InsightType.BUDGET_WARNING}
+# What a notification is about: (model, primary key), e.g. (Budget, 12).
+RelatedObject = tuple[type[models.Model], int]
 
 
 # --- Devices & preferences ---------------------------------------------------
@@ -78,6 +67,20 @@ def reachable_devices(user):
 # --- Creating & delivering ---------------------------------------------------
 
 
+def related_content_type(model: type[models.Model]) -> ContentType:
+    """The content type stored for `model`. Cached by Django: no query after the first."""
+    # for_concrete_model=False: a Subscription keeps its own (proxy) type instead of RecurringTransaction.
+    content_type = ContentType.objects.get_for_model(model, for_concrete_model=False)
+    if (content_type.app_label, content_type.model) not in RELATED_TYPES:
+        raise ValueError(f"{model.__name__} can't be the related object of a notification")
+    return content_type
+
+
+def already_notified(user, dedupe_key: str) -> bool:
+    """For rules whose facts are costly to compute: skip the work when the event is done."""
+    return Notification.objects.filter(user=user, dedupe_key=dedupe_key).exists()
+
+
 def notify(
     user,
     kind: str,
@@ -85,6 +88,7 @@ def notify(
     title: str,
     body: str,
     dedupe_key: str,
+    related: RelatedObject | None = None,
     data: dict | None = None,
     preferences: NotificationPreference | None = None,
 ) -> Notification | None:
@@ -93,10 +97,12 @@ def notify(
     if not preferences.allows(kind):
         return None
 
+    defaults = {"kind": kind, "title": title, "body": body, "data": data or {}}
+    if related is not None:
+        model, object_id = related
+        defaults.update(content_type=related_content_type(model), object_id=object_id)
     notification, created = Notification.objects.get_or_create(
-        user=user,
-        dedupe_key=dedupe_key,
-        defaults={"kind": kind, "title": title, "body": body, "data": data or {}},
+        user=user, dedupe_key=dedupe_key, defaults=defaults
     )
     if not created:
         return None
@@ -169,109 +175,26 @@ def retry_undelivered() -> int:
     return count
 
 
-# --- Triggers ----------------------------------------------------------------
+# --- The in-app inbox --------------------------------------------------------
 
 
-def check_budget_thresholds(user, year: int, month: int) -> None:
-    """Called after anything that can change a month's budget usage (expense or budget written)."""
-    preferences = get_preferences(user)
-    if not (preferences.budget_warnings or preferences.budget_exceeded):
-        return
-
-    month_name = calendar.month_name[month]
-    for usage in analytics.get_budget_usage(user, year, month):
-        is_overall = usage["category_id"] is None
-        budget_name = "overall" if is_overall else usage["category_name"]
-        data = {"screen": "budgets", "budget_id": usage["budget_id"], "year": year, "month": month}
-        used = whole_percent(usage["usage_percentage"])
-
-        if usage["spent_amount"] > usage["budget_amount"]:
-            notify(
-                user,
-                NotificationKind.BUDGET_EXCEEDED,
-                title="Budget exceeded",
-                body=f"You've spent {used}% of your {budget_name} budget for {month_name}.",
-                dedupe_key=f"budget_exceeded:{usage['budget_id']}",
-                data=data,
-                preferences=preferences,
-            )
-        elif usage["usage_percentage"] >= BUDGET_WARNING_PERCENT:
-            notify(
-                user,
-                NotificationKind.BUDGET_WARNING,
-                title="Budget almost used",
-                body=f"You've used {used}% of your {budget_name} budget for {month_name}.",
-                dedupe_key=f"budget_warning:{usage['budget_id']}",
-                data=data,
-                preferences=preferences,
-            )
+def inbox(user):
+    """The user's notifications, newest first."""
+    return Notification.objects.filter(user=user).select_related("content_type")
 
 
-def _due_phrase(days_left: int) -> str:
-    if days_left == 0:
-        return "today"
-    if days_left == 1:
-        return "tomorrow"
-    return f"in {days_left} days"
+def unread_count(user) -> int:
+    return Notification.objects.filter(user=user, read_at__isnull=True).count()
 
 
-def send_recurring_reminders(user, preferences: NotificationPreference, today: date) -> None:
-    if not preferences.recurring_reminders:
-        return
-    recurring_expenses = RecurringTransaction.objects.filter(
-        user=user, type=TransactionType.EXPENSE, is_active=True
-    )
-    for recurring in recurring_expenses:
-        occurrence = next_occurrence_on_or_after(recurring, today)
-        if occurrence is None:
-            continue
-        days_left = (occurrence - today).days
-        if days_left > preferences.recurring_reminder_days:
-            continue
-        notify(
-            user,
-            NotificationKind.RECURRING_DUE,
-            title="Upcoming payment",
-            body=f"{recurring.name} is due {_due_phrase(days_left)}.",
-            dedupe_key=f"recurring_due:{recurring.id}:{occurrence.isoformat()}",
-            data={"screen": "recurring", "recurring_id": recurring.id, "date": occurrence.isoformat()},
-            preferences=preferences,
-        )
+def set_read(notification: Notification, is_read: bool) -> Notification:
+    """Marks one notification read or unread. Marking it read again keeps the first `read_at`."""
+    if notification.is_read != is_read:
+        notification.read_at = timezone.now() if is_read else None
+        notification.save(update_fields=["read_at"])
+    return notification
 
 
-def is_important_insight(insight) -> bool:
-    return insight.severity == Severity.ALERT and insight.type not in _BUDGET_INSIGHT_TYPES
-
-
-def send_insight_notifications(user, preferences: NotificationPreference, today: date) -> None:
-    if not preferences.insights:
-        return
-    for insight in generate_insights(user, today.year, today.month, today=today):
-        if not is_important_insight(insight):
-            continue
-        notify(
-            user,
-            NotificationKind.INSIGHT,
-            title="Spending insight",
-            body=insight.message,
-            # Once per insight per month, however often the scheduled job runs.
-            dedupe_key=f"insight:{insight.id}:{today:%Y-%m}",
-            data={"screen": "dashboard", "year": today.year, "month": today.month},
-            preferences=preferences,
-        )
-
-
-def send_scheduled_notifications(today: date) -> int:
-    """Reminders and insights for every user who can currently receive a push. Returns users processed."""
-    cutoff = timezone.now() - settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"]
-    users = get_user_model().objects.filter(
-        devices__is_active=True, devices__last_seen_at__gte=cutoff
-    ).distinct()
-
-    count = 0
-    for user in users:
-        preferences = get_preferences(user)
-        send_recurring_reminders(user, preferences, today)
-        send_insight_notifications(user, preferences, today)
-        count += 1
-    return count
+def mark_all_read(user) -> int:
+    """Returns how many notifications were unread."""
+    return Notification.objects.filter(user=user, read_at__isnull=True).update(read_at=timezone.now())

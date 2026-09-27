@@ -49,3 +49,24 @@ export function extractErrorMessage(error: unknown): string {
 
   return "Something went wrong. Please try again.";
 }
+
+function statusOf(error: unknown): number | undefined {
+  return axios.isAxiosError(error) ? error.response?.status : undefined;
+}
+
+/** The object no longer exists — typically deleted on another device. */
+export function isNotFound(error: unknown): boolean {
+  return statusOf(error) === 404;
+}
+
+/** 412: the object was changed on another device after it was loaded; nothing was saved. */
+export function isConflict(error: unknown): boolean {
+  return statusOf(error) === 412;
+}
+
+/** The object as it is now on the server, sent along with a 412. */
+export function conflictCurrent<T>(error: unknown): T | null {
+  if (!isConflict(error)) return null;
+  const current = (getErrorBody(error) as { current?: unknown } | null)?.current;
+  return typeof current === "object" && current !== null ? (current as T) : null;
+}

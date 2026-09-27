@@ -28,14 +28,15 @@ export function SavingsGoalDetailPage() {
   const fetchGoal = useCallback(() => getSavingsGoal(goalId), [goalId]);
   const goal = useAsyncData(fetchGoal);
 
-  const [isEditing, setIsEditing] = useState(false);
+  // Snapshot taken when Edit is pressed: a background reload must not re-seed the open form.
+  const [editing, setEditing] = useState<SavingsGoal | null>(null);
   const [moneyDirection, setMoneyDirection] = useState<MoneyDirection | null>(null);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
   function handleSaved() {
-    setIsEditing(false);
+    setEditing(null);
     setMoneyDirection(null);
     goal.refetch();
   }
@@ -98,7 +99,7 @@ export function SavingsGoalDetailPage() {
               >
                 Remove money
               </Button>
-              <Button type="button" variant="secondary" onClick={() => setIsEditing(true)}>
+              <Button type="button" variant="secondary" onClick={() => setEditing(data)}>
                 Edit
               </Button>
               <Button type="button" variant="secondary" onClick={() => toggleArchived(data)} disabled={isBusy}>
@@ -114,7 +115,7 @@ export function SavingsGoalDetailPage() {
         </>
       )}
 
-      <GoalFormModal isOpen={isEditing} goal={data} onClose={() => setIsEditing(false)} onSaved={handleSaved} />
+      <GoalFormModal isOpen={editing !== null} goal={editing} onClose={() => setEditing(null)} onSaved={handleSaved} />
 
       <MoneyModal
         goal={moneyDirection && data ? data : null}

@@ -6,7 +6,7 @@ import { useBaseCurrency } from "../hooks/useBaseCurrency";
 import { useRefetchOnFocus } from "../hooks/useRefetchOnFocus";
 import { listCategories } from "../services/categoriesService";
 import { deleteTransaction, getTransaction } from "../services/transactionsService";
-import { extractErrorMessage } from "../utils/errors";
+import { extractErrorMessage, isConflict, isNotFound } from "../utils/errors";
 import { formatCurrency, formatFullDate } from "../utils/format";
 import { Screen } from "../components/Screen";
 import { Button } from "../components/Button";
@@ -44,11 +44,24 @@ export function TransactionDetailsScreen() {
   async function confirmDelete() {
     setIsDeleting(true);
     try {
-      await deleteTransaction(transactionId);
+      // Only the version on screen may be deleted: a change made meanwhile on another device wins.
+      await deleteTransaction(transactionId, transaction.data?.updated_at);
       // The transactions list refetches on focus once we land back on it.
       router.back();
     } catch (error) {
+      if (isNotFound(error)) {
+        router.back(); // already deleted on another device: nothing left to do
+        return;
+      }
       setIsDeleting(false);
+      if (isConflict(error)) {
+        Alert.alert(
+          "Changed on another device",
+          "This transaction was just changed on another device, so it wasn't deleted. Its latest version is shown now."
+        );
+        void transaction.revalidate();
+        return;
+      }
       Alert.alert("Couldn't delete", extractErrorMessage(error));
     }
   }

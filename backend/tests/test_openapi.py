@@ -27,6 +27,8 @@ from apps.budgets.models import Budget, SavingsGoal
 from apps.categories.defaults import create_default_categories
 from apps.categories.models import Category, TransactionType
 from apps.common import health
+from apps.notifications import rules as notification_rules
+from apps.notifications import services as notification_services
 from apps.receipts.conftest import FakeOcrProvider, make_image
 from apps.receipts.ocr import OcrUnavailableError
 from apps.transactions.models import Frequency, RecurringTransaction, Transaction
@@ -454,6 +456,50 @@ def test_notifications_contract(auth_client, check):
     check("/api/notifications/preferences/", "get", auth_client.get("/api/notifications/preferences/"))
     check("/api/notifications/preferences/", "patch", auth_client.patch("/api/notifications/preferences/", {"insights": False}, format="json"))
     check("/api/notifications/preferences/", "patch", auth_client.patch("/api/notifications/preferences/", {"recurring_reminder_days": 9}, format="json"))
+
+
+@pytest.mark.django_db
+def test_notification_inbox_contract(user, auth_client, ledger, check):
+    check("/api/notifications/", "get", auth_client.get("/api/notifications/"))  # empty
+    # A budget warning (with a related object) and a monthly summary (without one), made by the real rules.
+    today = timezone.localdate()
+    Budget.objects.create(user=user, category=ledger["food"], amount=Decimal("10.00"), year=today.year, month=today.month)
+    auth_client.post(
+        "/api/transactions/",
+        {"category": ledger["food"].id, "type": "expense", "amount": "9.00", "date": today.isoformat()},
+        format="json",
+    )
+    notification_rules.send_monthly_summary(user, notification_services.get_preferences(user), date(2026, 9, 1))
+
+    listing = auth_client.get("/api/notifications/")
+    check("/api/notifications/", "get", listing)
+    assert {row["kind"] for row in listing.json()["results"]} == {"budget_warning", "monthly_summary"}
+    check("/api/notifications/", "get", auth_client.get("/api/notifications/", {"kind": "nope"}))  # 400
+    check("/api/notifications/", "get", auth_client.get("/api/notifications/", {"page": 9}))  # 404
+
+    url = f"/api/notifications/{listing.json()['results'][0]['id']}/"
+    check("/api/notifications/{id}/", "get", auth_client.get(url))
+    check("/api/notifications/{id}/", "patch", auth_client.patch(url, {"is_read": True}, format="json"))
+    check("/api/notifications/{id}/", "patch", auth_client.patch(url, {"is_read": "perhaps"}, format="json"))  # 400
+    check("/api/notifications/{id}/", "get", auth_client.get("/api/notifications/999999/"))  # 404
+    check("/api/notifications/unread-count/", "get", auth_client.get("/api/notifications/unread-count/"))
+    check("/api/notifications/mark-all-read/", "post", auth_client.post("/api/notifications/mark-all-read/"))
+
+
+@pytest.mark.django_db
+def test_sync_contract(user, auth_client, ledger, check):
+    check("/api/sync/status/", "get", auth_client.get("/api/sync/status/"))
+    stale = {"HTTP_IF_MATCH": '"2000-01-01T00:00:00Z"'}
+
+    transaction = Transaction.objects.filter(user=user).first()
+    url = f"/api/transactions/{transaction.id}/"
+    check("/api/transactions/{id}/", "patch", auth_client.patch(url, {"description": "x"}, format="json", **stale))
+    check("/api/transactions/{id}/", "delete", auth_client.delete(url, **stale))
+    version = auth_client.get(url).json()["updated_at"]
+    check("/api/transactions/{id}/", "patch", auth_client.patch(url, {"description": "x"}, format="json", HTTP_IF_MATCH=f'"{version}"'))
+
+    budget = Budget.objects.filter(user=user).first()
+    check("/api/budgets/{id}/", "patch", auth_client.patch(f"/api/budgets/{budget.id}/", {"amount": "1.00"}, format="json", **stale))
 
 
 @pytest.mark.django_db

@@ -18,7 +18,7 @@ import {
 } from "../components/transactions/TransactionFilters";
 import { TransactionsTable } from "../components/transactions/TransactionsTable";
 import { TransactionFormModal } from "../components/transactions/TransactionFormModal";
-import { extractErrorMessage } from "../utils/errors";
+import { extractErrorMessage, isConflict, isNotFound } from "../utils/errors";
 import styles from "./TransactionsPage.module.scss";
 
 const PAGE_SIZE = 20;
@@ -34,8 +34,9 @@ export function TransactionsPage() {
   const [page, setPage] = useState(1);
   const [formModal, setFormModal] = useState<FormModalState>({ isOpen: false, transaction: null });
   const [deleteTarget, setDeleteTarget] = useState<Transaction | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  // Deleted optimistically: hidden at once, shown again only if the server refuses.
+  const [removedIds, setRemovedIds] = useState<ReadonlySet<number>>(() => new Set());
 
   const debouncedSearch = useDebouncedValue(filters.search, 400);
 
@@ -92,7 +93,9 @@ export function TransactionsPage() {
 
   function handleSaved() {
     closeFormModal();
-    transactions.refetch();
+    // Not optimistic: the server computes base_amount and the exchange rate. Reload in the
+    // background so the table stays on screen.
+    void transactions.revalidate();
   }
 
   function requestDelete(transaction: Transaction) {
@@ -100,19 +103,40 @@ export function TransactionsPage() {
     setDeleteTarget(transaction);
   }
 
+  function setRemoved(id: number, removed: boolean) {
+    setRemovedIds((current) => {
+      const next = new Set(current);
+      if (removed) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
+  // Optimistic: a delete has nothing for the server to compute, so the row disappears at once.
   async function confirmDelete() {
     if (!deleteTarget) return;
-    setIsDeleting(true);
+    const target = deleteTarget;
+    setDeleteTarget(null);
+    setRemoved(target.id, true);
     try {
-      await deleteTransaction(deleteTarget.id);
-      setDeleteTarget(null);
-      transactions.refetch();
+      await deleteTransaction(target.id, target.updated_at);
     } catch (error) {
-      setDeleteError(extractErrorMessage(error));
-    } finally {
-      setIsDeleting(false);
+      if (!isNotFound(error)) {
+        // Refused: bring the row back. (404 = already deleted on another device: done anyway.)
+        setRemoved(target.id, false);
+        setDeleteError(
+          isConflict(error)
+            ? "This transaction was just changed on another device, so it wasn't deleted. Check the latest version and try again."
+            : extractErrorMessage(error)
+        );
+      }
     }
+    // Ids are never reused, so a deleted row can stay in removedIds after the reload.
+    await transactions.revalidate();
   }
+
+  const visibleTransactions = (transactions.data?.results ?? []).filter((row) => !removedIds.has(row.id));
+  const hiddenCount = (transactions.data?.results.length ?? 0) - visibleTransactions.length;
 
   const deleteTargetLabel = deleteTarget
     ? deleteTarget.description || categoriesById.get(deleteTarget.category)?.name || "this transaction"
@@ -143,7 +167,7 @@ export function TransactionsPage() {
       ) : (
         <>
           <TransactionsTable
-            transactions={transactions.data?.results ?? []}
+            transactions={visibleTransactions}
             categoriesById={categoriesById}
             ordering={ordering}
             onSortChange={setOrdering}
@@ -153,7 +177,7 @@ export function TransactionsPage() {
           <Pagination
             page={page}
             pageSize={PAGE_SIZE}
-            totalCount={transactions.data?.count ?? 0}
+            totalCount={(transactions.data?.count ?? 0) - hiddenCount}
             onPageChange={setPage}
           />
         </>
@@ -172,7 +196,6 @@ export function TransactionsPage() {
         title="Delete transaction"
         message={`Delete "${deleteTargetLabel}"? This can't be undone.`}
         confirmLabel="Delete"
-        isConfirming={isDeleting}
         onConfirm={confirmDelete}
         onClose={() => setDeleteTarget(null)}
       />

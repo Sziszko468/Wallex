@@ -35,11 +35,13 @@ export function RecurringTransactionFormScreen() {
   const itemId = id ? Number(id) : null;
   const isEditMode = itemId !== null;
 
+  // Not live: a change on another device must not re-seed the form the user is editing.
   const existingItem = useAsyncData(
     useCallback(() => {
       if (itemId === null) return Promise.resolve(null);
       return getRecurringTransaction(itemId);
-    }, [itemId])
+    }, [itemId]),
+    { live: false }
   );
   const categories = useAsyncData(useCallback(() => listCategories(), []));
 
