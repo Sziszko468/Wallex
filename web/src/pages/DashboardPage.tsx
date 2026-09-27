@@ -10,6 +10,8 @@ import {
   getTrends,
 } from "../services/analyticsService";
 import { listCategories } from "../services/categoriesService";
+import { getSavingsSummary, listSavingsGoals } from "../services/savingsGoalsService";
+import { listAchievements } from "../services/achievementsService";
 import { listTransactions } from "../services/transactionsService";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { useAuth } from "../hooks/useAuth";
@@ -30,6 +32,9 @@ import { CategoryTrendsTable } from "../components/dashboard/CategoryTrendsTable
 import { MonthComparison } from "../components/dashboard/MonthComparison";
 import { TopMerchantsList } from "../components/dashboard/TopMerchantsList";
 import { SpendingPatternsCard } from "../components/dashboard/SpendingPatternsCard";
+import { SubscriptionsOverview } from "../components/dashboard/SubscriptionsOverview";
+import { SavingsProgress } from "../components/dashboard/SavingsProgress";
+import { AchievementsOverview } from "../components/dashboard/AchievementsOverview";
 import { Skeleton } from "../components/Skeleton";
 import { ErrorState } from "../components/ErrorState";
 import { formatCurrency } from "../utils/format";
@@ -90,6 +95,16 @@ export function DashboardPage() {
 
   const fetchCategories = useCallback(() => listCategories(), []);
   const categories = useAsyncData(fetchCategories);
+
+  // Savings goals aren't tied to the selected month: their current state.
+  const fetchSavingsSummary = useCallback(() => getSavingsSummary(), []);
+  const savingsSummary = useAsyncData(fetchSavingsSummary);
+  const fetchSavingsGoals = useCallback(() => listSavingsGoals(), []);
+  const savingsGoals = useAsyncData(fetchSavingsGoals);
+
+  // Evaluated by the server on read; the dashboard only shows them (the Achievements page marks them seen).
+  const fetchAchievements = useCallback(() => listAchievements(), []);
+  const achievements = useAsyncData(fetchAchievements);
 
   const categoriesById = useMemo(() => {
     const map = new Map<number, Category>();
@@ -191,6 +206,35 @@ export function DashboardPage() {
           </SectionBody>
         </DashboardCard>
       </div>
+
+      <div className={styles.listsRow}>
+        <DashboardCard title="Savings progress">
+          <SectionBody
+            isLoading={savingsSummary.isLoading || savingsGoals.isLoading}
+            error={savingsSummary.error ?? savingsGoals.error}
+            onRetry={() => {
+              savingsSummary.refetch();
+              savingsGoals.refetch();
+            }}
+          >
+            {savingsSummary.data && savingsGoals.data && (
+              <SavingsProgress summary={savingsSummary.data} goals={savingsGoals.data} />
+            )}
+          </SectionBody>
+        </DashboardCard>
+
+        <DashboardCard title="Achievements">
+          <SectionBody isLoading={achievements.isLoading} error={achievements.error} onRetry={achievements.refetch}>
+            {achievements.data && <AchievementsOverview achievements={achievements.data} />}
+          </SectionBody>
+        </DashboardCard>
+      </div>
+
+      <DashboardCard title="Subscriptions">
+        <SectionBody isLoading={stats.isLoading} error={stats.error} onRetry={stats.refetch}>
+          {stats.data && <SubscriptionsOverview subscriptions={stats.data.subscriptions} />}
+        </SectionBody>
+      </DashboardCard>
 
       <h2 className={styles.sectionHeading}>Spending analysis</h2>
 

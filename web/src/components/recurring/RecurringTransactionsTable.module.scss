@@ -56,6 +56,16 @@
   color: vars.$color-text;
 }
 
+.subscriptionBadge {
+  margin-left: vars.$space-sm;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: vars.$color-primary-dark;
+  background-color: rgba(99, 102, 241, 0.12);
+}
+
 .categoryBadge {
   display: inline-flex;
   align-items: center;

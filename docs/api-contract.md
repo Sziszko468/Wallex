@@ -41,8 +41,9 @@ rendered exactly as the API returns them.**
   (`usage_percentage`, `percentage`) are plain numbers.
 - Currencies: a transaction's `amount` is in its own `currency` (EUR, HUF, USD, GBP, JPY,
   CHF; whole numbers for HUF and JPY) and never changes; `base_amount` is its value in the
-  user's **base currency** (`GET /api/auth/me/` → `base_currency`). Every other money field —
-  analytics, budgets, recurring amounts — is in the base currency. Format each amount with
+  user's **base currency** (`GET /api/auth/me/` → `base_currency`). Recurring transactions and
+  subscriptions are likewise billed in their own `currency` and never converted. Every other
+  money field — analytics, budgets, subscription totals and `base_*` costs — is in the base currency. Format each amount with
   its own currency; the clients never convert (`GET /api/currencies/convert/` previews a
   conversion). The exact rules are in the OpenAPI document.
 - Errors follow DRF's default shape: `{"detail": "..."}` for auth/permission/not-found errors,
@@ -386,12 +387,15 @@ export interface RecurringTransaction {
   name: string;
   category: number;
   type: TransactionType;
-  amount: string;           // decimal string
+  amount: string;           // decimal string, in `currency` (as billed)
+  currency: CurrencyCode;    // default: the base currency; never converted
+  merchant: string;
   frequency: RecurringFrequency;
   start_date: string;        // "YYYY-MM-DD"
   end_date: string | null;
   next_occurrence_date: string; // server-derived, see below — never set this directly
   is_active: boolean;
+  is_subscription: boolean;  // read-only: created through /api/subscriptions/
   description: string;
   created_at: string;
   updated_at: string;
@@ -411,6 +415,71 @@ Validation mirrors `Transaction`: `type` must match the selected category's own 
 `createRecurringTransaction(payload)`, `updateRecurringTransaction(id, payload)`,
 `deleteRecurringTransaction(id)`. `getRecurringTransaction` is mobile-only so far (its edit
 screen re-fetches by id on open); web's edit modal reuses the already-fetched list row instead.
+
+
+## `/api/subscriptions/` — list, create, detail, `PATCH`, `DELETE`, `GET .../summary/`
+
+A subscription is a recurring **expense** (the same row as above, `is_subscription: true`), so
+reminders and insights include it. The resource uses the field names of the subscription
+manager: `active` (= `is_active`) and `next_payment_date` (computed from `start_date` and
+`frequency`: the next payment on or after today, `null` when paused or ended). Also computed:
+`status` (`active` / `paused` / `ended`), `upcoming_payments` (next 3 dates), `monthly_cost` /
+`yearly_cost` (in `currency`) and `base_monthly_cost` / `base_yearly_cost` (base currency,
+`null` without a recent ECB rate). Plain array, not paginated; active first, then paused, then
+ended. `GET /api/subscriptions/summary/` returns `monthly_total`, `yearly_total` (the yearly
+projection), counts, `by_category` and the next 30 days' payments — all in the base currency.
+`GET /api/analytics/dashboard/` has a `subscriptions` block for the month (`monthly_total`,
+`yearly_total`, `due_this_month`, `active_count`).
+
+Types: `web/src/types/subscription.ts` (mirrored in `mobile/types/`); client functions in
+`services/subscriptionsService.ts`. Full shapes and validation messages: OpenAPI.
+
+## `/api/savings-goals/` — list, create, detail, `PATCH`, `DELETE`, `deposit/`, `withdraw/`, `summary/`
+
+A savings goal has `name`, `target_amount`, `current_amount`, `currency`, optional
+`target_date` and `status`. Both amounts are in the goal's own `currency` (default: the base
+currency; it can only change while `current_amount` is 0) and are never converted — not even
+when the base currency changes. Goals are not transactions and don't affect budgets or
+analytics totals.
+
+- `status`: `completed` is set by the server when `current_amount` ≥ `target_amount` (and
+  reverts to `active` below it); clients may send only `archived` (archive) or `active` (restore).
+- Computed, read-only: `progress_percentage` (number, may exceed 100 — clamp the bar, not the
+  text), `remaining_amount`, `days_left` (negative when overdue), `monthly_needed` (rounded up;
+  `null` without a future target date or when not active), `base_current_amount` /
+  `base_target_amount` (base currency, `null` without a recent ECB rate).
+- **Adding and removing money:** `POST .../{id}/deposit/` and `.../withdraw/` with
+  `{"amount": "200.00"}` (in the goal's currency). The server updates the balance under a row
+  lock and answers with the updated goal — clients never compute the new balance. Withdrawing
+  more than is saved, or moving money in an archived goal, is a `400`.
+- `GET /api/savings-goals/summary/`: counts per status plus `total_saved`, `total_target` and
+  `progress_percentage` over the goals that aren't archived, in the base currency.
+- The list is a plain array: active first, then completed, then archived; nearest target date
+  first within each.
+
+Types: `web/src/types/savingsGoal.ts` (mirrored in `mobile/types/`); client functions in
+`services/savingsGoalsService.ts`.
+
+## `GET /api/achievements/`, `POST /api/achievements/mark-seen/`
+
+The achievement catalog (seeded by a migration) with the user's progress, in catalog order —
+a plain array. The server evaluates it on every `GET`: newly reached milestones are unlocked and
+stored (`unlocked_at`), and stay unlocked for good. Each item has `code`, `name`, `title`
+(personalized once unlocked, e.g. `Stayed Under Food Budget`), `detail` (`August 2026`, a goal's
+name, or `null`), `description`, `icon` (emoji), `category`, `unit` (`count` / `days` / `money`),
+`target` and `progress` (decimal strings; money ones in `target_currency`), `progress_percentage`
+(0–100), `unlocked`, `unlocked_at` and `is_new` (unlocked, not yet shown).
+
+`POST .../mark-seen/` clears `is_new` for every unlocked achievement and answers
+`{"marked": <count>}`. The web client calls it after the Achievements page has shown them; the
+dashboard only reads.
+
+Rules live in `backend/apps/analytics/achievements.py` and reuse existing logic: the savings
+total of `GET /api/savings-goals/summary/`, the budgets' over-budget rule, `SavingsGoal.reached()`.
+Tracking streaks count days a transaction was recorded on (UTC).
+
+Types: `web/src/types/achievement.ts` (mirrored in `mobile/types/`); client functions in
+`services/achievementsService.ts`.
 
 ---
 
@@ -593,14 +662,26 @@ the app highlights `low` fields for the user to check.
   "merchant": {"value": "TESCO Global Aruhazak Zrt", "confidence": "high"},
   "amount":   {"value": "2142.00", "confidence": "high"},
   "date":     {"value": "2026-09-25", "confidence": "high"},
+  "currency": {"value": "HUF", "confidence": "high"},
+  "unsupported_currency": null,
+  "items": [{"name": "KENYER 1 DB", "amount": "549.00"}, {"name": "TEJ 2,8% 1L", "amount": "399.00"}],
   "category": {"id": 186, "name": "Food", "source": "rules"},
-  "text_found": true
+  "text_found": true,
+  "outcome": "complete"
 }
 ```
 
 `category` is `null` when nothing matches; `source` is `"history"` (the category the user chose
 last time for the same merchant) or `"rules"` (keyword rules shared with the CSV import).
-`text_found: false` means the OCR read no text at all (blurry/dark photo) — all values are null.
+`currency` is read from Ft/HUF, €/EUR, $/USD, £/GBP, CHF, ¥/JPY on the receipt (`null` if none —
+the app preselects the base currency and flags it); `unsupported_currency` names a currency
+printed instead that Spendly can't record (e.g. `"CZK"`). `items` are the lines above the total,
+for display only (the total is never summed from them).
+
+`outcome` tells the app which screen to show: `complete` / `incomplete` → the confirmation
+screen (missing fields flagged); `unsupported` (text, but neither a total nor a date — not a
+receipt) and `unreadable` (`text_found: false`, blurry/dark photo) → an explanation with retake /
+another photo / manual entry (`unsupported` also offers "enter the details anyway").
 
 **Errors:** `400 {"image": [...]}` (missing, too large, not a readable image) ·
 `429` (rate limit, default 30 scans/hour per user) · `503 {"detail": ...}` (OCR engine down —
@@ -609,7 +690,9 @@ add the transaction manually).
 The OCR engine is configurable (`RECEIPT_OCR_PROVIDER`, default self-hosted Tesseract with
 `hun+eng`); any class implementing `apps.receipts.ocr.OcrProvider` can replace it.
 
-**Client function (mobile only):** `scanReceipt(photo)` in `mobile/services/receiptService.ts`.
+**Client function (mobile only):** `scanReceipt(photo)` in `mobile/services/receiptService.ts`;
+`mobile/utils/receiptProblems.ts` maps every failure (`400`/`413` bad photo, `429`, `503`,
+timeout, offline) and the `unsupported` / `unreadable` outcomes to a message and next steps.
 
 ---
 

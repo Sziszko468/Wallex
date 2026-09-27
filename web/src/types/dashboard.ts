@@ -1,3 +1,5 @@
+import type { CurrencyCode } from "./currency";
+
 export interface TopSpendingCategory {
   category_id: number;
   category_name: string;
@@ -37,6 +39,19 @@ export interface DashboardStats {
   transaction_count: number;
   top_spending_category: TopSpendingCategory | null;
   budget_usage: BudgetUsageEntry[];
+  subscriptions: DashboardSubscriptions;
+}
+
+/** The month's subscriptions, in the base currency (see /api/subscriptions/). */
+export interface DashboardSubscriptions {
+  /** Subscriptions active at some point during the month. */
+  active_count: number;
+  monthly_total: string;
+  /** Yearly projection. */
+  yearly_total: string;
+  /** Payments scheduled within the month (a yearly plan counts only in its billing month). */
+  due_this_month: string;
+  unconverted_currencies: CurrencyCode[];
 }
 
 /** Query params accepted by GET /api/analytics/dashboard/ — both default to the current month. */

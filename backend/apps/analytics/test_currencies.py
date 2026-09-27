@@ -6,8 +6,9 @@ from decimal import Decimal
 import pytest
 from django.urls import reverse
 
+from apps.analytics import patterns, services
 from apps.budgets.models import Budget
-from apps.transactions.models import Transaction
+from apps.transactions.models import Frequency, RecurringTransaction, Transaction
 
 SEP = {"year": 2026, "month": 9}
 
@@ -62,3 +63,36 @@ def test_comparison_and_insights_use_base_amounts(auth_client, user, food_catego
     assert comparison["difference"]["total_expenses"] == "46.00"
     exceeded = next(insight for insight in insights if insight["type"] == "budget_exceeded")
     assert exceeded["amount"] == "10.00"
+
+
+def _recurring(user, category, amount, currency="EUR"):
+    return RecurringTransaction.objects.create(
+        user=user, category=category, name=f"{amount} {currency}", type=category.type, amount=Decimal(amount),
+        currency=currency, frequency=Frequency.MONTHLY, start_date=date(2026, 1, 1),
+        next_occurrence_date=date(2026, 1, 1),
+    )
+
+
+@pytest.mark.django_db
+def test_recurring_commitments_convert_what_the_bill_says(user, food_category, add_rates, django_assert_num_queries):
+    add_rates(date(2026, 8, 31), USD="1.25")  # the month's last day
+    _recurring(user, food_category, "100.00")
+    _recurring(user, food_category, "50.00", currency="USD")  # 40.00 EUR
+    _recurring(user, food_category, "12.00", currency="GBP")  # no rate: can't be converted, left out
+
+    with django_assert_num_queries(2):  # the templates + one for the rates
+        total = services.get_recurring_monthly_expenses(user, 2026, 8, today=date(2026, 9, 15))
+
+    assert total == Decimal("140.00")
+
+
+@pytest.mark.django_db
+def test_a_foreign_currency_template_accounts_for_its_own_payments(user, food_category):
+    _recurring(user, food_category, "15.49", currency="USD")
+    _tx(user, food_category, "15.49", currency="USD", rate="0.8547")  # the bill: fixed (13.24 EUR)
+    _tx(user, food_category, "15.49")  # the same number in euros is something else
+
+    result = patterns.get_spending_patterns(user, 2026, 9, today=date(2026, 10, 15))
+
+    assert result["fixed_expenses"] == Decimal("13.24")
+    assert result["variable_expenses"] == Decimal("15.49")

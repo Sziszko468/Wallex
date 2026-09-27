@@ -8,9 +8,10 @@ import pytest
 from django.urls import reverse
 from rest_framework import status
 
-from apps.budgets.models import Budget
+from apps.budgets.models import Budget, SavingsGoal
 from apps.categories.models import Category, TransactionType
-from apps.transactions.models import Transaction
+from apps.subscriptions.models import Subscription
+from apps.transactions.models import Frequency, Transaction
 
 MONEY_KEYS = {
     "amount", "total_income", "total_expenses", "balance", "income", "expenses",
@@ -19,6 +20,10 @@ MONEY_KEYS = {
     "total", "average", "previous_total", "average_monthly_expenses", "average_daily_spending",
     "average_per_day", "fixed_expenses", "variable_expenses", "recurring_commitments", "expected_to_date",
     "current_amount", "previous_amount", "change_amount",
+    "monthly_cost", "yearly_cost", "base_monthly_cost", "base_yearly_cost", "monthly_total", "yearly_total",
+    "due_this_month", "target_amount", "current_amount", "remaining_amount", "monthly_needed",
+    "base_current_amount", "base_target_amount", "total_saved", "total_target",
+    "progress", "target",  # achievements: money progress (and, for consistency, every other kind) as strings
 }
 
 
@@ -131,6 +136,14 @@ def test_money_is_always_serialized_as_a_decimal_string(auth_client, user, food,
         user=user, category=food, type=TransactionType.EXPENSE, amount=Decimal("15000"),
         currency="HUF", exchange_rate=Decimal("0.0025650891"), date=date(2026, 9, 4), description="Spar",
     )
+    Subscription.objects.create(
+        user=user, category=food, name="Meal kit", amount=Decimal("10.00"), frequency=Frequency.WEEKLY,
+        start_date=date(2026, 9, 1), next_occurrence_date=date(2026, 9, 1),
+    )
+    SavingsGoal.objects.create(
+        user=user, name="Japan trip", target_amount=Decimal("3000.00"), current_amount=Decimal("1850.10"),
+        target_date=date(2099, 1, 1),
+    )
     month = {"year": 2026, "month": 9}
     responses = {
         "dashboard": auth_client.get(reverse("analytics-dashboard"), month),
@@ -144,6 +157,11 @@ def test_money_is_always_serialized_as_a_decimal_string(auth_client, user, food,
         "spending-patterns": auth_client.get(reverse("analytics-spending-patterns"), month),
         "budgets": auth_client.get(reverse("budget-list")),
         "transactions": auth_client.get(reverse("transaction-list")),
+        "subscriptions": auth_client.get(reverse("subscription-list")),
+        "subscription-summary": auth_client.get(reverse("subscription-summary")),
+        "savings-goals": auth_client.get(reverse("savingsgoal-list")),
+        "savings-summary": auth_client.get(reverse("savingsgoal-summary")),
+        "achievements": auth_client.get(reverse("achievement-list")),
     }
 
     checked = 0

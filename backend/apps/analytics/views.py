@@ -1,10 +1,13 @@
 from django.utils import timezone
-from rest_framework import permissions
+from rest_framework import permissions, viewsets
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from . import formatters, insights, merchants, patterns, services, trends
+from . import achievements, formatters, insights, merchants, patterns, services, trends
 from .openapi import (
+    ACHIEVEMENTS_LIST_SCHEMA,
+    MARK_SEEN_SCHEMA,
     CATEGORIES_SCHEMA,
     COMPARISON_SCHEMA,
     DASHBOARD_SCHEMA,
@@ -15,6 +18,7 @@ from .openapi import (
     TRENDS_SCHEMA,
 )
 from .serializers import (
+    AchievementSerializer,
     ComparisonQuerySerializer,
     MerchantsQuerySerializer,
     MonthQuerySerializer,
@@ -115,3 +119,22 @@ class InsightsView(APIView):
         year, month = query["year"], query["month"]
         generated = insights.generate_insights(request.user, year, month, today=timezone.localdate())
         return Response({"year": year, "month": month, "insights": formatters.format_insights(generated)})
+
+
+class AchievementViewSet(viewsets.GenericViewSet):
+    """Achievements are evaluated when they are read: the list is always up to date, and newly
+    reached milestones are unlocked (and stored) the first time the user looks."""
+
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = AchievementSerializer
+    pagination_class = None
+
+    @ACHIEVEMENTS_LIST_SCHEMA
+    def list(self, request):
+        records = achievements.evaluate(request.user, timezone.localdate())
+        return Response(AchievementSerializer(records, many=True).data)
+
+    @MARK_SEEN_SCHEMA
+    @action(detail=False, methods=["post"], url_path="mark-seen")
+    def mark_seen(self, request):
+        return Response({"marked": achievements.mark_seen(request.user)})

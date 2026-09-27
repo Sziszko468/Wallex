@@ -1,0 +1,67 @@
+@use "../../styles/variables" as vars;
+
+.overview {
+  display: flex;
+  flex-direction: column;
+  gap: vars.$space-md;
+}
+
+.figures {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: vars.$space-md;
+  margin: 0;
+
+  @media (min-width: vars.$breakpoint-tablet) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.figure {
+  display: flex;
+  flex-direction: column;
+  gap: vars.$space-xs;
+}
+
+.label {
+  font-size: vars.$font-size-sm;
+  color: vars.$color-text-muted;
+}
+
+.value {
+  margin: 0;
+  font-size: vars.$font-size-lg;
+  font-weight: 700;
+  color: vars.$color-text;
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: vars.$space-sm;
+}
+
+.meta {
+  font-size: vars.$font-size-sm;
+  color: vars.$color-text-muted;
+}
+
+.link {
+  font-size: vars.$font-size-sm;
+  font-weight: 600;
+  color: vars.$color-primary-dark;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: vars.$space-sm;
+}

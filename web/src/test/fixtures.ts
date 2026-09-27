@@ -12,6 +12,9 @@ import type {
   Trends,
 } from "../types/dashboard";
 import type { ConversionPreview } from "../types/currency";
+import type { Subscription, SubscriptionSummary } from "../types/subscription";
+import type { SavingsGoal, SavingsSummary } from "../types/savingsGoal";
+import type { Achievement } from "../types/achievement";
 
 // Shapes copied from real API responses (docs/api-contract.md) — money as decimal strings.
 
@@ -79,6 +82,160 @@ export const dashboard: DashboardStats = {
       status: "over_budget",
     },
   ],
+  subscriptions: {
+    active_count: 5,
+    monthly_total: "95.96",
+    yearly_total: "1151.52",
+    due_this_month: "63.96",
+    unconverted_currencies: [],
+  },
+};
+
+/** A euro subscription unless overridden. Costs are what the API computed — the client never recomputes them. */
+export function makeSubscription(overrides: Partial<Subscription> = {}): Subscription {
+  return {
+    id: 300,
+    name: "Netflix",
+    merchant: "Netflix International B.V.",
+    amount: "17.99",
+    currency: "EUR",
+    category: 10,
+    frequency: "monthly",
+    start_date: "2026-01-05",
+    end_date: null,
+    next_payment_date: "2026-10-05",
+    active: true,
+    status: "active",
+    upcoming_payments: ["2026-10-05", "2026-11-05", "2026-12-05"],
+    monthly_cost: "17.99",
+    yearly_cost: "215.88",
+    base_monthly_cost: "17.99",
+    base_yearly_cost: "215.88",
+    description: "",
+    ...timestamps,
+    ...overrides,
+  };
+}
+
+/** A locked "First Transaction" unless overridden — shapes as GET /api/achievements/ returns them. */
+export function makeAchievement(overrides: Partial<Achievement> = {}): Achievement {
+  return {
+    code: "first_transaction",
+    name: "First Transaction",
+    title: "First Transaction",
+    detail: null,
+    description: "Record your first transaction.",
+    icon: "🧾",
+    category: "tracking",
+    unit: "count",
+    target: "1.00",
+    target_currency: null,
+    progress: "0.00",
+    progress_percentage: 0,
+    unlocked: false,
+    unlocked_at: null,
+    is_new: false,
+    ...overrides,
+  };
+}
+
+/** One achievement in each state: unlocked (new), unlocked (seen, personalized), in progress, not started. */
+export const achievementList: Achievement[] = [
+  makeAchievement({
+    code: "streak_7",
+    name: "7 Day Tracking Streak",
+    title: "7 Day Tracking Streak",
+    icon: "🔥",
+    unit: "days",
+    target: "7.00",
+    progress: "7.00",
+    progress_percentage: 100,
+    unlocked: true,
+    unlocked_at: "2026-09-27T08:00:00Z",
+    is_new: true,
+  }),
+  makeAchievement({
+    code: "stayed_under_budget",
+    name: "Stayed Under Budget",
+    title: "Stayed Under Food Budget",
+    detail: "August 2026",
+    icon: "🎯",
+    category: "budgeting",
+    progress: "1.00",
+    progress_percentage: 100,
+    unlocked: true,
+    unlocked_at: "2026-09-01T06:00:00Z",
+  }),
+  makeAchievement({
+    code: "saved_1000",
+    name: "€1,000 Saved",
+    title: "€1,000 Saved",
+    description: "Have €1,000 in your savings goals.",
+    icon: "🏆",
+    category: "saving",
+    unit: "money",
+    target: "1000.00",
+    target_currency: "EUR",
+    progress: "412.50",
+    progress_percentage: 41.25,
+  }),
+  makeAchievement({
+    code: "streak_30",
+    name: "30 Day Tracking Streak",
+    title: "30 Day Tracking Streak",
+    description: "Record transactions on 30 days in a row.",
+    icon: "🔥",
+    unit: "days",
+    target: "30.00",
+  }),
+];
+
+/** The Japan trip from the spec: €1,850 of €3,000 = 61.67 % (computed by the API). */
+export function makeSavingsGoal(overrides: Partial<SavingsGoal> = {}): SavingsGoal {
+  return {
+    id: 7,
+    name: "Japan trip",
+    currency: "EUR",
+    target_amount: "3000.00",
+    current_amount: "1850.00",
+    target_date: "2027-04-01",
+    status: "active",
+    progress_percentage: 61.67,
+    remaining_amount: "1150.00",
+    days_left: 186,
+    monthly_needed: "191.67",
+    base_current_amount: "1850.00",
+    base_target_amount: "3000.00",
+    ...timestamps,
+    ...overrides,
+  };
+}
+
+export const savingsSummary: SavingsSummary = {
+  currency: "EUR",
+  active_count: 1,
+  completed_count: 0,
+  archived_count: 0,
+  total_saved: "1850.00",
+  total_target: "3000.00",
+  progress_percentage: 61.67,
+  unconverted_currencies: [],
+};
+
+export const subscriptionSummary: SubscriptionSummary = {
+  currency: "EUR",
+  active_count: 5,
+  paused_count: 1,
+  ended_count: 0,
+  monthly_total: "95.96",
+  yearly_total: "1151.52",
+  by_category: [
+    { category_id: 10, category_name: "Food", monthly_total: "95.96", subscription_count: 5, percentage: 100 },
+  ],
+  upcoming: [
+    { subscription_id: 300, name: "Netflix", date: "2026-10-05", amount: "17.99", currency: "EUR", base_amount: "17.99" },
+  ],
+  unconverted_currencies: [],
 };
 
 export const monthly: MonthlyAnalytics = {

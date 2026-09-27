@@ -9,7 +9,12 @@ import { RegisterPage } from "./pages/RegisterPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { TransactionsPage } from "./pages/TransactionsPage";
 import { RecurringTransactionsPage } from "./pages/RecurringTransactionsPage";
+import { SubscriptionsPage } from "./pages/SubscriptionsPage";
+import { SubscriptionDetailPage } from "./pages/SubscriptionDetailPage";
 import { BudgetsPage } from "./pages/BudgetsPage";
+import { SavingsGoalsPage } from "./pages/SavingsGoalsPage";
+import { SavingsGoalDetailPage } from "./pages/SavingsGoalDetailPage";
+import { AchievementsPage } from "./pages/AchievementsPage";
 import { ImportPage } from "./pages/ImportPage";
 import { CategoriesPage } from "./pages/CategoriesPage";
 import { SettingsPage } from "./pages/SettingsPage";
@@ -30,7 +35,12 @@ export function AppRoutes() {
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/transactions" element={<TransactionsPage />} />
           <Route path="/recurring" element={<RecurringTransactionsPage />} />
+          <Route path="/subscriptions" element={<SubscriptionsPage />} />
+          <Route path="/subscriptions/:id" element={<SubscriptionDetailPage />} />
           <Route path="/budgets" element={<BudgetsPage />} />
+          <Route path="/goals" element={<SavingsGoalsPage />} />
+          <Route path="/goals/:id" element={<SavingsGoalDetailPage />} />
+          <Route path="/achievements" element={<AchievementsPage />} />
           <Route path="/import" element={<ImportPage />} />
           <Route path="/categories" element={<CategoriesPage />} />
           <Route path="/settings" element={<SettingsPage />} />

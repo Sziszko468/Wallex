@@ -1,0 +1,117 @@
+@use "../styles/variables" as vars;
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: vars.$space-lg;
+}
+
+.backLink {
+  align-self: flex-start;
+  font-size: vars.$font-size-sm;
+  font-weight: 600;
+  color: vars.$color-primary-dark;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.headerRow {
+  display: flex;
+  flex-direction: column;
+  gap: vars.$space-md;
+  align-items: flex-start;
+
+  @media (min-width: vars.$breakpoint-tablet) {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: vars.$space-sm;
+  margin: 0;
+  font-size: vars.$font-size-xl;
+}
+
+.merchant {
+  margin: vars.$space-xs 0 0;
+  color: vars.$color-text-muted;
+  font-size: vars.$font-size-sm;
+}
+
+.actions {
+  display: flex;
+  gap: vars.$space-sm;
+}
+
+.statsRow {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: vars.$space-md;
+
+  @media (min-width: vars.$breakpoint-tablet) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.cardsRow {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: vars.$space-md;
+
+  @media (min-width: vars.$breakpoint-tablet) {
+    grid-template-columns: 2fr 1fr;
+  }
+}
+
+.details {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: vars.$space-sm vars.$space-lg;
+  margin: 0;
+  font-size: vars.$font-size-sm;
+
+  dt {
+    color: vars.$color-text-muted;
+  }
+
+  dd {
+    margin: 0;
+    color: vars.$color-text;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+}
+
+.schedule {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: vars.$space-sm;
+  font-size: vars.$font-size-sm;
+
+  li {
+    display: flex;
+    justify-content: space-between;
+    gap: vars.$space-md;
+  }
+}
+
+.scheduleAmount {
+  font-weight: 700;
+}
+
+.muted {
+  margin: 0;
+  color: vars.$color-text-muted;
+  font-size: vars.$font-size-sm;
+}

@@ -13,6 +13,9 @@ export const CURRENCY_DECIMALS: Record<CurrencyCode, number> = {
   CHF: 2,
 };
 
+/** Every currency the API accepts, in picker order. */
+export const CURRENCY_CODES = Object.keys(CURRENCY_DECIMALS) as CurrencyCode[];
+
 /**
  * Whether a typed amount has no more decimals than the currency allows. A string
  * check, not arithmetic: "15000.00" HUF is fine, "15000.5" isn't. Two-decimal

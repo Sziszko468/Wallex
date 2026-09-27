@@ -19,7 +19,7 @@ from decimal import ROUND_HALF_UP, Decimal
 
 from django.utils import timezone
 
-from .models import DECIMALS, ECB_BASE, ExchangeRate
+from .models import DECIMALS, ECB_BASE, Currency, ExchangeRate
 
 ONE = Decimal(1)
 # Stored precision of Transaction.exchange_rate (decimal_places=10).
@@ -116,6 +116,34 @@ class RateTable:
         value = (target_per_euro / source_per_euro).quantize(RATE_QUANTUM, rounding=ROUND_HALF_UP)
         # At least one side isn't the euro, so at least one publication date exists.
         return Rate(value, max(published for published in (source_day, target_day) if published))
+
+
+class Converter:
+    """Converts into one base currency at one day's rates, for values shown next to amounts
+    kept in their own currency (subscription costs, savings goals). The rates are loaded
+    with a single query on the first conversion that needs them; none for the base currency.
+    A currency without a rate of the last MAX_RATE_AGE converts to None — never a guess."""
+
+    def __init__(self, base_currency: str, day: date):
+        self.base_currency = base_currency
+        self.day = day
+        self._rates: RateTable | None = None
+
+    def rate(self, currency: str) -> Decimal | None:
+        """Value of 1 unit of `currency` in the base currency; None when no recent rate exists."""
+        if currency == self.base_currency:
+            return ONE
+        if self._rates is None:
+            self._rates = RateTable.load(Currency.values, self.day, self.day)
+        try:
+            return self._rates.rate(currency, self.base_currency, self.day).value
+        except MissingExchangeRateError:
+            return None
+
+    def to_base(self, amount: Decimal, currency: str) -> Decimal | None:
+        """`amount` in the base currency, in cents like every base amount; None without a rate."""
+        rate = self.rate(currency)
+        return None if rate is None else base_amount_for(amount, rate)
 
 
 def exchange_rate(source: str, target: str, day: date) -> Rate:

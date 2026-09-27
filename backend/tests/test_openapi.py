@@ -6,7 +6,7 @@ missing field, a wrong type or an undocumented status code fails the test. The d
 can't drift from the code without a red build.
 """
 
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from io import StringIO
 from pathlib import Path
@@ -23,7 +23,7 @@ from jsonschema import Draft7Validator
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 
-from apps.budgets.models import Budget
+from apps.budgets.models import Budget, SavingsGoal
 from apps.categories.defaults import create_default_categories
 from apps.categories.models import Category, TransactionType
 from apps.common import health
@@ -302,6 +302,66 @@ def test_recurring_transactions_contract(auth_client, ledger, check):
     check("/api/recurring-transactions/{id}/", "get", auth_client.get(url))
     check("/api/recurring-transactions/{id}/", "patch", auth_client.patch(url, {"is_active": False, "end_date": None}, format="json"))
     check("/api/recurring-transactions/{id}/", "delete", auth_client.delete(url))
+
+
+@pytest.mark.django_db
+def test_achievements_contract(user, auth_client, ledger, check):
+    check("/api/achievements/", "get", auth_client.get("/api/achievements/"))  # unlocked, in progress and locked
+    SavingsGoal.objects.create(user=user, name="Trip", target_amount=Decimal("3000.00"), current_amount=Decimal("412.50"))
+    check("/api/achievements/", "get", auth_client.get("/api/achievements/"))  # money progress
+    check("/api/achievements/mark-seen/", "post", auth_client.post("/api/achievements/mark-seen/"))
+
+
+@pytest.mark.django_db
+def test_savings_goals_contract(auth_client, check, add_rates):
+    add_rates(timezone.localdate() - timedelta(days=1), USD="1.25")
+    check("/api/savings-goals/", "get", auth_client.get("/api/savings-goals/"))  # empty list
+    body = {"name": "Japan trip", "target_amount": "3000.00", "current_amount": "1850.00", "target_date": "2099-04-01"}
+    created = auth_client.post("/api/savings-goals/", body, format="json")
+    check("/api/savings-goals/", "post", created)
+    check("/api/savings-goals/", "post", auth_client.post("/api/savings-goals/", {**body, "target_date": "2020-01-01"}, format="json"))
+    auth_client.post("/api/savings-goals/", {"name": "New York", "currency": "USD", "target_amount": "5000.00"}, format="json")
+    auth_client.post("/api/savings-goals/", {"name": "London", "currency": "GBP", "target_amount": "800.00"}, format="json")  # no rate
+    check("/api/savings-goals/", "get", auth_client.get("/api/savings-goals/"))  # nullable base values included
+    check("/api/savings-goals/summary/", "get", auth_client.get("/api/savings-goals/summary/"))
+
+    url = f"/api/savings-goals/{created.json()['id']}/"
+    check("/api/savings-goals/{id}/", "get", auth_client.get(url))
+    check("/api/savings-goals/{id}/", "patch", auth_client.patch(url, {"target_amount": "3500.00"}, format="json"))
+    check("/api/savings-goals/{id}/", "patch", auth_client.patch(url, {"status": "completed"}, format="json"))  # 400
+    check("/api/savings-goals/{id}/deposit/", "post", auth_client.post(f"{url}deposit/", {"amount": "200.00"}, format="json"))
+    check("/api/savings-goals/{id}/deposit/", "post", auth_client.post(f"{url}deposit/", {"amount": "0"}, format="json"))
+    check("/api/savings-goals/{id}/withdraw/", "post", auth_client.post(f"{url}withdraw/", {"amount": "50.00"}, format="json"))
+    check("/api/savings-goals/{id}/withdraw/", "post", auth_client.post(f"{url}withdraw/", {"amount": "99999.00"}, format="json"))
+    check("/api/savings-goals/{id}/", "patch", auth_client.patch(url, {"status": "archived"}, format="json"))  # figures null
+    check("/api/savings-goals/{id}/deposit/", "post", auth_client.post(f"{url}deposit/", {"amount": "1.00"}, format="json"))
+    check("/api/savings-goals/{id}/", "delete", auth_client.delete(url))
+    check("/api/savings-goals/{id}/", "get", auth_client.get(url))  # 404
+    check("/api/savings-goals/{id}/deposit/", "post", auth_client.post(f"{url}deposit/", {"amount": "1.00"}, format="json"))
+
+
+@pytest.mark.django_db
+def test_subscriptions_contract(auth_client, ledger, check, add_rates):
+    add_rates(timezone.localdate() - timedelta(days=1), USD="1.17")
+    check("/api/subscriptions/", "get", auth_client.get("/api/subscriptions/"))  # empty list
+    body = {
+        "name": "Netflix", "merchant": "Netflix International B.V.", "amount": "15.49", "currency": "USD",
+        "category": ledger["food"].id, "frequency": "monthly", "start_date": "2026-01-05",
+    }
+    created = auth_client.post("/api/subscriptions/", body, format="json")
+    check("/api/subscriptions/", "post", created)
+    check("/api/subscriptions/", "post", auth_client.post("/api/subscriptions/", {**body, "category": ledger["salary"].id}, format="json"))
+    # No GBP rate: base costs are null and GBP is reported as unconverted.
+    auth_client.post("/api/subscriptions/", {**body, "name": "BBC", "currency": "GBP", "frequency": "yearly"}, format="json")
+    check("/api/subscriptions/", "get", auth_client.get("/api/subscriptions/"))
+    check("/api/subscriptions/summary/", "get", auth_client.get("/api/subscriptions/summary/"))
+
+    url = f"/api/subscriptions/{created.json()['id']}/"
+    check("/api/subscriptions/{id}/", "get", auth_client.get(url))
+    check("/api/subscriptions/{id}/", "patch", auth_client.patch(url, {"active": False}, format="json"))  # paused: nulls
+    check("/api/subscriptions/{id}/", "patch", auth_client.patch(url, {"end_date": "2025-01-01"}, format="json"))
+    check("/api/subscriptions/{id}/", "delete", auth_client.delete(url))
+    check("/api/subscriptions/{id}/", "get", auth_client.get(url))  # 404
 
 
 @pytest.mark.django_db

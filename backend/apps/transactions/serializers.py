@@ -2,7 +2,7 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
-from apps.categories.models import Category
+from apps.categories.models import Category, TransactionType
 from apps.currencies.rates import (
     MAX_BASE_AMOUNT,
     ONE,
@@ -122,42 +122,10 @@ class TransactionSerializer(serializers.ModelSerializer):
         return attrs
 
 
-class RecurringTransactionSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = RecurringTransaction
-        fields = [
-            "id",
-            "name",
-            "category",
-            "type",
-            "amount",
-            "frequency",
-            "start_date",
-            "end_date",
-            "next_occurrence_date",
-            "is_active",
-            "description",
-            "created_at",
-            "updated_at",
-        ]
-        # next_occurrence_date is internal scheduling state, not a user input:
-        # it's derived from start_date on create, and re-derived only when
-        # start_date itself changes (see update() below). A future
-        # generation job will be the other thing that ever advances it.
-        read_only_fields = ["id", "next_occurrence_date", "created_at", "updated_at"]
-        extra_kwargs = {
-            "name": {"help_text": "Short label, e.g. `Rent`."},
-            "category": {"help_text": "Id of one of the user's categories; its type must equal `type`."},
-            "amount": {
-                "help_text": "Amount per occurrence in the user's base currency: positive, max 2 decimals (whole for HUF/JPY)."
-            },
-            "frequency": {"help_text": "How often it repeats, counted from `start_date`."},
-            "start_date": {"help_text": "First occurrence."},
-            "end_date": {"help_text": "Last possible occurrence (inclusive); `null` = no end."},
-            "next_occurrence_date": {"help_text": "Scheduling state: starts at `start_date`, reset when `start_date` changes."},
-            "is_active": {"help_text": "`false` pauses reminders and excludes the template from insights."},
-            "description": {"help_text": "Optional free text."},
-        }
+class RecurringScheduleSerializer(serializers.ModelSerializer):
+    """What every recurring row needs, whichever endpoint writes it (recurring transactions,
+    subscriptions): only the user's own categories, a consistent schedule, an amount valid
+    in its currency, and the upkeep of next_occurrence_date. Subclasses define Meta."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -165,14 +133,7 @@ class RecurringTransactionSerializer(serializers.ModelSerializer):
         if request is not None and request.user.is_authenticated:
             self.fields["category"].queryset = Category.objects.filter(user=request.user)
 
-    def validate(self, attrs):
-        category = attrs.get("category", getattr(self.instance, "category", None))
-        tx_type = attrs.get("type", getattr(self.instance, "type", None))
-        if category is not None and tx_type is not None and category.type != tx_type:
-            raise serializers.ValidationError(
-                {"type": "Recurring transaction type must match the selected category's type."}
-            )
-
+    def validate_schedule_and_amount(self, attrs):
         start_date = attrs.get("start_date", getattr(self.instance, "start_date", None))
         end_date = attrs.get("end_date", getattr(self.instance, "end_date", None))
         if end_date is not None and start_date is not None and end_date < start_date:
@@ -180,8 +141,10 @@ class RecurringTransactionSerializer(serializers.ModelSerializer):
                 {"end_date": "End date must be on or after the start date."}
             )
 
-        # The amount of a recurring transaction is in the user's base currency.
-        check_amount_precision(attrs.get("amount"), self.context["request"].user.base_currency)
+        # The amount is billed in `currency` (default: the base currency) and never converted.
+        base_currency = self.context["request"].user.base_currency
+        currency = attrs.setdefault("currency", self.instance.currency if self.instance else base_currency)
+        check_amount_precision(attrs.get("amount", getattr(self.instance, "amount", None)), currency)
         return attrs
 
     def create(self, validated_data):
@@ -193,3 +156,63 @@ class RecurringTransactionSerializer(serializers.ModelSerializer):
         if new_start_date is not None and new_start_date != instance.start_date:
             validated_data["next_occurrence_date"] = new_start_date
         return super().update(instance, validated_data)
+
+
+class RecurringTransactionSerializer(RecurringScheduleSerializer):
+    class Meta:
+        model = RecurringTransaction
+        fields = [
+            "id",
+            "name",
+            "category",
+            "type",
+            "amount",
+            "currency",
+            "merchant",
+            "frequency",
+            "start_date",
+            "end_date",
+            "next_occurrence_date",
+            "is_active",
+            "is_subscription",
+            "description",
+            "created_at",
+            "updated_at",
+        ]
+        # next_occurrence_date is internal scheduling state, not a user input:
+        # it's derived from start_date on create, and re-derived only when
+        # start_date itself changes (see update()). A future generation job
+        # will be the other thing that ever advances it.
+        # is_subscription is decided by the endpoint that created the row.
+        read_only_fields = ["id", "next_occurrence_date", "is_subscription", "created_at", "updated_at"]
+        extra_kwargs = {
+            "name": {"help_text": "Short label, e.g. `Rent`."},
+            "category": {"help_text": "Id of one of the user's categories; its type must equal `type`."},
+            "amount": {
+                "help_text": "Amount per occurrence in `currency`: positive, max 2 decimals (whole for HUF/JPY)."
+            },
+            "currency": {
+                "help_text": "Currency the amount is billed in. Default: the user's base currency. Never converted."
+            },
+            "merchant": {"help_text": "Optional: who gets paid (landlord, employer, provider)."},
+            "frequency": {"help_text": "How often it repeats, counted from `start_date`."},
+            "start_date": {"help_text": "First occurrence."},
+            "end_date": {"help_text": "Last possible occurrence (inclusive); `null` = no end."},
+            "next_occurrence_date": {"help_text": "Scheduling state: starts at `start_date`, reset when `start_date` changes."},
+            "is_active": {"help_text": "`false` pauses reminders and excludes the template from insights."},
+            "is_subscription": {
+                "help_text": "`true` for rows created through `/api/subscriptions/`; manage those there."
+            },
+            "description": {"help_text": "Optional free text."},
+        }
+
+    def validate(self, attrs):
+        category = attrs.get("category", getattr(self.instance, "category", None))
+        tx_type = attrs.get("type", getattr(self.instance, "type", None))
+        if category is not None and tx_type is not None and category.type != tx_type:
+            raise serializers.ValidationError(
+                {"type": "Recurring transaction type must match the selected category's type."}
+            )
+        if self.instance is not None and self.instance.is_subscription and tx_type != TransactionType.EXPENSE:
+            raise serializers.ValidationError({"type": "Subscriptions are always expenses."})
+        return self.validate_schedule_and_amount(attrs)

@@ -154,8 +154,8 @@ ME_SCHEMA = extend_schema_view(
         summary="Get the signed-in user",
         description=(
             "The profile of the user the access token belongs to. Use it to check a stored token on app start. "
-            "`base_currency` is the currency of every total the API returns (analytics, budgets, recurring "
-            "amounts, a transaction's `base_amount`)."
+            "`base_currency` is the currency of every total the API returns (analytics, budgets, subscription "
+            "totals, a transaction's `base_amount`)."
         ),
         responses={200: OpenApiResponse(UserSerializer, description="The signed-in user.")},
     ),
@@ -167,8 +167,10 @@ ME_SCHEMA = extend_schema_view(
             "Changing it converts the user's data in one step:\n"
             "- every transaction keeps its `amount` and `currency`; its `exchange_rate` and `base_amount` are "
             "recalculated with the ECB rate of the transaction's own date;\n"
-            "- budget and recurring transaction amounts are converted at the latest rate and rounded to the new "
-            "currency's unit (whole forints and yen).\n\n"
+            "- budget amounts are converted at the latest rate and rounded to the new currency's unit (whole "
+            "forints and yen);\n"
+            "- recurring transactions, subscriptions and savings goals keep their amounts and `currency`; "
+            "totals convert them.\n\n"
             "All or nothing: if a needed exchange rate is missing, the answer is `400` and nothing changes."
         ),
         responses={

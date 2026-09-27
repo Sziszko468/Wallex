@@ -6,7 +6,8 @@ import pytest
 from apps.analytics import services
 from apps.budgets.models import Budget
 from apps.categories.models import Category, TransactionType
-from apps.transactions.models import Transaction
+from apps.subscriptions.models import Subscription
+from apps.transactions.models import Frequency, Transaction
 
 
 def _expense(user, category, amount, day):
@@ -156,8 +157,13 @@ def test_get_dashboard_query_count_constant_regardless_of_volume(django_assert_n
         Budget.objects.create(user=user, category=category, amount=Decimal("100.00"), year=2026, month=9)
         for day in range(1, 6):
             _expense(user, category, "10.00", day)
+        Subscription.objects.create(
+            user=user, category=category, name=f"Sub {category.name}", amount=Decimal("9.99"),
+            frequency=Frequency.MONTHLY, start_date=date(2026, 1, 1), next_occurrence_date=date(2026, 1, 1),
+        )
 
-    with django_assert_num_queries(3):
+    # summary, category rows, budgets, subscriptions
+    with django_assert_num_queries(4):
         services.get_dashboard(user, 2026, 9)
 
 

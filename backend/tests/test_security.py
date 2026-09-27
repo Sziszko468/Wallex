@@ -13,9 +13,10 @@ import pytest
 from django.urls import URLPattern, URLResolver, get_resolver, reverse
 from rest_framework import status
 
-from apps.budgets.models import Budget
+from apps.budgets.models import Budget, SavingsGoal
 from apps.categories.models import Category, TransactionType
 from apps.notifications.models import Device
+from apps.subscriptions.models import Subscription
 from apps.transactions.models import Frequency, RecurringTransaction, Transaction
 
 # Endpoints that must work without a token. Health probes and the API docs return no user data.
@@ -92,6 +93,19 @@ def _recurring(user):
     )
 
 
+def _savings_goal(user):
+    return SavingsGoal.objects.create(
+        user=user, name="Japan trip", target_amount=Decimal("3000.00"), current_amount=Decimal("100.00")
+    )
+
+
+def _subscription(user):
+    return Subscription.objects.create(
+        user=user, category=_category(user), name="Netflix", amount=Decimal("17.99"),
+        frequency=Frequency.MONTHLY, start_date=date(2026, 1, 5), next_occurrence_date=date(2026, 1, 5),
+    )
+
+
 def _device(user):
     return Device.objects.create(user=user, expo_push_token="ExponentPushToken[theirs]", platform="ios")
 
@@ -101,7 +115,9 @@ OWNED_RESOURCES = {
     "category": _category,
     "transaction": _transaction,
     "budget": _budget,
+    "savingsgoal": _savings_goal,
     "recurringtransaction": _recurring,
+    "subscription": _subscription,
     "device": _device,
 }
 
@@ -129,6 +145,29 @@ def test_other_users_objects_are_invisible_and_untouchable(auth_client, other_us
     assert obj.pk not in {row["id"] for row in rows}
 
 
+OBJECT_ACTIONS = sorted(
+    name for route, name in _api_routes() if "(?P<pk>" in route and not name.endswith("-detail")
+)
+
+
+def test_object_actions_belong_to_isolated_resources():
+    """An action on one object (`/api/<resource>/{id}/<action>/`) must be on a resource of the matrix."""
+    assert {name.split("-")[0] for name in OBJECT_ACTIONS} <= set(OWNED_RESOURCES)
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("name", OBJECT_ACTIONS)
+def test_object_actions_on_other_users_objects_are_not_found(auth_client, other_user, name):
+    obj = OWNED_RESOURCES[name.split("-")[0]](other_user)
+    before = {field.name: getattr(obj, field.name) for field in obj._meta.concrete_fields}
+
+    response = auth_client.post(reverse(name, args=[obj.pk]), {"amount": "1.00"}, format="json")
+
+    assert response.status_code == 404
+    obj.refresh_from_db()
+    assert {field.name: getattr(obj, field.name) for field in obj._meta.concrete_fields} == before
+
+
 @pytest.mark.django_db
 def test_analytics_never_include_other_users_money(auth_client, other_user):
     _transaction(other_user)
@@ -146,7 +185,9 @@ def test_analytics_never_include_other_users_money(auth_client, other_user):
 
 
 @pytest.mark.django_db
-@pytest.mark.parametrize("resource", ["category", "transaction", "budget", "recurringtransaction"])
+@pytest.mark.parametrize(
+    "resource", ["category", "transaction", "budget", "savingsgoal", "recurringtransaction", "subscription"]
+)
 def test_owner_cannot_be_changed_by_mass_assignment(auth_client, user, other_user, resource):
     obj = OWNED_RESOURCES[resource](user)
 
@@ -157,7 +198,7 @@ def test_owner_cannot_be_changed_by_mass_assignment(auth_client, user, other_use
 
 
 @pytest.mark.django_db
-@pytest.mark.parametrize("resource", ["transaction", "budget", "recurringtransaction"])
+@pytest.mark.parametrize("resource", ["transaction", "budget", "recurringtransaction", "subscription"])
 def test_cannot_point_own_object_at_another_users_category(auth_client, user, other_user, resource):
     obj = OWNED_RESOURCES[resource](user)
     foreign_category = _category(other_user)

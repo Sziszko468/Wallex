@@ -130,7 +130,9 @@ _MODEL_BY_RESOURCE = {
     "categories": "Category",
     "transactions": "Transaction",
     "budgets": "Budget",
+    "savings-goals": "SavingsGoal",
     "recurring-transactions": "RecurringTransaction",
+    "subscriptions": "Subscription",
     "devices": "Device",
 }
 

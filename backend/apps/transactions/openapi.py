@@ -285,11 +285,14 @@ _RECURRING_EXAMPLE = {
     "category": 206,
     "type": "expense",
     "amount": "45.90",
+    "currency": "EUR",
+    "merchant": "",
     "frequency": "monthly",
     "start_date": "2026-10-01",
     "end_date": None,
     "next_occurrence_date": "2026-10-01",
     "is_active": True,
+    "is_subscription": False,
     "description": "",
     "created_at": "2026-09-26T09:50:00.589170Z",
     "updated_at": "2026-09-26T09:50:00.589195Z",
@@ -298,7 +301,9 @@ _RECURRING_EXAMPLE = {
 _RECURRING_VALIDATION = validation_error(
     ("End before start", {"end_date": ["End date must be on or after the start date."]}),
     ("Type differs from category", {"type": ["Recurring transaction type must match the selected category's type."]}),
+    ("Income for a subscription", {"type": ["Subscriptions are always expenses."]}),
     ("Unknown frequency", {"frequency": ['"daily" is not a valid choice.']}),
+    ("Fractional forints", {"amount": ["HUF amounts can't have decimals."]}),
     ("Missing fields", {"name": ["This field is required."], "start_date": ["This field is required."]}),
 )
 
@@ -306,7 +311,10 @@ _RECURRING_ROLE = (
     "A recurring transaction is a **template** for a repeating payment or income (rent, salary, "
     "subscriptions). It currently powers the upcoming-payment push reminders and the *recurring share* "
     "insight; it does **not** create transactions automatically yet — record each actual payment as a "
-    "normal transaction."
+    "normal transaction.\n\n"
+    "`amount` is billed in `currency` (default: the base currency) and never converted, not even when the "
+    "base currency changes; totals convert it. Subscriptions are listed here too (`is_subscription: true`) "
+    "— manage them through `/api/subscriptions/`."
 )
 
 RECURRING_VIEWSET_SCHEMA = extend_schema_view(

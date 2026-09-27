@@ -1,7 +1,30 @@
 from calendar import monthrange
 from datetime import date, timedelta
+from decimal import Decimal
 
 from .models import Frequency, RecurringTransaction
+
+# How many times each frequency occurs per month / per year on average (weekly = 52 / 12).
+MONTHLY_OCCURRENCES = {
+    Frequency.WEEKLY: Decimal(52) / Decimal(12),
+    Frequency.MONTHLY: Decimal(1),
+    Frequency.YEARLY: Decimal(1) / Decimal(12),
+}
+YEARLY_OCCURRENCES = {
+    Frequency.WEEKLY: Decimal(52),
+    Frequency.MONTHLY: Decimal(12),
+    Frequency.YEARLY: Decimal(1),
+}
+
+
+def monthly_equivalent(amount: Decimal, frequency: str) -> Decimal:
+    """What `amount` per occurrence costs per month on average. Unrounded."""
+    return amount * MONTHLY_OCCURRENCES[frequency]
+
+
+def yearly_equivalent(amount: Decimal, frequency: str) -> Decimal:
+    """What `amount` per occurrence costs per year. Exact (weekly = 52 payments)."""
+    return amount * YEARLY_OCCURRENCES[frequency]
 
 
 def _add_months(start: date, months: int) -> date:
@@ -36,3 +59,13 @@ def next_occurrence_on_or_after(recurring: RecurringTransaction, day: date) -> d
     if recurring.end_date and candidate > recurring.end_date:
         return None
     return candidate
+
+
+def occurrences_from(recurring: RecurringTransaction, day: date, *, until: date | None = None, limit: int) -> list[date]:
+    """Up to `limit` scheduled dates on or after `day` (and on or before `until`, when given)."""
+    dates: list[date] = []
+    occurrence = next_occurrence_on_or_after(recurring, day)
+    while occurrence is not None and len(dates) < limit and (until is None or occurrence <= until):
+        dates.append(occurrence)
+        occurrence = next_occurrence_on_or_after(recurring, occurrence + timedelta(days=1))
+    return dates

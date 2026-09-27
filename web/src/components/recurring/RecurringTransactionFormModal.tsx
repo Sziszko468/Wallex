@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import type { Category, TransactionType } from "../../types/category";
+import type { CurrencyCode } from "../../types/currency";
 import type {
   RecurringFrequency,
   RecurringTransaction,
@@ -10,7 +11,7 @@ import {
 } from "../../services/recurringTransactionsService";
 import { extractErrorMessage, extractFieldErrors, type FieldErrors } from "../../utils/errors";
 import { toIsoDate } from "../../utils/date";
-import { amountStep } from "../../utils/currency";
+import { amountStep, hasValidPrecision } from "../../utils/currency";
 import { useBaseCurrency } from "../../hooks/useBaseCurrency";
 import { Modal } from "../Modal";
 import { Button } from "../Button";
@@ -18,6 +19,7 @@ import { TextField } from "../TextField";
 import { Select } from "../Select";
 import { ErrorBanner } from "../ErrorBanner";
 import { TypeToggle } from "../TypeToggle";
+import { CurrencySelect } from "../CurrencySelect";
 import styles from "./RecurringTransactionFormModal.module.scss";
 
 const FREQUENCY_OPTIONS: { value: RecurringFrequency; label: string }[] = [
@@ -41,12 +43,13 @@ export function RecurringTransactionFormModal({
   onClose,
   onSaved,
 }: RecurringTransactionFormModalProps) {
-  // Recurring amounts are in the base currency (like budgets and every total).
+  // An amount is billed in its own currency (default: the base currency) and never converted.
   const baseCurrency = useBaseCurrency();
   const [name, setName] = useState("");
   const [type, setType] = useState<TransactionType>("expense");
   const [categoryId, setCategoryId] = useState("");
   const [amount, setAmount] = useState("");
+  const [currency, setCurrency] = useState<CurrencyCode>(baseCurrency);
   const [frequency, setFrequency] = useState<RecurringFrequency>("monthly");
   const [startDate, setStartDate] = useState(() => toIsoDate(new Date()));
   const [endDate, setEndDate] = useState("");
@@ -63,6 +66,7 @@ export function RecurringTransactionFormModal({
       setType(item.type);
       setCategoryId(String(item.category));
       setAmount(item.amount);
+      setCurrency(item.currency);
       setFrequency(item.frequency);
       setStartDate(item.start_date);
       setEndDate(item.end_date ?? "");
@@ -73,6 +77,7 @@ export function RecurringTransactionFormModal({
       setType("expense");
       setCategoryId("");
       setAmount("");
+      setCurrency(baseCurrency);
       setFrequency("monthly");
       setStartDate(toIsoDate(new Date()));
       setEndDate("");
@@ -81,7 +86,7 @@ export function RecurringTransactionFormModal({
     }
     setErrorMessage(null);
     setFieldErrors({});
-  }, [isOpen, item]);
+  }, [isOpen, item, baseCurrency]);
 
   const availableCategories = useMemo(
     () => categories.filter((category) => category.type === type),
@@ -102,6 +107,8 @@ export function RecurringTransactionFormModal({
       errors.amount = "Amount is required.";
     } else if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
       errors.amount = "Amount must be greater than 0.";
+    } else if (!hasValidPrecision(amount, currency)) {
+      errors.amount = `${currency} amounts can't have decimals.`;
     }
 
     if (!categoryId) errors.category = "Choose a category.";
@@ -127,6 +134,7 @@ export function RecurringTransactionFormModal({
         category: Number(categoryId),
         type,
         amount,
+        currency,
         frequency,
         start_date: startDate,
         end_date: endDate || null,
@@ -166,16 +174,19 @@ export function RecurringTransactionFormModal({
 
         <TypeToggle value={type} onChange={handleTypeChange} />
 
-        <TextField
-          label={`Amount (${baseCurrency})`}
-          type="number"
-          step={amountStep(baseCurrency)}
-          min={amountStep(baseCurrency)}
-          placeholder={amountStep(baseCurrency) === "1" ? "0" : "0.00"}
-          value={amount}
-          onChange={(event) => setAmount(event.target.value)}
-          error={fieldErrors.amount}
-        />
+        <div className={styles.amountRow}>
+          <TextField
+            label="Amount"
+            type="number"
+            step={amountStep(currency)}
+            min={amountStep(currency)}
+            placeholder={amountStep(currency) === "1" ? "0" : "0.00"}
+            value={amount}
+            onChange={(event) => setAmount(event.target.value)}
+            error={fieldErrors.amount}
+          />
+          <CurrencySelect value={currency} onChange={setCurrency} error={fieldErrors.currency} />
+        </div>
 
         <Select
           label="Category"
@@ -226,7 +237,7 @@ export function RecurringTransactionFormModal({
             checked={isActive}
             onChange={(event) => setIsActive(event.target.checked)}
           />
-          Active (generates occurrences once the notification system exists)
+          Active (paused items get no payment reminders)
         </label>
 
         <div className={styles.actions}>

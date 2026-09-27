@@ -7,7 +7,7 @@ from apps.currencies.models import Currency
 
 class User(AbstractUser):
     email = models.EmailField(unique=True)
-    # Every total (analytics, budgets, recurring amounts) is in this currency. Changed only
+    # Every total (analytics, budgets, subscription totals) is in this currency. Changed only
     # through apps.currencies.services.change_base_currency, which re-expresses the user's data.
     base_currency = models.CharField(max_length=3, choices=Currency.choices, default=Currency.EUR)
 

@@ -9,7 +9,10 @@ from django.utils import timezone
 
 from apps.budgets.models import Budget, usage_figures
 from apps.categories.models import TransactionType
-from apps.transactions.models import Frequency, RecurringTransaction, Transaction
+from apps.currencies.rates import MissingExchangeRateError, RateTable
+from apps.subscriptions.services import get_month_overview as get_subscription_month_overview
+from apps.transactions.models import RecurringTransaction, Transaction
+from apps.transactions.recurrence import monthly_equivalent
 
 ZERO = Decimal("0.00")
 CENT = Decimal("0.01")
@@ -169,6 +172,8 @@ def get_budget_usage(user, year, month, today: date | None = None):
 
 
 def get_dashboard(user, year, month, today: date | None = None):
+    """Four queries whatever the volume (one more when a subscription is billed in another currency)."""
+    today = today or timezone.localdate()
     summary = get_month_summary(user, year, month)
     category_rows = get_category_expense_rows(user, year, month)
     return {
@@ -180,6 +185,7 @@ def get_dashboard(user, year, month, today: date | None = None):
         "transaction_count": summary["transaction_count"],
         "top_spending_category": get_top_spending_category(category_rows),
         "budget_usage": get_budget_usage(user, year, month, today),
+        "subscriptions": get_subscription_month_overview(user, year, month, today),
     }
 
 
@@ -273,29 +279,38 @@ def get_comparison(user, year, month, against=Against.PREVIOUS_MONTH):
     }
 
 
-# How many times per month each frequency occurs on average (weekly = 52 / 12).
-MONTHLY_OCCURRENCES = {
-    Frequency.WEEKLY: Decimal(52) / Decimal(12),
-    Frequency.MONTHLY: Decimal(1),
-    Frequency.YEARLY: Decimal(1) / Decimal(12),
-}
-
-
-def get_recurring_monthly_expenses(user, year, month):
-    """Monthly-equivalent total of the recurring expenses active in the given month.
+def get_recurring_monthly_expenses(user, year, month, today: date | None = None):
+    """Monthly-equivalent total of the recurring expenses active in the given month, in the base currency.
 
     Based on the RecurringTransaction templates themselves (not on generated
     transactions), normalized so weekly/yearly items are comparable with a
-    month of income. Single grouped query: one row per frequency at most.
+    month of income. One grouped query (a row per frequency and currency), plus one
+    for exchange rates when a template is billed in another currency — converted at
+    the rate of the month's last day (today's for the current month). A template whose
+    currency has no rate of the last 7 days can't be converted and is left out.
     """
     start, end = month_date_range(year, month)
-    rows = (
+    rows = list(
         RecurringTransaction.objects.filter(
             user=user, type=TransactionType.EXPENSE, is_active=True, start_date__lte=end
         )
         .filter(Q(end_date__isnull=True) | Q(end_date__gte=start))
-        .values("frequency")
+        .values("frequency", "currency")
         .annotate(total=Sum("amount"))
+        .order_by()
     )
-    total = sum((row["total"] * MONTHLY_OCCURRENCES[row["frequency"]] for row in rows), ZERO)
-    return total.quantize(Decimal("0.01"))
+    base = user.base_currency
+    day = min(end, today or timezone.localdate())
+    foreign = {row["currency"] for row in rows} - {base}
+    rates = RateTable.load(foreign | {base}, day, day) if foreign else RateTable()
+
+    total = ZERO
+    for row in rows:
+        monthly = monthly_equivalent(row["total"], row["frequency"])
+        if row["currency"] != base:
+            try:
+                monthly *= rates.rate(row["currency"], base, day).value
+            except MissingExchangeRateError:
+                continue
+        total += monthly
+    return to_cents(total)

@@ -14,7 +14,7 @@ from django.utils import timezone
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 from .ocr import OcrError, OcrUnavailableError, get_ocr_provider
-from .parser import ParsedReceipt, parse_receipt_text
+from .parser import Outcome, ParsedReceipt, classify, parse_receipt_text
 from .suggestions import CategorySuggestion, suggest_category
 
 ACCEPTED_FORMATS = {"JPEG", "PNG", "WEBP", "MPO"}  # MPO = multi-picture JPEG some phone cameras produce
@@ -31,6 +31,7 @@ class ReceiptScan:
     parsed: ParsedReceipt
     category: CategorySuggestion | None
     text_found: bool
+    outcome: Outcome
 
 
 def normalize_image(uploaded_file) -> bytes:
@@ -66,8 +67,10 @@ def scan_receipt(user, uploaded_file) -> ReceiptScan:
         raise InvalidReceiptImageError("The photo could not be processed. Please try another one.") from error
 
     parsed = parse_receipt_text(ocr_result.text, today=timezone.localdate())
+    text_found = bool(ocr_result.text.strip())
     return ReceiptScan(
         parsed=parsed,
         category=suggest_category(user, parsed.merchant.value, ocr_result.text),
-        text_found=bool(ocr_result.text.strip()),
+        text_found=text_found,
+        outcome=classify(parsed, text_found),
     )

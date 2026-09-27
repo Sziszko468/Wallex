@@ -1,0 +1,35 @@
+@use "../styles/variables" as vars;
+
+.track {
+  width: 100%;
+  border-radius: 999px;
+  background-color: vars.$color-background;
+  border: 1px solid vars.$color-border;
+  overflow: hidden;
+}
+
+.small {
+  height: 8px;
+}
+
+.large {
+  height: 14px;
+}
+
+.fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.25s ease;
+}
+
+.default {
+  background-color: vars.$color-primary;
+}
+
+.complete {
+  background-color: vars.$color-success;
+}
+
+.muted {
+  background-color: vars.$color-text-muted;
+}

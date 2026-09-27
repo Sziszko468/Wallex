@@ -1,0 +1,47 @@
+@use "../styles/variables" as vars;
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: vars.$space-lg;
+}
+
+.heading {
+  margin: 0;
+  font-size: vars.$font-size-xl;
+}
+
+.subtitle {
+  margin: vars.$space-xs 0 0;
+  font-size: vars.$font-size-sm;
+  color: vars.$color-text-muted;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: vars.$space-sm;
+}
+
+.sectionHeading {
+  margin: 0;
+  font-size: vars.$font-size-sm;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: vars.$color-text-muted;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: vars.$space-sm;
+
+  @media (min-width: vars.$breakpoint-tablet) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @media (min-width: vars.$breakpoint-desktop) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

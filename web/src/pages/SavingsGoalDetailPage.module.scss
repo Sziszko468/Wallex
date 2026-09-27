@@ -1,0 +1,109 @@
+@use "../styles/variables" as vars;
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: vars.$space-lg;
+}
+
+.backLink {
+  align-self: flex-start;
+  font-size: vars.$font-size-sm;
+  font-weight: 600;
+  color: vars.$color-primary-dark;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.headerRow {
+  display: flex;
+  flex-direction: column;
+  gap: vars.$space-md;
+  align-items: flex-start;
+
+  @media (min-width: vars.$breakpoint-desktop) {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: vars.$space-sm;
+  margin: 0;
+  font-size: vars.$font-size-xl;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: vars.$space-sm;
+}
+
+.progressCard {
+  display: flex;
+  flex-direction: column;
+  gap: vars.$space-sm;
+  padding: vars.$space-lg;
+  background-color: vars.$color-surface;
+  border: 1px solid vars.$color-border;
+  border-radius: vars.$radius-md;
+}
+
+.progressHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: vars.$space-sm;
+}
+
+.progressValue {
+  font-size: 2rem;
+  font-weight: 800;
+  color: vars.$color-text;
+}
+
+.statsRow {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: vars.$space-md;
+
+  @media (min-width: vars.$breakpoint-tablet) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.details {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: vars.$space-sm vars.$space-lg;
+  margin: 0;
+  font-size: vars.$font-size-sm;
+
+  dt {
+    color: vars.$color-text-muted;
+  }
+
+  dd {
+    margin: 0;
+    font-weight: 600;
+    color: vars.$color-text;
+  }
+}
+
+.overdue {
+  color: vars.$color-danger;
+}
+
+.muted {
+  margin: 0;
+  font-size: vars.$font-size-sm;
+  color: vars.$color-text-muted;
+}

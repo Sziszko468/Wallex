@@ -1,7 +1,15 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
-import { comparison, dashboard, trends, user as signedInUser } from "../test/fixtures";
+import {
+  achievementList,
+  comparison,
+  dashboard,
+  makeSavingsGoal,
+  savingsSummary,
+  trends,
+  user as signedInUser,
+} from "../test/fixtures";
 import { renderApp, signIn } from "../test/render";
 import { API, server } from "../test/server";
 
@@ -168,5 +176,86 @@ describe("Dashboard page", () => {
 
     expect(await screen.findByText(/No insights for this month yet/)).toBeInTheDocument();
     expect(screen.getAllByText(/No expenses recorded this month yet/).length).toBeGreaterThan(0);
+  });
+
+  it("shows savings progress from the API: overall totals and each goal's bar", async () => {
+    server.use(
+      http.get(`${API}/savings-goals/summary/`, () =>
+        HttpResponse.json({ ...savingsSummary, total_saved: "4350.00", total_target: "6500.00", progress_percentage: 66.92 })
+      ),
+      http.get(`${API}/savings-goals/`, () =>
+        HttpResponse.json([
+          makeSavingsGoal(),
+          makeSavingsGoal({ id: 8, name: "Old plan", status: "archived", progress_percentage: 10 }),
+        ])
+      )
+    );
+    renderApp("/dashboard");
+
+    const savings = await waitForCard("Savings progress");
+    expect(within(savings).getByText(/4[\s.,]?350[.,]00/)).toBeInTheDocument();
+    expect(within(savings).getByText("66.9%")).toBeInTheDocument();
+    expect(within(savings).getByRole("progressbar", { name: "Overall savings progress" })).toHaveAttribute("aria-valuenow", "67");
+    expect(within(savings).getByRole("link", { name: "Japan trip" })).toHaveAttribute("href", "/goals/7");
+    expect(within(savings).queryByText("Old plan")).not.toBeInTheDocument(); // archived goals stay off the dashboard
+  });
+
+  it("shows recent achievements and the next milestone from the API", async () => {
+    server.use(http.get(`${API}/achievements/`, () => HttpResponse.json(achievementList)));
+    renderApp("/dashboard");
+
+    const card = await waitForCard("Achievements");
+    const items = within(card).getAllByRole("listitem").map((item) => item.textContent);
+    expect(items[0]).toMatch(/7 Day Tracking Streak.*New/); // most recent first
+    expect(items[1]).toMatch(/Stayed Under Food Budget/);
+    expect(within(card).getByText(/Next up: .*€1,000 Saved/)).toBeInTheDocument();
+    expect(within(card).getByText("2 of 4 unlocked")).toBeInTheDocument();
+    expect(within(card).getByRole("link", { name: /All achievements/ })).toHaveAttribute("href", "/achievements");
+  });
+
+  it("the dashboard never marks achievements as seen", async () => {
+    let markSeenCalls = 0;
+    server.use(
+      http.get(`${API}/achievements/`, () => HttpResponse.json(achievementList)),
+      http.post(`${API}/achievements/mark-seen/`, () => {
+        markSeenCalls += 1;
+        return HttpResponse.json({ marked: 1 });
+      })
+    );
+    renderApp("/dashboard");
+
+    await waitForCard("Achievements");
+    expect(markSeenCalls).toBe(0);
+  });
+
+  it("invites to create a goal when there is none", async () => {
+    server.use(http.get(`${API}/savings-goals/`, () => HttpResponse.json([])));
+    renderApp("/dashboard");
+
+    const savings = await waitForCard("Savings progress");
+    expect(within(savings).getByRole("link", { name: /Create a goal/ })).toHaveAttribute("href", "/goals");
+  });
+
+  it("shows the month's subscription costs exactly as the API computed them", async () => {
+    // "Wrong" on purpose: 95.96 × 12 = 1151.52 — the card must show the API's yearly figure, not recompute it.
+    server.use(
+      http.get(`${API}/analytics/dashboard/`, () =>
+        HttpResponse.json({
+          ...dashboard,
+          subscriptions: { ...dashboard.subscriptions, yearly_total: "1200.00", due_this_month: "63.96" },
+        })
+      )
+    );
+    renderApp("/dashboard");
+
+    const subscriptions = await waitForCard("Subscriptions");
+    expect(within(subscriptions).getByText(/95[.,]96/)).toBeInTheDocument();
+    expect(within(subscriptions).getByText(/1[\s.,]?200[.,]00/)).toBeInTheDocument();
+    expect(within(subscriptions).getByText(/63[.,]96/)).toBeInTheDocument();
+    expect(within(subscriptions).getByText("5 active subscriptions")).toBeInTheDocument();
+    expect(within(subscriptions).getByRole("link", { name: /Manage subscriptions/ })).toHaveAttribute(
+      "href",
+      "/subscriptions"
+    );
   });
 });

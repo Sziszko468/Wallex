@@ -1,0 +1,122 @@
+@use "../../styles/variables" as vars;
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: vars.$space-sm;
+  padding: vars.$space-md;
+  background-color: vars.$color-surface;
+  border: 1px solid vars.$color-border;
+  border-radius: vars.$radius-md;
+
+  @media (min-width: vars.$breakpoint-tablet) {
+    padding: vars.$space-lg;
+  }
+}
+
+.archived {
+  opacity: 0.65;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: vars.$space-sm;
+}
+
+.name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: vars.$font-size-lg;
+  font-weight: 700;
+  color: vars.$color-text;
+  text-decoration: none;
+
+  &:hover {
+    color: vars.$color-primary-dark;
+    text-decoration: underline;
+  }
+}
+
+.amounts {
+  font-size: vars.$font-size-sm;
+}
+
+.saved {
+  font-size: vars.$font-size-lg;
+  font-weight: 700;
+  color: vars.$color-text;
+}
+
+.target {
+  color: vars.$color-text-muted;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: vars.$space-xs vars.$space-sm;
+  font-size: 0.8rem;
+  color: vars.$color-text-muted;
+}
+
+.percentage {
+  font-weight: 700;
+  color: vars.$color-text;
+}
+
+.overdue {
+  color: vars.$color-danger;
+  font-weight: 600;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: vars.$space-xs;
+  margin-top: vars.$space-xs;
+}
+
+%button-base {
+  border-radius: vars.$radius-sm;
+  padding: 0.35rem 0.65rem;
+  font-size: vars.$font-size-sm;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+}
+
+.primaryAction {
+  @extend %button-base;
+  border: 1px solid vars.$color-primary;
+  background-color: vars.$color-primary;
+  color: #fff;
+
+  &:hover:not(:disabled) {
+    background-color: vars.$color-primary-dark;
+  }
+}
+
+.action {
+  @extend %button-base;
+  border: 1px solid vars.$color-border;
+  background-color: vars.$color-surface;
+  color: vars.$color-text;
+
+  &:hover:not(:disabled) {
+    background-color: vars.$color-background;
+  }
+}
+
+.delete {
+  color: vars.$color-danger;
+  border-color: rgba(220, 38, 38, 0.3);
+}

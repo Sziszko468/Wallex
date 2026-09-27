@@ -85,8 +85,8 @@ class UserSerializer(serializers.ModelSerializer):
             "date_joined": {"help_text": "Registration time (UTC)."},
             "base_currency": {
                 "help_text": (
-                    "Currency of every total, budget and recurring amount. Changing it converts the "
-                    "user's data (see `PATCH /api/auth/me/`)."
+                    "Currency of every total and budget. Changing it converts the user's data "
+                    "(see `PATCH /api/auth/me/`)."
                 )
             },
         }

@@ -5,6 +5,12 @@
   flex-direction: column;
 }
 
+.amountRow {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: vars.$space-sm;
+}
+
 .dateRow {
   display: grid;
   grid-template-columns: 1fr 1fr;

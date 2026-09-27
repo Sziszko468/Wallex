@@ -1,4 +1,5 @@
 import type { TransactionType } from "./category";
+import type { CurrencyCode } from "./currency";
 
 export type RecurringFrequency = "weekly" | "monthly" | "yearly";
 
@@ -7,8 +8,10 @@ export interface RecurringTransaction {
   name: string;
   category: number;
   type: TransactionType;
-  /** Decimal as string — see the note on Transaction.amount. */
+  /** Decimal as string, in `currency` (as billed — never converted). */
   amount: string;
+  currency: CurrencyCode;
+  merchant: string;
   frequency: RecurringFrequency;
   start_date: string;
   end_date: string | null;
@@ -20,6 +23,8 @@ export interface RecurringTransaction {
    */
   next_occurrence_date: string;
   is_active: boolean;
+  /** Created through /api/subscriptions/ (a subscription is a recurring expense). */
+  is_subscription: boolean;
   description: string;
   created_at: string;
   updated_at: string;
@@ -31,6 +36,9 @@ export interface CreateRecurringTransactionPayload {
   category: number;
   type: TransactionType;
   amount: string;
+  /** Defaults to the base currency on the server. */
+  currency?: CurrencyCode;
+  merchant?: string;
   frequency: RecurringFrequency;
   start_date: string;
   end_date?: string | null;

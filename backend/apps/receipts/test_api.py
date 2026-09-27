@@ -43,8 +43,12 @@ def test_scan_returns_suggestion_and_saves_nothing(auth_client, food, fake_ocr, 
         "merchant": {"value": "TESCO Global Zrt", "confidence": "high"},
         "amount": {"value": "2056.00", "confidence": "high"},
         "date": {"value": "2026-09-24", "confidence": "high"},
+        "currency": {"value": "HUF", "confidence": "high"},
+        "unsupported_currency": None,
+        "items": [{"name": "KENYER", "amount": "549.00"}],
         "category": {"id": food.id, "name": "Food", "source": "rules"},
         "text_found": True,
+        "outcome": "complete",
     }
     assert not Transaction.objects.exists()
 
@@ -88,6 +92,49 @@ def test_other_users_history_is_not_used(auth_client, other_user, food, fake_ocr
     response = _scan(auth_client, receipt_image)
 
     assert response.data["category"]["id"] == food.id
+
+
+@pytest.mark.django_db
+def test_nothing_recognized_is_unreadable(auth_client, fake_ocr, receipt_image):
+    fake_ocr.text = "   "
+
+    data = _scan(auth_client, receipt_image).data
+
+    assert (data["outcome"], data["items"], data["currency"]) == ("unreadable", [], {"value": None, "confidence": "low"})
+
+
+@pytest.mark.django_db
+def test_text_without_a_total_or_date_is_unsupported(auth_client, fake_ocr, receipt_image):
+    fake_ocr.text = "Soup of the day\nChef's special\nWelcome!"
+
+    response = _scan(auth_client, receipt_image)
+
+    assert response.status_code == status.HTTP_200_OK  # the scan worked; the photo just isn't a receipt
+    assert response.data["outcome"] == "unsupported"
+    assert not Transaction.objects.exists()
+
+
+@pytest.mark.django_db
+def test_a_receipt_in_an_unsupported_currency(auth_client, fake_ocr, receipt_image):
+    fake_ocr.text = "Albert Supermarket\nRohlik 12,90 Kč\nCELKEM 125,90 Kč\n24.09.2026"
+
+    data = _scan(auth_client, receipt_image).data
+
+    assert data["currency"] == {"value": None, "confidence": "low"}
+    assert data["unsupported_currency"] == "CZK"
+    assert data["amount"] == {"value": "125.90", "confidence": "high"}
+    assert data["items"] == [{"name": "Rohlik", "amount": "12.90"}]
+    assert data["outcome"] == "incomplete"
+
+
+@pytest.mark.django_db
+def test_missing_fields_make_the_scan_incomplete(auth_client, fake_ocr, receipt_image):
+    fake_ocr.text = "OSSZESEN 2 056 Ft"  # no merchant, no date
+
+    data = _scan(auth_client, receipt_image).data
+
+    assert (data["merchant"]["value"], data["date"]["value"], data["amount"]["value"]) == (None, None, "2056.00")
+    assert data["outcome"] == "incomplete"
 
 
 @pytest.mark.django_db
@@ -186,4 +233,7 @@ def test_real_tesseract_reads_a_printed_receipt(auth_client, food):
     assert response.data["merchant"]["value"].startswith("SPAR")
     assert response.data["amount"]["value"] == "938.00"
     assert response.data["date"]["value"] == "2026-09-24"
+    assert response.data["currency"]["value"] == "HUF"
+    assert [item["amount"] for item in response.data["items"]] == ["549.00", "389.00"]
     assert response.data["category"]["name"] == "Food"
+    assert response.data["outcome"] == "complete"

@@ -113,6 +113,169 @@ info:
     **budget** re-checks that month's budgets. Crossing 80 % or 100 % of a budget sends a push
     notification to the user's registered mobile devices (once per budget and threshold).
 paths:
+  /api/achievements/:
+    get:
+      operationId: achievements_list
+      description: |-
+        Every achievement of the catalog with the user's progress, in catalog order. Evaluated on the server when requested: milestones reached since the last call are unlocked (and stored) now, and stay unlocked for good — a streak that breaks later doesn't take one back.
+
+        - **Tracking streaks** count the days a transaction was *recorded* on (UTC), consecutive up to today or yesterday.
+        - **Saved** amounts are the savings-goal total of the Savings page (goals that aren't archived), converted into `target_currency` at the latest ECB rate; without a rate the progress isn't updated.
+        - **Stayed under budget** needs a finished month with tracked expenses that didn't go over one of its budgets.
+
+        Not paginated.
+      summary: List achievements
+      tags:
+      - Achievements
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Achievement'
+              examples:
+                SomeProgress:
+                  value:
+                  - - code: streak_7
+                      name: 7 Day Tracking Streak
+                      title: 7 Day Tracking Streak
+                      detail: null
+                      description: Record transactions on 7 days in a row.
+                      icon: "\U0001F525"
+                      category: tracking
+                      unit: days
+                      target: '7.00'
+                      target_currency: null
+                      progress: '7.00'
+                      progress_percentage: 100.0
+                      unlocked: true
+                      unlocked_at: '2026-09-27T08:12:40.118273Z'
+                      is_new: true
+                    - code: saved_1000
+                      name: €1,000 Saved
+                      title: €1,000 Saved
+                      detail: null
+                      description: Have €1,000 in your savings goals.
+                      icon: "\U0001F3C6"
+                      category: saving
+                      unit: money
+                      target: '1000.00'
+                      target_currency: EUR
+                      progress: '412.50'
+                      progress_percentage: 41.25
+                      unlocked: false
+                      unlocked_at: null
+                      is_new: false
+                    - code: stayed_under_budget
+                      name: Stayed Under Budget
+                      title: Stayed Under Food Budget
+                      detail: August 2026
+                      description: Finish a month without going over a budget.
+                      icon: "\U0001F3AF"
+                      category: budgeting
+                      unit: count
+                      target: '1.00'
+                      target_currency: null
+                      progress: '1.00'
+                      progress_percentage: 100.0
+                      unlocked: true
+                      unlocked_at: '2026-09-01T06:02:11.500120Z'
+                      is_new: false
+                  summary: Some progress
+          description: The catalog with progress.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/achievements/mark-seen/:
+    post:
+      operationId: achievements_mark_seen_create
+      description: Clears `is_new` on every unlocked achievement — call it once the
+        user has seen them.
+      summary: Mark achievements as seen
+      tags:
+      - Achievements
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarkSeenResult'
+          description: ''
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
   /api/analytics/categories/:
     get:
       operationId: analytics_categories_retrieve
@@ -307,10 +470,11 @@ paths:
     get:
       operationId: analytics_dashboard_retrieve
       description: 'Everything a dashboard needs for one month in a single call: income,
-        expenses, balance, number of transactions, the top spending category and the
+        expenses, balance, number of transactions, the top spending category, the
         usage of every budget, with its variance (budget vs actual, and whether spending
-        keeps pace with the month). `year` and `month` default to the current month
-        (UTC).'
+        keeps pace with the month), and what the month''s subscriptions cost (converted
+        at the rate of the month''s last day, today''s for the current month). `year`
+        and `month` default to the current month (UTC).'
       summary: Monthly dashboard
       parameters:
       - in: query
@@ -371,6 +535,12 @@ paths:
                       variance_percentage: -43.61
                       expected_to_date: '1000.00'
                       status: on_track
+                    subscriptions:
+                      active_count: 5
+                      monthly_total: '95.96'
+                      yearly_total: '1151.52'
+                      due_this_month: '95.96'
+                      unconverted_currencies: []
           description: Dashboard data.
         '400':
           content:
@@ -1130,7 +1300,7 @@ paths:
       operationId: auth_me_retrieve
       description: The profile of the user the access token belongs to. Use it to
         check a stored token on app start. `base_currency` is the currency of every
-        total the API returns (analytics, budgets, recurring amounts, a transaction's
+        total the API returns (analytics, budgets, subscription totals, a transaction's
         `base_amount`).
       summary: Get the signed-in user
       tags:
@@ -1187,7 +1357,8 @@ paths:
 
         Changing it converts the user's data in one step:
         - every transaction keeps its `amount` and `currency`; its `exchange_rate` and `base_amount` are recalculated with the ECB rate of the transaction's own date;
-        - budget and recurring transaction amounts are converted at the latest rate and rounded to the new currency's unit (whole forints and yen).
+        - budget amounts are converted at the latest rate and rounded to the new currency's unit (whole forints and yen);
+        - recurring transactions, subscriptions and savings goals keep their amounts and `currency`; totals convert them.
 
         All or nothing: if a needed exchange rate is missing, the answer is `400` and nothing changes.
       summary: Change the base currency
@@ -2913,9 +3084,9 @@ paths:
     post:
       operationId: receipts_scan_create
       description: |-
-        Reads a receipt photo with OCR (English and Hungarian) and **suggests** the merchant, total, date and an expense category. Nothing is saved: show the suggestions to the user, let them confirm or correct them, then create the transaction with `POST /api/transactions/`.
+        Reads a receipt photo with OCR (English and Hungarian) and **suggests** the merchant, total, date, currency, the purchased items and an expense category. Nothing is saved: show the suggestions to the user, let them confirm or correct them, then create the transaction with `POST /api/transactions/`.
 
-        Each field comes with a confidence; fields that couldn't be read are `null`. The photo is processed in memory and discarded. Limited to 30 scans per hour per user.
+        Each field comes with a confidence; fields that couldn't be read are `null`. `outcome` says which screen fits: review (`complete`, `incomplete`), or retake / enter manually (`unsupported`, `unreadable`). The OCR engine is configurable (`RECEIPT_OCR_PROVIDER`). The photo is processed in memory and discarded. Limited to 30 scans per hour per user.
       summary: Scan a receipt photo
       tags:
       - Receipt Scanning
@@ -2945,12 +3116,66 @@ paths:
                     date:
                       value: '2026-09-20'
                       confidence: high
+                    currency:
+                      value: HUF
+                      confidence: high
+                    unsupported_currency: null
+                    items:
+                    - name: KENYER
+                      amount: '549.00'
+                    - name: TEJ 2,8% 1L
+                      amount: '399.00'
+                    - name: BANAN
+                      amount: '410.00'
                     category:
                       id: 2
                       name: Food
                       source: rules
                     text_found: true
+                    outcome: complete
                   summary: Grocery receipt
+                ReceiptInAnUnsupportedCurrency:
+                  value:
+                    merchant:
+                      value: Albert Supermarket
+                      confidence: low
+                    amount:
+                      value: '125.90'
+                      confidence: high
+                    date:
+                      value: '2026-09-24'
+                      confidence: high
+                    currency:
+                      value: null
+                      confidence: low
+                    unsupported_currency: CZK
+                    items:
+                    - name: Rohlik
+                      amount: '12.90'
+                    category: null
+                    text_found: true
+                    outcome: incomplete
+                  summary: Receipt in an unsupported currency
+                NotAReceipt:
+                  value:
+                    merchant:
+                      value: Soup of the day
+                      confidence: low
+                    amount:
+                      value: null
+                      confidence: low
+                    date:
+                      value: null
+                      confidence: low
+                    currency:
+                      value: null
+                      confidence: low
+                    unsupported_currency: null
+                    items: []
+                    category: null
+                    text_found: true
+                    outcome: unsupported
+                  summary: Not a receipt
                 UnreadablePhoto:
                   value:
                     merchant:
@@ -2962,8 +3187,14 @@ paths:
                     date:
                       value: null
                       confidence: low
+                    currency:
+                      value: null
+                      confidence: low
+                    unsupported_currency: null
+                    items: []
                     category: null
                     text_found: false
+                    outcome: unreadable
                   summary: Unreadable photo
           description: Suggestions (possibly partial).
         '400':
@@ -3056,6 +3287,8 @@ paths:
       description: |-
         A recurring transaction is a **template** for a repeating payment or income (rent, salary, subscriptions). It currently powers the upcoming-payment push reminders and the *recurring share* insight; it does **not** create transactions automatically yet — record each actual payment as a normal transaction.
 
+        `amount` is billed in `currency` (default: the base currency) and never converted, not even when the base currency changes; totals convert it. Subscriptions are listed here too (`is_subscription: true`) — manage them through `/api/subscriptions/`.
+
         Not paginated; sorted by `next_occurrence_date`.
       summary: List recurring transactions
       tags:
@@ -3112,6 +3345,8 @@ paths:
       description: |-
         A recurring transaction is a **template** for a repeating payment or income (rent, salary, subscriptions). It currently powers the upcoming-payment push reminders and the *recurring share* insight; it does **not** create transactions automatically yet — record each actual payment as a normal transaction.
 
+        `amount` is billed in `currency` (default: the base currency) and never converted, not even when the base currency changes; totals convert it. Subscriptions are listed here too (`is_subscription: true`) — manage them through `/api/subscriptions/`.
+
         `next_occurrence_date` starts at `start_date`.
       summary: Create a recurring transaction
       tags:
@@ -3154,11 +3389,14 @@ paths:
                     category: 206
                     type: expense
                     amount: '45.90'
+                    currency: EUR
+                    merchant: ''
                     frequency: monthly
                     start_date: '2026-10-01'
                     end_date: null
                     next_occurrence_date: '2026-10-01'
                     is_active: true
+                    is_subscription: false
                     description: ''
                     created_at: '2026-09-26T09:50:00.589170Z'
                     updated_at: '2026-09-26T09:50:00.589195Z'
@@ -3180,11 +3418,21 @@ paths:
                     - Recurring transaction type must match the selected category's
                       type.
                   summary: Type differs from category
+                IncomeForASubscription:
+                  value:
+                    type:
+                    - Subscriptions are always expenses.
+                  summary: Income for a subscription
                 UnknownFrequency:
                   value:
                     frequency:
                     - '"daily" is not a valid choice.'
                   summary: Unknown frequency
+                FractionalForints:
+                  value:
+                    amount:
+                    - HUF amounts can't have decimals.
+                  summary: Fractional forints
                 MissingFields:
                   value:
                     name:
@@ -3355,11 +3603,21 @@ paths:
                     - Recurring transaction type must match the selected category's
                       type.
                   summary: Type differs from category
+                IncomeForASubscription:
+                  value:
+                    type:
+                    - Subscriptions are always expenses.
+                  summary: Income for a subscription
                 UnknownFrequency:
                   value:
                     frequency:
                     - '"daily" is not a valid choice.'
                   summary: Unknown frequency
+                FractionalForints:
+                  value:
+                    amount:
+                    - HUF amounts can't have decimals.
+                  summary: Fractional forints
                 MissingFields:
                   value:
                     name:
@@ -3465,6 +3723,1388 @@ paths:
                 NotFound:
                   value:
                     detail: No RecurringTransaction matches the given query.
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/savings-goals/:
+    get:
+      operationId: savings_goals_list
+      description: |-
+        A savings goal is money put aside for something — a trip, a laptop, an emergency fund. `target_amount` and `current_amount` are in the goal's own `currency` (the currency the money is saved in) and are never converted; `base_current_amount` / `base_target_amount` show them in the user's base currency at the latest ECB rate. Goals don't create transactions and don't count as expenses: putting money aside isn't spending it.
+
+        `status` follows the amounts: `completed` once `current_amount` reaches `target_amount`, back to `active` if it drops below. Only `archived` is the user's choice.
+
+        Not paginated. Active goals first, then completed, then archived; the nearest `target_date` first within each (goals without one last).
+      summary: List savings goals
+      tags:
+      - Savings Goals
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SavingsGoal'
+          description: ''
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+    post:
+      operationId: savings_goals_create
+      description: |-
+        A savings goal is money put aside for something — a trip, a laptop, an emergency fund. `target_amount` and `current_amount` are in the goal's own `currency` (the currency the money is saved in) and are never converted; `base_current_amount` / `base_target_amount` show them in the user's base currency at the latest ECB rate. Goals don't create transactions and don't count as expenses: putting money aside isn't spending it.
+
+        `status` follows the amounts: `completed` once `current_amount` reaches `target_amount`, back to `active` if it drops below. Only `archived` is the user's choice.
+
+        Required: `name` and `target_amount`.
+      summary: Create a savings goal
+      tags:
+      - Savings Goals
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SavingsGoalRequest'
+            examples:
+              JapanTrip:
+                value:
+                  name: Japan trip
+                  target_amount: '3000.00'
+                  current_amount: '1850.00'
+                  target_date: '2027-04-01'
+                summary: Japan trip
+              InAnotherCurrency:
+                value:
+                  name: New laptop
+                  currency: HUF
+                  target_amount: '650000'
+                summary: In another currency
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SavingsGoalRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SavingsGoalRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SavingsGoal'
+              examples:
+                Created:
+                  value:
+                    id: 7
+                    name: Japan trip
+                    currency: EUR
+                    target_amount: '3000.00'
+                    current_amount: '1850.00'
+                    target_date: '2027-04-01'
+                    status: active
+                    progress_percentage: 61.67
+                    remaining_amount: '1150.00'
+                    days_left: 186
+                    monthly_needed: '191.67'
+                    base_current_amount: '1850.00'
+                    base_target_amount: '3000.00'
+                    created_at: '2026-09-27T10:15:02.118273Z'
+                    updated_at: '2026-09-27T10:15:02.118296Z'
+          description: Created.
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                TargetTooSmall:
+                  value:
+                    target_amount:
+                    - Ensure this value is greater than or equal to 0.01.
+                  summary: Target too small
+                NegativeSavedAmount:
+                  value:
+                    current_amount:
+                    - Ensure this value is greater than or equal to 0.00.
+                  summary: Negative saved amount
+                FractionalForints:
+                  value:
+                    target_amount:
+                    - HUF amounts can't have decimals.
+                  summary: Fractional forints
+                PastTargetDate:
+                  value:
+                    target_date:
+                    - The target date can't be in the past.
+                  summary: Past target date
+                CurrencyWithSavings:
+                  value:
+                    currency:
+                    - The currency can't change once money is saved in the goal.
+                  summary: Currency with savings
+                CompletedSent:
+                  value:
+                    status:
+                    - A goal is completed automatically when the saved amount reaches
+                      the target.
+                  summary: Completed sent
+                UnknownCurrency:
+                  value:
+                    currency:
+                    - '"XYZ" is not a valid choice.'
+                  summary: Unknown currency
+                MissingFields:
+                  value:
+                    name:
+                    - This field is required.
+                    target_amount:
+                    - This field is required.
+                  summary: Missing fields
+          description: Validation failed; nothing was changed. See the examples for
+            typical messages.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/savings-goals/{id}/:
+    get:
+      operationId: savings_goals_retrieve
+      summary: Get a savings goal
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - Savings Goals
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SavingsGoal'
+          description: ''
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '404':
+          description: No such object for the signed-in user. Objects of other users
+            are reported exactly the same way.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NotFound:
+                  value:
+                    detail: No SavingsGoal matches the given query.
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+    patch:
+      operationId: savings_goals_partial_update
+      description: 'Changes any subset of fields; `status` follows the resulting amounts.
+        Send `status: archived` to archive the goal and `status: active` to restore
+        it. To add or remove money, prefer the `deposit` and `withdraw` actions: they
+        stay correct when two devices save at the same time.'
+      summary: Update a savings goal
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - Savings Goals
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedSavingsGoalRequest'
+            examples:
+              RaiseTheTarget:
+                value:
+                  target_amount: '3500.00'
+                summary: Raise the target
+              Archive:
+                value:
+                  status: archived
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedSavingsGoalRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedSavingsGoalRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SavingsGoal'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                TargetTooSmall:
+                  value:
+                    target_amount:
+                    - Ensure this value is greater than or equal to 0.01.
+                  summary: Target too small
+                NegativeSavedAmount:
+                  value:
+                    current_amount:
+                    - Ensure this value is greater than or equal to 0.00.
+                  summary: Negative saved amount
+                FractionalForints:
+                  value:
+                    target_amount:
+                    - HUF amounts can't have decimals.
+                  summary: Fractional forints
+                PastTargetDate:
+                  value:
+                    target_date:
+                    - The target date can't be in the past.
+                  summary: Past target date
+                CurrencyWithSavings:
+                  value:
+                    currency:
+                    - The currency can't change once money is saved in the goal.
+                  summary: Currency with savings
+                CompletedSent:
+                  value:
+                    status:
+                    - A goal is completed automatically when the saved amount reaches
+                      the target.
+                  summary: Completed sent
+                UnknownCurrency:
+                  value:
+                    currency:
+                    - '"XYZ" is not a valid choice.'
+                  summary: Unknown currency
+                MissingFields:
+                  value:
+                    name:
+                    - This field is required.
+                    target_amount:
+                    - This field is required.
+                  summary: Missing fields
+          description: Validation failed; nothing was changed. See the examples for
+            typical messages.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '404':
+          description: No such object for the signed-in user. Objects of other users
+            are reported exactly the same way.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NotFound:
+                  value:
+                    detail: No SavingsGoal matches the given query.
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+    delete:
+      operationId: savings_goals_destroy
+      description: Deletes the goal. Transactions are not affected.
+      summary: Delete a savings goal
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - Savings Goals
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: Deleted.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '404':
+          description: No such object for the signed-in user. Objects of other users
+            are reported exactly the same way.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NotFound:
+                  value:
+                    detail: No SavingsGoal matches the given query.
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/savings-goals/{id}/deposit/:
+    post:
+      operationId: savings_goals_deposit_create
+      description: Adds `amount` (in the goal's currency) to `current_amount` atomically
+        and answers with the updated goal; reaching the target makes it `completed`.
+        Not possible for an archived goal.
+      summary: Add money to a savings goal
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - Savings Goals
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MoneyMovementRequest'
+            examples:
+              200Euros:
+                value:
+                  amount: '200.00'
+                summary: 200 euros
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MoneyMovementRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MoneyMovementRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SavingsGoal'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                TooSmall:
+                  value:
+                    amount:
+                    - Ensure this value is greater than or equal to 0.01.
+                  summary: Too small
+                FractionalForints:
+                  value:
+                    amount:
+                    - HUF amounts can't have decimals.
+                  summary: Fractional forints
+                MoreThanSaved:
+                  value:
+                    amount:
+                    - You can't remove more than the 150.00 EUR saved.
+                  summary: More than saved
+                ArchivedGoal:
+                  value:
+                    non_field_errors:
+                    - This goal is archived. Restore it to add or remove money.
+                  summary: Archived goal
+                MissingAmount:
+                  value:
+                    amount:
+                    - This field is required.
+                  summary: Missing amount
+          description: Validation failed; nothing was changed. See the examples for
+            typical messages.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '404':
+          description: No such object for the signed-in user. Objects of other users
+            are reported exactly the same way.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NotFound:
+                  value:
+                    detail: No SavingsGoal matches the given query.
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/savings-goals/{id}/withdraw/:
+    post:
+      operationId: savings_goals_withdraw_create
+      description: Takes `amount` (in the goal's currency) out of `current_amount`
+        atomically and answers with the updated goal. At most what is saved; a completed
+        goal becomes `active` again below its target. Not possible for an archived
+        goal.
+      summary: Remove money from a savings goal
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - Savings Goals
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MoneyMovementRequest'
+            examples:
+              200Euros:
+                value:
+                  amount: '200.00'
+                summary: 200 euros
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MoneyMovementRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MoneyMovementRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SavingsGoal'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                TooSmall:
+                  value:
+                    amount:
+                    - Ensure this value is greater than or equal to 0.01.
+                  summary: Too small
+                FractionalForints:
+                  value:
+                    amount:
+                    - HUF amounts can't have decimals.
+                  summary: Fractional forints
+                MoreThanSaved:
+                  value:
+                    amount:
+                    - You can't remove more than the 150.00 EUR saved.
+                  summary: More than saved
+                ArchivedGoal:
+                  value:
+                    non_field_errors:
+                    - This goal is archived. Restore it to add or remove money.
+                  summary: Archived goal
+                MissingAmount:
+                  value:
+                    amount:
+                    - This field is required.
+                  summary: Missing amount
+          description: Validation failed; nothing was changed. See the examples for
+            typical messages.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '404':
+          description: No such object for the signed-in user. Objects of other users
+            are reported exactly the same way.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NotFound:
+                  value:
+                    detail: No SavingsGoal matches the given query.
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/savings-goals/summary/:
+    get:
+      operationId: savings_goals_summary_retrieve
+      description: 'All goals at a glance, for the dashboard: how many are active,
+        completed and archived, and — for the goals that aren''t archived — what is
+        saved and targeted in total, in the base currency.'
+      summary: Savings progress
+      tags:
+      - Savings Goals
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SavingsSummary'
+              examples:
+                ThreeGoals:
+                  value:
+                    currency: EUR
+                    active_count: 2
+                    completed_count: 1
+                    archived_count: 0
+                    total_saved: '4350.00'
+                    total_target: '6500.00'
+                    progress_percentage: 66.92
+                    unconverted_currencies: []
+                  summary: Three goals
+          description: Totals.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/subscriptions/:
+    get:
+      operationId: subscriptions_list
+      description: |-
+        A subscription (streaming, music, software, gym, internet, phone, insurance, …) is a **recurring expense**: the same row as in `/api/recurring-transactions/` (there with `is_subscription: true`), so payment reminders and the recurring-share insight include it. Its payments are recorded as normal transactions; nothing is generated automatically yet.
+
+        **Costs:** `amount` is billed in `currency` and never converted. `monthly_cost` / `yearly_cost` are in that currency; `base_monthly_cost` / `base_yearly_cost` in the user's base currency at the latest ECB rate (`null` without a rate of the last 7 days). Weekly = 52 payments a year.
+
+        Not paginated. Active ones first, then paused, then ended; by name within each.
+      summary: List subscriptions
+      tags:
+      - Subscriptions
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Subscription'
+          description: ''
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+    post:
+      operationId: subscriptions_create
+      description: |-
+        A subscription (streaming, music, software, gym, internet, phone, insurance, …) is a **recurring expense**: the same row as in `/api/recurring-transactions/` (there with `is_subscription: true`), so payment reminders and the recurring-share insight include it. Its payments are recorded as normal transactions; nothing is generated automatically yet.
+
+        **Costs:** `amount` is billed in `currency` and never converted. `monthly_cost` / `yearly_cost` are in that currency; `base_monthly_cost` / `base_yearly_cost` in the user's base currency at the latest ECB rate (`null` without a rate of the last 7 days). Weekly = 52 payments a year.
+
+        Required: `name`, `amount`, `category` (an expense category), `frequency`, `start_date`. `next_payment_date`, the costs and `status` are computed.
+      summary: Create a subscription
+      tags:
+      - Subscriptions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubscriptionRequest'
+            examples:
+              Monthly,InTheBaseCurrency:
+                value:
+                  name: Spotify
+                  amount: '10.99'
+                  category: 205
+                  frequency: monthly
+                  start_date: '2026-01-14'
+                summary: Monthly, in the base currency
+              BilledInAnotherCurrency:
+                value:
+                  name: Netflix
+                  merchant: Netflix International B.V.
+                  amount: '15.49'
+                  currency: USD
+                  category: 205
+                  frequency: monthly
+                  start_date: '2025-03-05'
+                  description: Standard plan
+                summary: Billed in another currency
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SubscriptionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SubscriptionRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subscription'
+              examples:
+                Created:
+                  value:
+                    id: 42
+                    name: Netflix
+                    merchant: Netflix International B.V.
+                    amount: '15.49'
+                    currency: USD
+                    category: 205
+                    frequency: monthly
+                    start_date: '2025-03-05'
+                    end_date: null
+                    next_payment_date: '2026-10-05'
+                    active: true
+                    status: active
+                    upcoming_payments:
+                    - '2026-10-05'
+                    - '2026-11-05'
+                    - '2026-12-05'
+                    monthly_cost: '15.49'
+                    yearly_cost: '185.88'
+                    base_monthly_cost: '13.24'
+                    base_yearly_cost: '158.87'
+                    description: Standard plan
+                    created_at: '2026-09-27T09:12:44.102318Z'
+                    updated_at: '2026-09-27T09:12:44.102340Z'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                IncomeCategory:
+                  value:
+                    category:
+                    - 'Subscriptions are expenses: choose an expense category.'
+                  summary: Income category
+                UnknownOrForeignCategory:
+                  value:
+                    category:
+                    - Invalid pk "999999" - object does not exist.
+                  summary: Unknown or foreign category
+                EndBeforeStart:
+                  value:
+                    end_date:
+                    - End date must be on or after the start date.
+                  summary: End before start
+                AmountTooSmall:
+                  value:
+                    amount:
+                    - Ensure this value is greater than or equal to 0.01.
+                  summary: Amount too small
+                FractionalForints:
+                  value:
+                    amount:
+                    - HUF amounts can't have decimals.
+                  summary: Fractional forints
+                UnknownFrequency:
+                  value:
+                    frequency:
+                    - '"daily" is not a valid choice.'
+                  summary: Unknown frequency
+                UnknownCurrency:
+                  value:
+                    currency:
+                    - '"XYZ" is not a valid choice.'
+                  summary: Unknown currency
+                MissingFields:
+                  value:
+                    name:
+                    - This field is required.
+                    amount:
+                    - This field is required.
+                  summary: Missing fields
+          description: Validation failed; nothing was changed. See the examples for
+            typical messages.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/subscriptions/{id}/:
+    get:
+      operationId: subscriptions_retrieve
+      summary: Get a subscription
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - Subscriptions
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subscription'
+          description: ''
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '404':
+          description: No such object for the signed-in user. Objects of other users
+            are reported exactly the same way.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NotFound:
+                  value:
+                    detail: No Subscription matches the given query.
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+    patch:
+      operationId: subscriptions_partial_update
+      description: 'Changes any subset of fields; the rules are checked against the
+        resulting subscription. Send `active: false` to pause it (no payments ahead,
+        left out of the totals) and `end_date` to record a cancellation.'
+      summary: Update a subscription
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - Subscriptions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedSubscriptionRequest'
+            examples:
+              PriceIncrease:
+                value:
+                  amount: '17.99'
+                summary: Price increase
+              Pause:
+                value:
+                  active: false
+              Cancelled:
+                value:
+                  end_date: '2026-12-05'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedSubscriptionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedSubscriptionRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subscription'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                IncomeCategory:
+                  value:
+                    category:
+                    - 'Subscriptions are expenses: choose an expense category.'
+                  summary: Income category
+                UnknownOrForeignCategory:
+                  value:
+                    category:
+                    - Invalid pk "999999" - object does not exist.
+                  summary: Unknown or foreign category
+                EndBeforeStart:
+                  value:
+                    end_date:
+                    - End date must be on or after the start date.
+                  summary: End before start
+                AmountTooSmall:
+                  value:
+                    amount:
+                    - Ensure this value is greater than or equal to 0.01.
+                  summary: Amount too small
+                FractionalForints:
+                  value:
+                    amount:
+                    - HUF amounts can't have decimals.
+                  summary: Fractional forints
+                UnknownFrequency:
+                  value:
+                    frequency:
+                    - '"daily" is not a valid choice.'
+                  summary: Unknown frequency
+                UnknownCurrency:
+                  value:
+                    currency:
+                    - '"XYZ" is not a valid choice.'
+                  summary: Unknown currency
+                MissingFields:
+                  value:
+                    name:
+                    - This field is required.
+                    amount:
+                    - This field is required.
+                  summary: Missing fields
+          description: Validation failed; nothing was changed. See the examples for
+            typical messages.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '404':
+          description: No such object for the signed-in user. Objects of other users
+            are reported exactly the same way.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NotFound:
+                  value:
+                    detail: No Subscription matches the given query.
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+    delete:
+      operationId: subscriptions_destroy
+      description: Transactions recorded for it earlier are kept. To keep its history,
+        set an `end_date` instead.
+      summary: Delete a subscription
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - Subscriptions
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: Deleted.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '404':
+          description: No such object for the signed-in user. Objects of other users
+            are reported exactly the same way.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NotFound:
+                  value:
+                    detail: No Subscription matches the given query.
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/subscriptions/summary/:
+    get:
+      operationId: subscriptions_summary_retrieve
+      description: 'The user''s subscriptions today: how many are active, paused or
+        ended, what the active ones cost per month and per year in the base currency
+        (sums of each subscription''s `base_monthly_cost` / `base_yearly_cost`), the
+        same per category, and every payment due in the next 30 days.'
+      summary: Subscription totals
+      tags:
+      - Subscriptions
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionSummary'
+              examples:
+                FiveSubscriptions:
+                  value:
+                    currency: EUR
+                    active_count: 5
+                    paused_count: 1
+                    ended_count: 0
+                    monthly_total: '95.96'
+                    yearly_total: '1151.52'
+                    by_category:
+                    - category_id: 208
+                      category_name: Bills
+                      monthly_total: '54.98'
+                      subscription_count: 2
+                      percentage: 57.29
+                    - category_id: 205
+                      category_name: Entertainment
+                      monthly_total: '40.98'
+                      subscription_count: 3
+                      percentage: 42.71
+                    upcoming:
+                    - subscription_id: 42
+                      name: Netflix
+                      date: '2026-10-05'
+                      amount: '15.49'
+                      currency: USD
+                      base_amount: '13.24'
+                    unconverted_currencies: []
+                  summary: Five subscriptions
+          description: Totals and upcoming payments.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
         '429':
           description: Rate limit exceeded (see *Rate limits* in the introduction).
             Retry after `Retry-After` seconds.
@@ -4391,6 +6031,118 @@ paths:
               description: Seconds until the next request is allowed.
 components:
   schemas:
+    Achievement:
+      type: object
+      description: One achievement with the user's progress. Serializes a UserAchievement.
+      properties:
+        code:
+          type: string
+          description: Stable identifier, e.g. `streak_7`.
+          pattern: ^[-a-zA-Z0-9_]+$
+        name:
+          type: string
+          description: Catalog name, e.g. `Stayed Under Budget`.
+        title:
+          type: string
+          description: 'What to show: the name, or how it was earned once unlocked
+            — e.g. `Stayed Under Food Budget`.'
+        detail:
+          type: string
+          nullable: true
+          description: Once unlocked, what it was earned with (`August 2026`, a goal's
+            name); else `null`.
+        description:
+          type: string
+          description: How to earn it.
+        icon:
+          type: string
+          description: An emoji.
+        category:
+          $ref: '#/components/schemas/AchievementCategoryEnum'
+        unit:
+          allOf:
+          - $ref: '#/components/schemas/AchievementUnitEnum'
+          description: |-
+            What `progress` and `target` count: `count`, `days` or `money`.
+
+            * `count` - Count
+            * `days` - Days
+            * `money` - Money
+        target:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          description: The value to reach.
+        target_currency:
+          nullable: true
+          description: |-
+            Currency of `target` and `progress` for `money`; else `null`.
+
+            * `EUR` - Euro
+            * `HUF` - Hungarian forint
+            * `USD` - US dollar
+            * `GBP` - British pound
+            * `JPY` - Japanese yen
+            * `CHF` - Swiss franc
+          oneOf:
+          - $ref: '#/components/schemas/CurrencyEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        progress:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          description: Current value towards `target` (a streak's current length,
+            money saved…); equals `target` once unlocked.
+        progress_percentage:
+          type: number
+          format: double
+          description: '`progress / target × 100`, 0–100.'
+        unlocked:
+          type: boolean
+        unlocked_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When it was unlocked; `null` while locked.
+        is_new:
+          type: boolean
+          description: Unlocked but not shown to the user yet (see `mark-seen`).
+      required:
+      - category
+      - code
+      - description
+      - detail
+      - icon
+      - is_new
+      - name
+      - progress
+      - progress_percentage
+      - target
+      - target_currency
+      - title
+      - unit
+      - unlocked
+      - unlocked_at
+    AchievementCategoryEnum:
+      enum:
+      - tracking
+      - saving
+      - budgeting
+      type: string
+      description: |-
+        * `tracking` - Tracking
+        * `saving` - Saving
+        * `budgeting` - Budgeting
+    AchievementUnitEnum:
+      enum:
+      - count
+      - days
+      - money
+      type: string
+      description: |-
+        * `count` - Count
+        * `days` - Days
+        * `money` - Money
     Budget:
       type: object
       properties:
@@ -4651,6 +6403,34 @@ components:
       - change_percentage
       - current_amount
       - previous_amount
+    CategoryCost:
+      type: object
+      properties:
+        category_id:
+          type: integer
+        category_name:
+          type: string
+        monthly_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,18}(?:\.\d{0,2})?$
+          readOnly: true
+          description: What the category's active subscriptions cost per month, in
+            the base currency.
+        subscription_count:
+          type: integer
+        percentage:
+          type: number
+          format: double
+          nullable: true
+          description: Share of the summary's `monthly_total`, 0–100; `null` when
+            that is 0.
+      required:
+      - category_id
+      - category_name
+      - monthly_total
+      - percentage
+      - subscription_count
     CategoryRequest:
       type: object
       properties:
@@ -4963,15 +6743,55 @@ components:
           items:
             $ref: '#/components/schemas/BudgetUsage'
           description: Every budget of the month.
+        subscriptions:
+          allOf:
+          - $ref: '#/components/schemas/DashboardSubscriptions'
+          description: The month's subscriptions (see `/api/subscriptions/`), in the
+            base currency.
       required:
       - balance
       - budget_usage
       - month
+      - subscriptions
       - top_spending_category
       - total_expenses
       - total_income
       - transaction_count
       - year
+    DashboardSubscriptions:
+      type: object
+      properties:
+        active_count:
+          type: integer
+          description: Subscriptions active at some point during the month.
+        monthly_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          description: What they cost per month (weekly × 52 / 12, yearly / 12).
+        yearly_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          description: 'What they cost per year: the yearly projection.'
+        due_this_month:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,2})?$
+          description: The payments scheduled within this month (a yearly plan only
+            counts in its billing month).
+        unconverted_currencies:
+          type: array
+          items:
+            $ref: '#/components/schemas/CurrencyEnum'
+          description: Currencies without a recent ECB rate; subscriptions billed
+            in them are left out.
+      required:
+      - active_count
+      - due_this_month
+      - monthly_total
+      - unconverted_currencies
+      - yearly_total
     Device:
       type: object
       properties:
@@ -5244,6 +7064,14 @@ components:
       required:
       - email
       - password
+    MarkSeenResult:
+      type: object
+      properties:
+        marked:
+          type: integer
+          description: How many unlocked achievements were new until now.
+      required:
+      - marked
     Merchant:
       type: object
       properties:
@@ -5321,6 +7149,17 @@ components:
           description: Confirmation message.
       required:
       - detail
+    MoneyMovementRequest:
+      type: object
+      properties:
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          description: How much to add or remove, in the goal's `currency` (whole
+            numbers for HUF and JPY).
+      required:
+      - amount
     MonthSummary:
       type: object
       properties:
@@ -5421,6 +7260,9 @@ components:
           readOnly: true
       required:
       - updated_at
+    NullEnum:
+      enum:
+      - null
     OcrConfidenceEnum:
       enum:
       - high
@@ -5524,6 +7366,10 @@ components:
           description: How many days before a recurring expense to remind (1–7).
     PatchedRecurringTransactionRequest:
       type: object
+      description: |-
+        What every recurring row needs, whichever endpoint writes it (recurring transactions,
+        subscriptions): only the user's own categories, a consistent schedule, an amount valid
+        in its currency, and the upkeep of next_occurrence_date. Subclasses define Meta.
       properties:
         name:
           type: string
@@ -5539,8 +7385,24 @@ components:
           type: string
           format: decimal
           pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
-          description: 'Amount per occurrence in the user''s base currency: positive,
-            max 2 decimals (whole for HUF/JPY).'
+          description: 'Amount per occurrence in `currency`: positive, max 2 decimals
+            (whole for HUF/JPY).'
+        currency:
+          allOf:
+          - $ref: '#/components/schemas/CurrencyEnum'
+          description: |-
+            Currency the amount is billed in. Default: the user's base currency. Never converted.
+
+            * `EUR` - Euro
+            * `HUF` - Hungarian forint
+            * `USD` - US dollar
+            * `GBP` - British pound
+            * `JPY` - Japanese yen
+            * `CHF` - Swiss franc
+        merchant:
+          type: string
+          description: 'Optional: who gets paid (landlord, employer, provider).'
+          maxLength: 100
         frequency:
           allOf:
           - $ref: '#/components/schemas/FrequencyEnum'
@@ -5565,6 +7427,115 @@ components:
         description:
           type: string
           description: Optional free text.
+          maxLength: 255
+    PatchedSavingsGoalRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          description: What you're saving for, e.g. `Japan trip`.
+          maxLength: 100
+        currency:
+          allOf:
+          - $ref: '#/components/schemas/CurrencyEnum'
+          description: |-
+            Currency the money is saved in; both amounts are in it and never converted. Default: the user's base currency. Can only change while `current_amount` is 0.
+
+            * `EUR` - Euro
+            * `HUF` - Hungarian forint
+            * `USD` - US dollar
+            * `GBP` - British pound
+            * `JPY` - Japanese yen
+            * `CHF` - Swiss franc
+        target_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          description: 'How much to save: positive, max 2 decimals (whole for HUF/JPY).'
+        current_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          description: Saved so far (default 0). Set it directly to correct it, or
+            use the `deposit` / `withdraw` actions to add or remove money.
+        target_date:
+          type: string
+          format: date
+          nullable: true
+          description: Optional deadline (`YYYY-MM-DD`); can't be set to a past date.
+        status:
+          allOf:
+          - $ref: '#/components/schemas/SavingsGoalStatusEnum'
+          description: |-
+            `active`: still saving. `completed`: set by the server once `current_amount` reaches `target_amount` (and back to `active` if it drops below). `archived`: put away by the user. Send `archived` to archive and `active` to restore; `completed` can't be sent.
+
+            * `active` - Active
+            * `completed` - Completed
+            * `archived` - Archived
+    PatchedSubscriptionRequest:
+      type: object
+      description: |-
+        What every recurring row needs, whichever endpoint writes it (recurring transactions,
+        subscriptions): only the user's own categories, a consistent schedule, an amount valid
+        in its currency, and the upkeep of next_occurrence_date. Subclasses define Meta.
+      properties:
+        name:
+          type: string
+          minLength: 1
+          description: What the user calls it, e.g. `Netflix`, `Gym`, `Home insurance`.
+          maxLength: 100
+        merchant:
+          type: string
+          description: 'Optional: who bills it, e.g. `Netflix International B.V.`.'
+          maxLength: 100
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          description: 'Price of one payment in `currency`: positive, max 2 decimals
+            (whole for HUF/JPY).'
+        currency:
+          allOf:
+          - $ref: '#/components/schemas/CurrencyEnum'
+          description: |-
+            Currency the subscription is billed in. Default: the user's base currency. Never converted.
+
+            * `EUR` - Euro
+            * `HUF` - Hungarian forint
+            * `USD` - US dollar
+            * `GBP` - British pound
+            * `JPY` - Japanese yen
+            * `CHF` - Swiss franc
+        category:
+          type: integer
+          description: Id of one of the user's **expense** categories.
+        frequency:
+          allOf:
+          - $ref: '#/components/schemas/FrequencyEnum'
+          description: |-
+            Billing period, counted from `start_date`.
+
+            * `weekly` - Weekly
+            * `monthly` - Monthly
+            * `yearly` - Yearly
+        start_date:
+          type: string
+          format: date
+          description: First payment; every later payment follows from it.
+        end_date:
+          type: string
+          format: date
+          nullable: true
+          description: Last possible payment (inclusive), e.g. a cancelled plan; `null`
+            = open-ended.
+        active:
+          type: boolean
+          description: '`false` pauses the subscription: no payments ahead, left out
+            of the totals. Default `true`.'
+        description:
+          type: string
+          description: Optional free text (plan, account, notes).
           maxLength: 255
     PatchedTransactionRequest:
       type: object
@@ -5626,7 +7597,7 @@ components:
           allOf:
           - $ref: '#/components/schemas/CurrencyEnum'
           description: |-
-            Currency of every total, budget and recurring amount. Changing it converts the user's data (see `PATCH /api/auth/me/`).
+            Currency of every total and budget. Changing it converts the user's data (see `PATCH /api/auth/me/`).
 
             * `EUR` - Euro
             * `HUF` - Hungarian forint
@@ -5676,6 +7647,32 @@ components:
             memory, never stored.'
       required:
       - image
+    ReceiptItem:
+      type: object
+      properties:
+        name:
+          type: string
+          description: The line as printed, without its price.
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          description: The line's price.
+      required:
+      - amount
+      - name
+    ReceiptOutcomeEnum:
+      enum:
+      - complete
+      - incomplete
+      - unsupported
+      - unreadable
+      type: string
+      description: |-
+        * `complete` - complete
+        * `incomplete` - incomplete
+        * `unsupported` - unsupported
+        * `unreadable` - unreadable
     ReceiptScan:
       type: object
       properties:
@@ -5685,6 +7682,20 @@ components:
           $ref: '#/components/schemas/ScannedAmount'
         date:
           $ref: '#/components/schemas/ScannedDate'
+        currency:
+          $ref: '#/components/schemas/ScannedCurrency'
+        unsupported_currency:
+          type: string
+          nullable: true
+          description: An ISO code printed on the receipt that Spendly can't record
+            (e.g. `CZK`), when no supported one was found; the user has to choose
+            the currency and amount themselves. Otherwise `null`.
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReceiptItem'
+          description: Purchased lines above the total, as read (at most 50). For
+            display only — the total is not a sum of them.
         category:
           allOf:
           - $ref: '#/components/schemas/SuggestedCategory'
@@ -5693,14 +7704,32 @@ components:
         text_found:
           type: boolean
           description: '`false` if the photo contained no readable text at all.'
+        outcome:
+          allOf:
+          - $ref: '#/components/schemas/ReceiptOutcomeEnum'
+          description: |-
+            `complete`: merchant, total, date and currency found. `incomplete`: a receipt with fields missing — let the user fill them in. `unsupported`: text, but neither a total nor a date (not a receipt, or a layout we can't read). `unreadable`: no text at all (blurry, dark photo).
+
+            * `complete` - complete
+            * `incomplete` - incomplete
+            * `unsupported` - unsupported
+            * `unreadable` - unreadable
       required:
       - amount
       - category
+      - currency
       - date
+      - items
       - merchant
+      - outcome
       - text_found
+      - unsupported_currency
     RecurringTransaction:
       type: object
+      description: |-
+        What every recurring row needs, whichever endpoint writes it (recurring transactions,
+        subscriptions): only the user's own categories, a consistent schedule, an amount valid
+        in its currency, and the upkeep of next_occurrence_date. Subclasses define Meta.
       properties:
         id:
           type: integer
@@ -5718,8 +7747,24 @@ components:
           type: string
           format: decimal
           pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
-          description: 'Amount per occurrence in the user''s base currency: positive,
-            max 2 decimals (whole for HUF/JPY).'
+          description: 'Amount per occurrence in `currency`: positive, max 2 decimals
+            (whole for HUF/JPY).'
+        currency:
+          allOf:
+          - $ref: '#/components/schemas/CurrencyEnum'
+          description: |-
+            Currency the amount is billed in. Default: the user's base currency. Never converted.
+
+            * `EUR` - Euro
+            * `HUF` - Hungarian forint
+            * `USD` - US dollar
+            * `GBP` - British pound
+            * `JPY` - Japanese yen
+            * `CHF` - Swiss franc
+        merchant:
+          type: string
+          description: 'Optional: who gets paid (landlord, employer, provider).'
+          maxLength: 100
         frequency:
           allOf:
           - $ref: '#/components/schemas/FrequencyEnum'
@@ -5747,6 +7792,11 @@ components:
         is_active:
           type: boolean
           description: '`false` pauses reminders and excludes the template from insights.'
+        is_subscription:
+          type: boolean
+          readOnly: true
+          description: '`true` for rows created through `/api/subscriptions/`; manage
+            those there.'
         description:
           type: string
           description: Optional free text.
@@ -5765,6 +7815,7 @@ components:
       - created_at
       - frequency
       - id
+      - is_subscription
       - name
       - next_occurrence_date
       - start_date
@@ -5772,6 +7823,10 @@ components:
       - updated_at
     RecurringTransactionRequest:
       type: object
+      description: |-
+        What every recurring row needs, whichever endpoint writes it (recurring transactions,
+        subscriptions): only the user's own categories, a consistent schedule, an amount valid
+        in its currency, and the upkeep of next_occurrence_date. Subclasses define Meta.
       properties:
         name:
           type: string
@@ -5787,8 +7842,24 @@ components:
           type: string
           format: decimal
           pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
-          description: 'Amount per occurrence in the user''s base currency: positive,
-            max 2 decimals (whole for HUF/JPY).'
+          description: 'Amount per occurrence in `currency`: positive, max 2 decimals
+            (whole for HUF/JPY).'
+        currency:
+          allOf:
+          - $ref: '#/components/schemas/CurrencyEnum'
+          description: |-
+            Currency the amount is billed in. Default: the user's base currency. Never converted.
+
+            * `EUR` - Euro
+            * `HUF` - Hungarian forint
+            * `USD` - US dollar
+            * `GBP` - British pound
+            * `JPY` - Japanese yen
+            * `CHF` - Swiss franc
+        merchant:
+          type: string
+          description: 'Optional: who gets paid (landlord, employer, provider).'
+          maxLength: 100
         frequency:
           allOf:
           - $ref: '#/components/schemas/FrequencyEnum'
@@ -5883,6 +7954,227 @@ components:
       - email
       - password
       - password_confirm
+    SavingsGoal:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          description: What you're saving for, e.g. `Japan trip`.
+          maxLength: 100
+        currency:
+          allOf:
+          - $ref: '#/components/schemas/CurrencyEnum'
+          description: |-
+            Currency the money is saved in; both amounts are in it and never converted. Default: the user's base currency. Can only change while `current_amount` is 0.
+
+            * `EUR` - Euro
+            * `HUF` - Hungarian forint
+            * `USD` - US dollar
+            * `GBP` - British pound
+            * `JPY` - Japanese yen
+            * `CHF` - Swiss franc
+        target_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          description: 'How much to save: positive, max 2 decimals (whole for HUF/JPY).'
+        current_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          description: Saved so far (default 0). Set it directly to correct it, or
+            use the `deposit` / `withdraw` actions to add or remove money.
+        target_date:
+          type: string
+          format: date
+          nullable: true
+          description: Optional deadline (`YYYY-MM-DD`); can't be set to a past date.
+        status:
+          allOf:
+          - $ref: '#/components/schemas/SavingsGoalStatusEnum'
+          description: |-
+            `active`: still saving. `completed`: set by the server once `current_amount` reaches `target_amount` (and back to `active` if it drops below). `archived`: put away by the user. Send `archived` to archive and `active` to restore; `completed` can't be sent.
+
+            * `active` - Active
+            * `completed` - Completed
+            * `archived` - Archived
+        progress_percentage:
+          type: number
+          format: double
+          readOnly: true
+          description: '`current_amount / target_amount × 100`, 2 decimals; above
+            100 when over-saved.'
+        remaining_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,13}(?:\.\d{0,2})?$
+          readOnly: true
+          description: Still to save, in `currency`; `0` once the target is reached.
+        days_left:
+          type: integer
+          readOnly: true
+          nullable: true
+          description: Days until `target_date`; negative when it has passed, `null`
+            without one.
+        monthly_needed:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,13}(?:\.\d{0,2})?$
+          readOnly: true
+          nullable: true
+          description: What to save each month to reach the target by `target_date`,
+            in `currency`, rounded up. `null` without a target date, once the date
+            has passed, or when the goal isn't `active`.
+        base_current_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,13}(?:\.\d{0,2})?$
+          readOnly: true
+          nullable: true
+          description: '`current_amount` in the user''s base currency at the latest
+            ECB rate; `null` without a rate of the last 7 days.'
+        base_target_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,13}(?:\.\d{0,2})?$
+          readOnly: true
+          nullable: true
+          description: '`target_amount` in the user''s base currency at the latest
+            ECB rate; `null` without a rate of the last 7 days.'
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - base_current_amount
+      - base_target_amount
+      - created_at
+      - days_left
+      - id
+      - monthly_needed
+      - name
+      - progress_percentage
+      - remaining_amount
+      - target_amount
+      - updated_at
+    SavingsGoalRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          description: What you're saving for, e.g. `Japan trip`.
+          maxLength: 100
+        currency:
+          allOf:
+          - $ref: '#/components/schemas/CurrencyEnum'
+          description: |-
+            Currency the money is saved in; both amounts are in it and never converted. Default: the user's base currency. Can only change while `current_amount` is 0.
+
+            * `EUR` - Euro
+            * `HUF` - Hungarian forint
+            * `USD` - US dollar
+            * `GBP` - British pound
+            * `JPY` - Japanese yen
+            * `CHF` - Swiss franc
+        target_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          description: 'How much to save: positive, max 2 decimals (whole for HUF/JPY).'
+        current_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          description: Saved so far (default 0). Set it directly to correct it, or
+            use the `deposit` / `withdraw` actions to add or remove money.
+        target_date:
+          type: string
+          format: date
+          nullable: true
+          description: Optional deadline (`YYYY-MM-DD`); can't be set to a past date.
+        status:
+          allOf:
+          - $ref: '#/components/schemas/SavingsGoalStatusEnum'
+          description: |-
+            `active`: still saving. `completed`: set by the server once `current_amount` reaches `target_amount` (and back to `active` if it drops below). `archived`: put away by the user. Send `archived` to archive and `active` to restore; `completed` can't be sent.
+
+            * `active` - Active
+            * `completed` - Completed
+            * `archived` - Archived
+      required:
+      - name
+      - target_amount
+    SavingsGoalStatusEnum:
+      enum:
+      - active
+      - completed
+      - archived
+      type: string
+      description: |-
+        * `active` - Active
+        * `completed` - Completed
+        * `archived` - Archived
+    SavingsSummary:
+      type: object
+      properties:
+        currency:
+          allOf:
+          - $ref: '#/components/schemas/CurrencyEnum'
+          description: |-
+            The user's base currency: every total is in it.
+
+            * `EUR` - Euro
+            * `HUF` - Hungarian forint
+            * `USD` - US dollar
+            * `GBP` - British pound
+            * `JPY` - Japanese yen
+            * `CHF` - Swiss franc
+        active_count:
+          type: integer
+        completed_count:
+          type: integer
+        archived_count:
+          type: integer
+        total_saved:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,13}(?:\.\d{0,2})?$
+          readOnly: true
+          description: Saved in the goals that aren't archived, in the base currency.
+        total_target:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,13}(?:\.\d{0,2})?$
+          readOnly: true
+          description: Their targets added up, in the base currency.
+        progress_percentage:
+          type: number
+          format: double
+          nullable: true
+          description: '`total_saved / total_target × 100`; `null` without such goals.'
+        unconverted_currencies:
+          type: array
+          items:
+            $ref: '#/components/schemas/CurrencyEnum'
+          description: 'Currencies without an ECB rate of the last 7 days: goals saved
+            in them are left out of the totals.'
+      required:
+      - active_count
+      - archived_count
+      - completed_count
+      - currency
+      - progress_percentage
+      - total_saved
+      - total_target
+      - unconverted_currencies
     ScannedAmount:
       type: object
       properties:
@@ -5897,6 +8189,34 @@ components:
           - $ref: '#/components/schemas/OcrConfidenceEnum'
           description: |-
             `high`: found by a specific rule (e.g. the TOTAL line). `low`: best guess — ask the user to check.
+
+            * `high` - high
+            * `low` - low
+      required:
+      - confidence
+      - value
+    ScannedCurrency:
+      type: object
+      properties:
+        value:
+          nullable: true
+          description: |-
+            Currency printed on the receipt (Ft/HUF, €, $, £, CHF, ¥); `null` if none of these was found.
+
+            * `EUR` - Euro
+            * `HUF` - Hungarian forint
+            * `USD` - US dollar
+            * `GBP` - British pound
+            * `JPY` - Japanese yen
+            * `CHF` - Swiss franc
+          oneOf:
+          - $ref: '#/components/schemas/CurrencyEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        confidence:
+          allOf:
+          - $ref: '#/components/schemas/OcrConfidenceEnum'
+          description: |-
+            `low` when several currencies appear on the receipt, or none.
 
             * `high` - high
             * `low` - low
@@ -5999,6 +8319,293 @@ components:
       - variable_expenses
       - weekdays
       - year
+    Subscription:
+      type: object
+      description: |-
+        What every recurring row needs, whichever endpoint writes it (recurring transactions,
+        subscriptions): only the user's own categories, a consistent schedule, an amount valid
+        in its currency, and the upkeep of next_occurrence_date. Subclasses define Meta.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          description: What the user calls it, e.g. `Netflix`, `Gym`, `Home insurance`.
+          maxLength: 100
+        merchant:
+          type: string
+          description: 'Optional: who bills it, e.g. `Netflix International B.V.`.'
+          maxLength: 100
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          description: 'Price of one payment in `currency`: positive, max 2 decimals
+            (whole for HUF/JPY).'
+        currency:
+          allOf:
+          - $ref: '#/components/schemas/CurrencyEnum'
+          description: |-
+            Currency the subscription is billed in. Default: the user's base currency. Never converted.
+
+            * `EUR` - Euro
+            * `HUF` - Hungarian forint
+            * `USD` - US dollar
+            * `GBP` - British pound
+            * `JPY` - Japanese yen
+            * `CHF` - Swiss franc
+        category:
+          type: integer
+          description: Id of one of the user's **expense** categories.
+        frequency:
+          allOf:
+          - $ref: '#/components/schemas/FrequencyEnum'
+          description: |-
+            Billing period, counted from `start_date`.
+
+            * `weekly` - Weekly
+            * `monthly` - Monthly
+            * `yearly` - Yearly
+        start_date:
+          type: string
+          format: date
+          description: First payment; every later payment follows from it.
+        end_date:
+          type: string
+          format: date
+          nullable: true
+          description: Last possible payment (inclusive), e.g. a cancelled plan; `null`
+            = open-ended.
+        next_payment_date:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+          description: The next payment on or after today, from `start_date` and `frequency`;
+            `null` when paused or ended.
+        active:
+          type: boolean
+          description: '`false` pauses the subscription: no payments ahead, left out
+            of the totals. Default `true`.'
+        status:
+          allOf:
+          - $ref: '#/components/schemas/SubscriptionStatusEnum'
+          readOnly: true
+          description: |-
+            `active`: has payments ahead. `paused`: `active` is `false`. `ended`: past its `end_date`.
+
+            * `active` - active
+            * `paused` - paused
+            * `ended` - ended
+        upcoming_payments:
+          type: array
+          items:
+            type: string
+            format: date
+          readOnly: true
+          description: The next 3 payment dates (fewer near `end_date`); empty when
+            paused or ended.
+        monthly_cost:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,18}(?:\.\d{0,2})?$
+          readOnly: true
+          description: Average cost per month in `currency` (weekly × 52 / 12, yearly
+            / 12).
+        yearly_cost:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,18}(?:\.\d{0,2})?$
+          readOnly: true
+          description: Cost per year in `currency` (weekly × 52, monthly × 12).
+        base_monthly_cost:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,18}(?:\.\d{0,2})?$
+          readOnly: true
+          nullable: true
+          description: '`monthly_cost` in the user''s base currency at the latest
+            ECB rate; `null` if no rate of the last 7 days.'
+        base_yearly_cost:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,18}(?:\.\d{0,2})?$
+          readOnly: true
+          nullable: true
+          description: '`yearly_cost` in the user''s base currency at the latest ECB
+            rate; `null` if no rate of the last 7 days.'
+        description:
+          type: string
+          description: Optional free text (plan, account, notes).
+          maxLength: 255
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - amount
+      - base_monthly_cost
+      - base_yearly_cost
+      - category
+      - created_at
+      - frequency
+      - id
+      - monthly_cost
+      - name
+      - next_payment_date
+      - start_date
+      - status
+      - upcoming_payments
+      - updated_at
+      - yearly_cost
+    SubscriptionRequest:
+      type: object
+      description: |-
+        What every recurring row needs, whichever endpoint writes it (recurring transactions,
+        subscriptions): only the user's own categories, a consistent schedule, an amount valid
+        in its currency, and the upkeep of next_occurrence_date. Subclasses define Meta.
+      properties:
+        name:
+          type: string
+          minLength: 1
+          description: What the user calls it, e.g. `Netflix`, `Gym`, `Home insurance`.
+          maxLength: 100
+        merchant:
+          type: string
+          description: 'Optional: who bills it, e.g. `Netflix International B.V.`.'
+          maxLength: 100
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          description: 'Price of one payment in `currency`: positive, max 2 decimals
+            (whole for HUF/JPY).'
+        currency:
+          allOf:
+          - $ref: '#/components/schemas/CurrencyEnum'
+          description: |-
+            Currency the subscription is billed in. Default: the user's base currency. Never converted.
+
+            * `EUR` - Euro
+            * `HUF` - Hungarian forint
+            * `USD` - US dollar
+            * `GBP` - British pound
+            * `JPY` - Japanese yen
+            * `CHF` - Swiss franc
+        category:
+          type: integer
+          description: Id of one of the user's **expense** categories.
+        frequency:
+          allOf:
+          - $ref: '#/components/schemas/FrequencyEnum'
+          description: |-
+            Billing period, counted from `start_date`.
+
+            * `weekly` - Weekly
+            * `monthly` - Monthly
+            * `yearly` - Yearly
+        start_date:
+          type: string
+          format: date
+          description: First payment; every later payment follows from it.
+        end_date:
+          type: string
+          format: date
+          nullable: true
+          description: Last possible payment (inclusive), e.g. a cancelled plan; `null`
+            = open-ended.
+        active:
+          type: boolean
+          description: '`false` pauses the subscription: no payments ahead, left out
+            of the totals. Default `true`.'
+        description:
+          type: string
+          description: Optional free text (plan, account, notes).
+          maxLength: 255
+      required:
+      - amount
+      - category
+      - frequency
+      - name
+      - start_date
+    SubscriptionStatusEnum:
+      enum:
+      - active
+      - paused
+      - ended
+      type: string
+      description: |-
+        * `active` - active
+        * `paused` - paused
+        * `ended` - ended
+    SubscriptionSummary:
+      type: object
+      properties:
+        currency:
+          allOf:
+          - $ref: '#/components/schemas/CurrencyEnum'
+          description: |-
+            The user's base currency: every total is in it.
+
+            * `EUR` - Euro
+            * `HUF` - Hungarian forint
+            * `USD` - US dollar
+            * `GBP` - British pound
+            * `JPY` - Japanese yen
+            * `CHF` - Swiss franc
+        active_count:
+          type: integer
+          description: Subscriptions with payments ahead.
+        paused_count:
+          type: integer
+        ended_count:
+          type: integer
+          description: Active, but past their `end_date`.
+        monthly_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,18}(?:\.\d{0,2})?$
+          readOnly: true
+          description: What the active subscriptions cost per month, e.g. `95.96`.
+        yearly_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,18}(?:\.\d{0,2})?$
+          readOnly: true
+          description: 'Yearly projection: what the active subscriptions cost per
+            year, e.g. `1151.52`.'
+        by_category:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryCost'
+          description: Categories of the active subscriptions, costliest first.
+        upcoming:
+          type: array
+          items:
+            $ref: '#/components/schemas/UpcomingPayment'
+          description: Payments due in the next 30 days (today included), soonest
+            first.
+        unconverted_currencies:
+          type: array
+          items:
+            $ref: '#/components/schemas/CurrencyEnum'
+          description: 'Currencies without an ECB rate of the last 7 days: subscriptions
+            billed in them are left out of the totals.'
+      required:
+      - active_count
+      - by_category
+      - currency
+      - ended_count
+      - monthly_total
+      - paused_count
+      - unconverted_currencies
+      - upcoming
+      - yearly_total
     SuggestedCategory:
       type: object
       properties:
@@ -6270,6 +8877,39 @@ components:
       - month
       - months
       - year
+    UpcomingPayment:
+      type: object
+      properties:
+        subscription_id:
+          type: integer
+        name:
+          type: string
+        date:
+          type: string
+          format: date
+          description: Due date.
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          description: As billed, in `currency`.
+        currency:
+          $ref: '#/components/schemas/CurrencyEnum'
+        base_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,18}(?:\.\d{0,2})?$
+          readOnly: true
+          nullable: true
+          description: '`amount` in the base currency; `null` without a recent exchange
+            rate.'
+      required:
+      - amount
+      - base_amount
+      - currency
+      - date
+      - name
+      - subscription_id
     User:
       type: object
       properties:
@@ -6295,7 +8935,7 @@ components:
           allOf:
           - $ref: '#/components/schemas/CurrencyEnum'
           description: |-
-            Currency of every total, budget and recurring amount. Changing it converts the user's data (see `PATCH /api/auth/me/`).
+            Currency of every total and budget. Changing it converts the user's data (see `PATCH /api/auth/me/`).
 
             * `EUR` - Euro
             * `HUF` - Hungarian forint
@@ -6372,14 +9012,21 @@ tags:
   description: Income/expense categories, including the 10 system defaults.
 - name: Budgets
   description: Monthly spending limits, overall or per category, with live usage.
+- name: Savings Goals
+  description: Money put aside for a goal, in its own currency, with progress.
 - name: Recurring Transactions
   description: Templates for repeating income and expenses.
+- name: Subscriptions
+  description: Streaming, software, gym, phone… — recurring expenses with costs and
+    totals.
 - name: Currencies
   description: Conversion previews with ECB reference rates.
 - name: Analytics
   description: Read-only monthly summaries computed on the server.
 - name: Financial Insights
   description: Rule-based observations about a month's finances.
+- name: Achievements
+  description: Milestones earned from the user's own data, with progress.
 - name: Receipt Scanning
   description: OCR suggestions from a receipt photo.
 - name: Notifications

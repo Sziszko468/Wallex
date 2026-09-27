@@ -4,20 +4,25 @@ from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from rest_framework.routers import DefaultRouter
 
-from apps.budgets.views import BudgetViewSet
+from apps.analytics.views import AchievementViewSet
+from apps.budgets.views import BudgetViewSet, SavingsGoalViewSet
 from apps.categories.views import CategoryViewSet
 from apps.common.health import LivenessView, ReadinessView
 from apps.notifications.views import DeviceViewSet
+from apps.subscriptions.views import SubscriptionViewSet
 from apps.transactions.views import RecurringTransactionViewSet, TransactionViewSet
 
 router = DefaultRouter()
 router.register("categories", CategoryViewSet, basename="category")
 router.register("transactions", TransactionViewSet, basename="transaction")
 router.register("budgets", BudgetViewSet, basename="budget")
+router.register("savings-goals", SavingsGoalViewSet, basename="savingsgoal")
 router.register(
     "recurring-transactions", RecurringTransactionViewSet, basename="recurringtransaction"
 )
+router.register("subscriptions", SubscriptionViewSet, basename="subscription")
 router.register("devices", DeviceViewSet, basename="device")
+router.register("achievements", AchievementViewSet, basename="achievement")
 
 urlpatterns = [
     path("admin/", admin.site.urls),

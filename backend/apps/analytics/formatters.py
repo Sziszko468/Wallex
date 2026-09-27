@@ -71,6 +71,17 @@ def format_dashboard(dashboard):
         "transaction_count": dashboard["transaction_count"],
         "top_spending_category": format_top_category(dashboard["top_spending_category"]),
         "budget_usage": format_budget_usage(dashboard["budget_usage"]),
+        "subscriptions": format_subscription_overview(dashboard["subscriptions"]),
+    }
+
+
+def format_subscription_overview(overview):
+    return {
+        "active_count": overview["active_count"],
+        "monthly_total": money(overview["monthly_total"]),
+        "yearly_total": money(overview["yearly_total"]),
+        "due_this_month": money(overview["due_this_month"]),
+        "unconverted_currencies": overview["unconverted_currencies"],
     }
 
 

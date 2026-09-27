@@ -83,8 +83,17 @@ def test_a_manual_rate_is_carried_over(auth_client, user, food, rates):
 
 
 @pytest.mark.django_db
-def test_budgets_and_recurring_amounts_are_converted_at_the_latest_rate(auth_client, user, food, rates):
+def test_budgets_are_converted_at_the_latest_rate(auth_client, user, food, rates):
     budget = Budget.objects.create(user=user, category=food, amount=Decimal("100.55"), year=2026, month=9)
+
+    _change(auth_client, "HUF")
+
+    budget.refresh_from_db()
+    assert budget.amount == Decimal("41226")  # 100.55 × 410 = 41225.5 → whole forints, half up
+
+
+@pytest.mark.django_db
+def test_recurring_amounts_keep_their_own_currency(auth_client, user, food, rates):
     rent = RecurringTransaction.objects.create(
         user=user, category=food, name="Rent", type=TransactionType.EXPENSE, amount=Decimal("500.00"),
         frequency=Frequency.MONTHLY, start_date=RECENT, next_occurrence_date=RECENT,
@@ -92,10 +101,9 @@ def test_budgets_and_recurring_amounts_are_converted_at_the_latest_rate(auth_cli
 
     _change(auth_client, "HUF")
 
-    budget.refresh_from_db()
     rent.refresh_from_db()
-    assert budget.amount == Decimal("41226")  # 100.55 × 410 = 41225.5 → whole forints, half up
-    assert rent.amount == Decimal("205000")
+    # The rent is still 500 euros; totals convert it (see apps.analytics / apps.subscriptions).
+    assert (rent.amount, rent.currency) == (Decimal("500.00"), "EUR")
 
 
 @pytest.mark.django_db

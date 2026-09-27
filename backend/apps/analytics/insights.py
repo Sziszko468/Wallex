@@ -130,7 +130,7 @@ def build_context(user, year: int, month: int, today: date) -> InsightContext:
         ),
         is_month_to_date=is_month_to_date,
         budget_usage=services.get_budget_usage(user, year, month),
-        recurring_monthly_expenses=services.get_recurring_monthly_expenses(user, year, month),
+        recurring_monthly_expenses=services.get_recurring_monthly_expenses(user, year, month, today),
     )
 
 

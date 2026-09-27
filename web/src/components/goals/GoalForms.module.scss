@@ -1,0 +1,35 @@
+@use "../../styles/variables" as vars;
+
+.form {
+  display: flex;
+  flex-direction: column;
+}
+
+.amountRow {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: vars.$space-sm;
+}
+
+.hint {
+  margin: calc(-1 * vars.$space-sm) 0 vars.$space-md;
+  font-size: 0.8rem;
+  color: vars.$color-text-muted;
+}
+
+.summary {
+  margin: 0 0 vars.$space-md;
+  font-size: vars.$font-size-sm;
+  color: vars.$color-text-muted;
+
+  strong {
+    color: vars.$color-text;
+  }
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: vars.$space-sm;
+  margin-top: vars.$space-xs;
+}

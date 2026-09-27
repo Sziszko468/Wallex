@@ -1,0 +1,64 @@
+@use "../../styles/variables" as vars;
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: vars.$space-sm;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: vars.$space-sm;
+  padding-bottom: vars.$space-sm;
+  border-bottom: 1px solid vars.$color-border;
+  font-size: vars.$font-size-sm;
+
+  &:last-child {
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+}
+
+.date {
+  flex-shrink: 0;
+  min-width: 6.5rem;
+  color: vars.$color-text-muted;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  color: vars.$color-text;
+  text-decoration: none;
+}
+
+a.name:hover {
+  color: vars.$color-primary-dark;
+  text-decoration: underline;
+}
+
+.amount {
+  font-weight: 700;
+  color: vars.$color-text;
+  white-space: nowrap;
+}
+
+.secondary {
+  font-weight: 400;
+  color: vars.$color-text-muted;
+}

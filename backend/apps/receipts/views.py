@@ -60,6 +60,9 @@ class ReceiptScanView(APIView):
                 # Decimal/date as strings, like every other money/date field in the API.
                 "amount": _field(parsed.amount, str(parsed.amount.value) if parsed.amount.value is not None else None),
                 "date": _field(parsed.date, parsed.date.value.isoformat() if parsed.date.value else None),
+                "currency": _field(parsed.currency),
+                "unsupported_currency": parsed.unsupported_currency,
+                "items": [{"name": item.name, "amount": str(item.amount)} for item in parsed.items],
                 "category": (
                     {
                         "id": scan.category.category.id,
@@ -70,5 +73,6 @@ class ReceiptScanView(APIView):
                     else None
                 ),
                 "text_found": scan.text_found,
+                "outcome": scan.outcome.value,
             }
         )

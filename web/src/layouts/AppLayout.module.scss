@@ -56,9 +56,11 @@
   @media (min-width: vars.$breakpoint-tablet) {
     display: flex;
     flex-direction: row;
+    // Wraps onto a second row when the links don't fit, instead of scrolling the page sideways.
+    flex-wrap: wrap;
     align-items: center;
     padding: 0 vars.$space-xl vars.$space-sm;
-    gap: vars.$space-lg;
+    gap: vars.$space-xs vars.$space-sm;
   }
 }
 

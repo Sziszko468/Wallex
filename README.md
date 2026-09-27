@@ -73,7 +73,25 @@ Design goals:
 - **Budgets:** monthly limits per category, or overall. Spent, remaining and usage are
   computed live; there are warning (≥ 80 %) and over-budget states.
 - **Recurring transactions:** weekly, monthly or yearly templates for rent, salary and
-  subscriptions. They can be paused and drive payment reminders.
+  bills, billed in their own currency. They can be paused and drive payment reminders.
+- **Subscription manager:** Netflix, Spotify, Adobe, gym, internet, phone, insurance… with
+  merchant, currency, billing period, first/last payment and pause. The server computes each
+  one's monthly and yearly cost (weekly = 52 payments a year), the next payment dates, the
+  totals in the base currency (e.g. *Monthly subscriptions: €95.96 · Yearly projection:
+  €1,151.52*), a per-category split and the next 30 days' payments. A subscription is a
+  recurring expense — the same database row, not a parallel system — so reminders, insights
+  and fixed-expense detection include it automatically.
+- **Savings goals:** several goals per user (e.g. *Japan trip: €1,850 of €3,000, 61.7 %*),
+  each in its own currency with an optional target date. Money is added and removed through
+  atomic server-side actions (row-locked, never below zero); the server computes progress, the
+  amount still to save, days left and how much to put aside each month. A goal completes
+  itself when the target is reached and can be archived. Putting money aside isn't an
+  expense, so goals don't touch transactions or budgets.
+- **Achievements:** quiet milestones for motivation — *🔥 7 Day Tracking Streak*, *🏆 €1,000
+  Saved*, *🎯 Stayed Under Food Budget*, first transaction, 30-day streak, completed savings
+  goal. Evaluated on the server from existing data (the savings total, the budgets' own
+  over-budget rule), stored with progress and unlock time, and permanent once earned. The
+  catalog is data: a new milestone on an existing rule is one migration row.
 - **Analytics:** a monthly dashboard, a 12-month income/expense trend, spending by category,
   plus a spending analysis section:
   - rolling monthly and per-category trends with each month's change,
@@ -100,9 +118,13 @@ Design goals:
 
 ### Mobile only (iOS & Android)
 
-- **Receipt scanning:** take or pick a photo. The server reads merchant, total and date with
-  OCR (English and Hungarian) and suggests a category; the user confirms before anything is
-  saved.
+- **Receipt scanning:** take or pick a photo. The server reads merchant, total, date,
+  currency and the purchased items with OCR (English and Hungarian; the engine is swappable)
+  and suggests a category. A confirmation screen shows merchant, amount, currency, date and
+  category for the user to correct, and only **Save Transaction** creates the transaction —
+  through the normal Transaction API, offline-safe. Unusable photos, OCR outages, non-receipts
+  and receipts in unsupported currencies each get their own explanation and next step
+  (retake, another photo, or manual entry).
 - **Offline mode:**
   - cached screens stay readable without a connection,
   - new transactions are queued and synced automatically (idempotent, never duplicated).
@@ -190,6 +212,9 @@ A desktop-oriented single-page app (it also works on phones). Main parts:
 | **Transactions** | Table with search, type/category/date filters, sortable columns, pagination, add/edit modal, delete confirmation. |
 | **Budgets** | Month navigator, usage bars with warning / over-budget states, create/edit/delete. |
 | **Recurring** | Manage recurring templates; pause and resume them. |
+| **Subscriptions** | Monthly total and yearly projection, table with each subscription's price, monthly cost and next payment, add/edit/delete, next 30 days' payments, cost by category, and a details page per subscription. The dashboard has a card with the month's subscription costs. |
+| **Achievements** | Unlocked, in-progress and not-started milestones with progress and unlock date; new ones are marked "New" once. The dashboard shows the latest unlocks and the next milestone. |
+| **Goals** | Savings goals as cards with progress bars and target dates; total saved and overall progress; create/edit/delete, add and remove money, archive/restore; a details page with the amount still to save and the monthly plan. The dashboard shows *Savings progress*. |
 | **Import** | Upload a bank CSV and review the per-row import report. |
 | **Settings** | Profile and logout. |
 
@@ -224,7 +249,7 @@ Router). The platform differences are handled by Expo modules:
 
 ## API
 
-- **Style:** RESTful JSON under `/api/`, 45 operations.
+- **Style:** RESTful JSON under `/api/`, 61 operations.
 - **Reference:** a complete **OpenAPI 3** document generated from the code, covering every
   endpoint's request, response, validation errors and status codes.
   - Interactive Swagger UI at **`/api/docs/`** (dev server: http://localhost:8000/api/docs/).
@@ -239,8 +264,11 @@ Router). The platform differences are handled by Expo modules:
 | Categories | `GET POST /api/categories/` · `GET PATCH DELETE /api/categories/{id}/` |
 | Budgets | `GET POST /api/budgets/` · `GET PATCH DELETE /api/budgets/{id}/` |
 | Recurring | `GET POST /api/recurring-transactions/` · `GET PATCH DELETE …/{id}/` |
+| Subscriptions | `GET POST /api/subscriptions/` · `GET PATCH DELETE …/{id}/` · `GET …/summary/` |
+| Savings goals | `GET POST /api/savings-goals/` · `GET PATCH DELETE …/{id}/` · `POST …/{id}/deposit/` · `POST …/{id}/withdraw/` · `GET …/summary/` |
 | Analytics | `GET /api/analytics/dashboard/` · `monthly/` · `categories/` · `comparison/` · `trends/` · `merchants/` · `spending-patterns/` |
 | Insights | `GET /api/analytics/insights/` |
+| Achievements | `GET /api/achievements/` · `POST /api/achievements/mark-seen/` |
 | Currencies | `GET /api/currencies/convert/` (conversion preview with ECB rates) |
 | Receipts | `POST /api/receipts/scan/` (multipart photo → suggestions, nothing saved) |
 | Notifications | `GET POST /api/devices/` · `DELETE /api/devices/{id}/` · `GET PATCH /api/notifications/preferences/` |
@@ -271,6 +299,9 @@ erDiagram
     USER ||--o{ CATEGORY : owns
     USER ||--o{ TRANSACTION : records
     USER ||--o{ BUDGET : sets
+    USER ||--o{ SAVINGS_GOAL : "saves for"
+    USER ||--o{ USER_ACHIEVEMENT : earns
+    ACHIEVEMENT ||--o{ USER_ACHIEVEMENT : "tracked as"
     USER ||--o{ RECURRING_TRANSACTION : schedules
     USER ||--o{ DEVICE : registers
     USER ||--o{ NOTIFICATION : receives
@@ -299,6 +330,32 @@ erDiagram
         int year
         smallint month "1-12"
     }
+    SAVINGS_GOAL {
+        bigint id PK
+        bigint user_id FK
+        varchar name
+        decimal target_amount "12,2 · > 0"
+        decimal current_amount "12,2 · >= 0"
+        char currency "own currency, never converted"
+        date target_date "nullable"
+        varchar status "active | completed | archived"
+    }
+    ACHIEVEMENT {
+        bigint id PK
+        slug code UK
+        varchar rule "which evaluator"
+        decimal target "7 days, 1000 EUR..."
+        char target_currency "money only"
+    }
+    USER_ACHIEVEMENT {
+        bigint id PK
+        bigint user_id FK
+        bigint achievement_id FK
+        decimal progress "frozen once unlocked"
+        timestamp unlocked_at "nullable"
+        timestamp seen_at "nullable"
+        json context "how it was earned"
+    }
 ```
 
 - **Integrity lives in the database, not just the app:**
@@ -306,6 +363,9 @@ erDiagram
   - unique constraints: a category name per user and type, a budget per category and month,
     a transaction per `client_id`, and a case-insensitive email.
 - **Serializers turn constraint violations into clean `400` responses**, not `500`s.
+- **Subscriptions have no table of their own:** `Subscription` is a Django *proxy* of
+  `RecurringTransaction` (rows with `is_subscription = true`, and a `CHECK` that they are
+  expenses), so every feature built on recurring transactions sees them too.
 - **Indexes match the real queries:** `(user, date)`, `(user, type)`, `(user, year, month)`
   and more.
 - **Migrations are a release step:** a one-off `migrate` job runs them, never the app
@@ -491,8 +551,19 @@ spendly/
 
 ## Future improvements
 
-- **Automatic recurring transactions:** templates currently drive reminders and insights;
-  next, a scheduled job should create the actual transactions from them.
+- **Automatic recurring transactions:** templates (subscriptions included) currently drive
+  reminders, insights and totals; next, a scheduled job should create the actual transactions
+  from them (opt-in per template, so manually entered payments aren't duplicated).
+- **Smart subscription notifications:** renewal reminders with the amount, price-change and
+  "unused subscription" hints — the building blocks (`next_payment_date`, `upcoming_payments()`
+  in `apps/subscriptions/services.py`) are in place.
+- **Subscriptions, savings goals and achievements on mobile:** the types and API services
+  exist; the screens don't yet.
+- **Achievement notifications:** a push when a milestone is unlocked (the stored `unlocked_at`,
+  `seen_at` and `context` already carry what it needs), and evaluation after writes instead of
+  only on read.
+- **Savings history:** a log of each deposit and withdrawal (the goal currently keeps only its
+  balance), enabling a savings-rate chart and "on track for the target date" hints.
 - **Web auth hardening:** move the refresh token to an `HttpOnly`, `SameSite` cookie and
   keep the access token in memory only.
 - **CI/CD:** GitHub Actions for tests, type checks, migration checks and image builds on
@@ -502,6 +573,6 @@ spendly/
 - **Web category management UI:** the API is complete; the page is still a placeholder.
 - **CSV export**, with spreadsheet formula-injection protection.
 - **End-to-end tests:** Playwright (web) and Maestro (mobile) on real flows.
-- **Mobile currencies:** a currency picker on the mobile transaction and receipt screens
-  (mobile shows every currency correctly, but records new transactions in the base currency).
+- **Mobile currencies:** a currency picker on the mobile transaction form (the receipt
+  confirmation screen has one; the manual form still records in the base currency).
 - **UX:** proper tab-bar icons, dark mode, Hungarian localisation.

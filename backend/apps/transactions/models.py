@@ -93,10 +93,17 @@ class RecurringTransaction(models.Model):
     )
     name = models.CharField(max_length=100)
     type = models.CharField(max_length=10, choices=TransactionType.choices)
-    # In the user's base currency (converted when the base currency changes).
+    # The amount of one occurrence as billed, in `currency` — never rewritten (a Netflix
+    # plan billed in USD stays 15.49 USD). Totals convert it to the base currency.
     amount = models.DecimalField(
         max_digits=12, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))]
     )
+    currency = models.CharField(max_length=3, choices=Currency.choices, default=Currency.EUR)
+    # Who gets paid (landlord, "Netflix Inc.", employer). Optional; `name` is the label.
+    merchant = models.CharField(max_length=100, blank=True, default="")
+    # Subscriptions (streaming, software, gym, phone, …) are recurring expenses managed
+    # through /api/subscriptions/ — see apps/subscriptions. Same row, same table.
+    is_subscription = models.BooleanField(default=False)
     frequency = models.CharField(max_length=10, choices=Frequency.choices)
     start_date = models.DateField()
     end_date = models.DateField(null=True, blank=True)
@@ -114,6 +121,10 @@ class RecurringTransaction(models.Model):
                 condition=models.Q(end_date__isnull=True) | models.Q(end_date__gte=models.F("start_date")),
                 name="recurring_end_date_after_start_date",
             ),
+            models.CheckConstraint(
+                condition=models.Q(is_subscription=False) | models.Q(type=TransactionType.EXPENSE),
+                name="recurring_subscription_is_expense",
+            ),
         ]
         indexes = [
             models.Index(fields=["user", "is_active"], name="recurring_user_active_idx"),
@@ -125,6 +136,8 @@ class RecurringTransaction(models.Model):
             raise ValidationError(
                 {"type": "Recurring transaction type must match the selected category's type."}
             )
+        if self.is_subscription and self.type != TransactionType.EXPENSE:
+            raise ValidationError({"type": "Subscriptions are always expenses."})
 
     def __str__(self):
         return f"{self.name} ({self.get_frequency_display()})"

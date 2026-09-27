@@ -4,8 +4,9 @@ For the current month everything is month-to-date (1st to today), so the daily
 average isn't diluted by days that haven't happened yet.
 
 Fixed expenses are the ones a recurring template accounts for: linked to a template,
-or in the same category with exactly the template's amount while it runs (the
-monthly rent of 600.00, a 12.99 subscription). Everything else is variable.
+or in the same category with exactly the template's amount and currency while it
+runs (the monthly rent of 600.00 EUR, a 15.49 USD subscription). Everything else
+is variable.
 """
 
 import calendar
@@ -33,7 +34,8 @@ def _is_fixed() -> Q:
         user_id=OuterRef("user_id"),
         type=TransactionType.EXPENSE,
         category_id=OuterRef("category_id"),
-        amount=OuterRef("base_amount"),
+        amount=OuterRef("amount"),
+        currency=OuterRef("currency"),
         start_date__lte=OuterRef("date"),
     ).filter(Q(end_date__isnull=True) | Q(end_date__gte=OuterRef("date")))
     return Q(recurring_transaction__isnull=False) | Q(Exists(matches_template))
@@ -86,5 +88,5 @@ def get_spending_patterns(user, year: int, month: int, today: date) -> dict:
         "variable_expenses": total - fixed,
         "fixed_percentage": round(fixed / total * 100, 2) if total else None,
         # What the active recurring expenses add up to per month (the plan behind "fixed").
-        "recurring_commitments": get_recurring_monthly_expenses(user, year, month),
+        "recurring_commitments": get_recurring_monthly_expenses(user, year, month, today),
     }

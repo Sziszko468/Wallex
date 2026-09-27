@@ -1,0 +1,87 @@
+@use "../../styles/variables" as vars;
+
+.card {
+  display: flex;
+  align-items: flex-start;
+  gap: vars.$space-md;
+  padding: vars.$space-md;
+  background-color: vars.$color-surface;
+  border: 1px solid vars.$color-border;
+  border-radius: vars.$radius-md;
+}
+
+.icon {
+  flex-shrink: 0;
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 1.25rem;
+  background-color: vars.$color-background;
+  border: 1px solid vars.$color-border;
+}
+
+// Locked: present but quiet — no colour until it's earned.
+.locked .icon {
+  filter: grayscale(1);
+  opacity: 0.45;
+}
+
+.unlocked .icon {
+  background-color: rgba(99, 102, 241, 0.08);
+  border-color: rgba(99, 102, 241, 0.25);
+}
+
+.body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: vars.$space-xs;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: vars.$space-sm;
+}
+
+.title {
+  margin: 0;
+  font-size: vars.$font-size-base;
+  font-weight: 600;
+  color: vars.$color-text;
+}
+
+.locked .title {
+  color: vars.$color-text-muted;
+}
+
+.newBadge {
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: vars.$color-primary-dark;
+  background-color: rgba(99, 102, 241, 0.12);
+}
+
+.meta {
+  margin: 0;
+  font-size: 0.8rem;
+  color: vars.$color-text-muted;
+}
+
+.progress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-top: vars.$space-xs;
+}
+
+.progressText {
+  font-size: 0.75rem;
+  color: vars.$color-text-muted;
+}

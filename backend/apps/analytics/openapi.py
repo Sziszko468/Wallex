@@ -9,9 +9,13 @@ from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema
 from rest_framework import serializers
 
 from apps.common.openapi import validation_error
+from apps.currencies.models import Currency
 
 from .insights import InsightType, Severity
+from .models import AchievementCategory, AchievementUnit
 from .serializers import (
+    AchievementSerializer,
+    MarkSeenResultSerializer,
     ComparisonQuerySerializer,
     MerchantsQuerySerializer,
     MonthQuerySerializer,
@@ -67,11 +71,27 @@ class BudgetUsageSerializer(serializers.Serializer):
     )
 
 
+class DashboardSubscriptionsSerializer(serializers.Serializer):
+    active_count = serializers.IntegerField(help_text="Subscriptions active at some point during the month.")
+    monthly_total = _money("What they cost per month (weekly × 52 / 12, yearly / 12).")
+    yearly_total = _money("What they cost per year: the yearly projection.")
+    due_this_month = _money(
+        "The payments scheduled within this month (a yearly plan only counts in its billing month)."
+    )
+    unconverted_currencies = serializers.ListField(
+        child=serializers.ChoiceField(choices=Currency.choices),
+        help_text="Currencies without a recent ECB rate; subscriptions billed in them are left out.",
+    )
+
+
 class DashboardSerializer(MonthSummarySerializer):
     top_spending_category = TopCategorySerializer(
         allow_null=True, help_text="The expense category with the highest total; `null` without expenses."
     )
     budget_usage = BudgetUsageSerializer(many=True, help_text="Every budget of the month.")
+    subscriptions = DashboardSubscriptionsSerializer(
+        help_text="The month's subscriptions (see `/api/subscriptions/`), in the base currency."
+    )
 
 
 class MonthlyEntrySerializer(serializers.Serializer):
@@ -256,8 +276,10 @@ DASHBOARD_SCHEMA = extend_schema(
     summary="Monthly dashboard",
     description=(
         "Everything a dashboard needs for one month in a single call: income, expenses, balance, "
-        "number of transactions, the top spending category and the usage of every budget, with its variance "
-        f"(budget vs actual, and whether spending keeps pace with the month). {_MONTH_NOTE}"
+        "number of transactions, the top spending category, the usage of every budget, with its variance "
+        "(budget vs actual, and whether spending keeps pace with the month), and what the month's "
+        "subscriptions cost (converted at the rate of the month's last day, today's for the current month). "
+        f"{_MONTH_NOTE}"
     ),
     parameters=[MonthQuerySerializer],
     responses={
@@ -301,6 +323,13 @@ DASHBOARD_SCHEMA = extend_schema(
                                 "status": "on_track",
                             },
                         ],
+                        "subscriptions": {
+                            "active_count": 5,
+                            "monthly_total": "95.96",
+                            "yearly_total": "1151.52",
+                            "due_this_month": "95.96",
+                            "unconverted_currencies": [],
+                        },
                     },
                 )
             ],
@@ -543,4 +572,95 @@ income; category changes are skipped for categories with no spending last month.
         ),
         400: _QUERY_ERRORS,
     },
+)
+
+# --- Achievements -----------------------------------------------------------------------------
+
+ACHIEVEMENT_CATEGORY_CHOICES = AchievementCategory.choices  # module-level for ENUM_NAME_OVERRIDES
+ACHIEVEMENT_UNIT_CHOICES = AchievementUnit.choices
+
+_ACHIEVEMENT_EXAMPLES = [
+    {
+        "code": "streak_7",
+        "name": "7 Day Tracking Streak",
+        "title": "7 Day Tracking Streak",
+        "detail": None,
+        "description": "Record transactions on 7 days in a row.",
+        "icon": "🔥",
+        "category": "tracking",
+        "unit": "days",
+        "target": "7.00",
+        "target_currency": None,
+        "progress": "7.00",
+        "progress_percentage": 100.0,
+        "unlocked": True,
+        "unlocked_at": "2026-09-27T08:12:40.118273Z",
+        "is_new": True,
+    },
+    {
+        "code": "saved_1000",
+        "name": "€1,000 Saved",
+        "title": "€1,000 Saved",
+        "detail": None,
+        "description": "Have €1,000 in your savings goals.",
+        "icon": "🏆",
+        "category": "saving",
+        "unit": "money",
+        "target": "1000.00",
+        "target_currency": "EUR",
+        "progress": "412.50",
+        "progress_percentage": 41.25,
+        "unlocked": False,
+        "unlocked_at": None,
+        "is_new": False,
+    },
+    {
+        "code": "stayed_under_budget",
+        "name": "Stayed Under Budget",
+        "title": "Stayed Under Food Budget",
+        "detail": "August 2026",
+        "description": "Finish a month without going over a budget.",
+        "icon": "🎯",
+        "category": "budgeting",
+        "unit": "count",
+        "target": "1.00",
+        "target_currency": None,
+        "progress": "1.00",
+        "progress_percentage": 100.0,
+        "unlocked": True,
+        "unlocked_at": "2026-09-01T06:02:11.500120Z",
+        "is_new": False,
+    },
+]
+
+ACHIEVEMENTS_LIST_SCHEMA = extend_schema(
+    tags=["Achievements"],
+    summary="List achievements",
+    description=(
+        "Every achievement of the catalog with the user's progress, in catalog order. Evaluated on the server "
+        "when requested: milestones reached since the last call are unlocked (and stored) now, and stay "
+        "unlocked for good — a streak that breaks later doesn't take one back.\n\n"
+        "- **Tracking streaks** count the days a transaction was *recorded* on (UTC), consecutive up to today "
+        "or yesterday.\n"
+        "- **Saved** amounts are the savings-goal total of the Savings page (goals that aren't archived), "
+        "converted into `target_currency` at the latest ECB rate; without a rate the progress isn't updated.\n"
+        "- **Stayed under budget** needs a finished month with tracked expenses that didn't go over one of its "
+        "budgets.\n\n"
+        "Not paginated."
+    ),
+    responses={
+        200: OpenApiResponse(
+            AchievementSerializer(many=True),
+            description="The catalog with progress.",
+            examples=[OpenApiExample("Some progress", value=_ACHIEVEMENT_EXAMPLES)],
+        )
+    },
+)
+
+MARK_SEEN_SCHEMA = extend_schema(
+    tags=["Achievements"],
+    summary="Mark achievements as seen",
+    description="Clears `is_new` on every unlocked achievement — call it once the user has seen them.",
+    request=None,
+    responses={200: MarkSeenResultSerializer},
 )

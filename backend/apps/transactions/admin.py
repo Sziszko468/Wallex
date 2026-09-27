@@ -22,10 +22,12 @@ class RecurringTransactionAdmin(admin.ModelAdmin):
         "category",
         "type",
         "amount",
+        "currency",
         "frequency",
         "is_active",
+        "is_subscription",
         "next_occurrence_date",
     )
-    list_filter = ("frequency", "is_active", "type")
+    list_filter = ("frequency", "is_active", "is_subscription", "type", "currency")
     search_fields = ("name", "user__email")
     ordering = ("next_occurrence_date",)

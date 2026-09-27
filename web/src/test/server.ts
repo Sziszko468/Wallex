@@ -10,6 +10,7 @@ import {
   insights,
   merchants,
   monthly,
+  savingsSummary,
   spendingPatterns,
   trends,
   user,
@@ -40,6 +41,11 @@ export const defaultHandlers = [
   http.get(`${API}/analytics/comparison/`, () => HttpResponse.json(comparison)),
   http.get(`${API}/analytics/merchants/`, () => HttpResponse.json(merchants)),
   http.get(`${API}/analytics/spending-patterns/`, () => HttpResponse.json(spendingPatterns)),
+  http.get(`${API}/savings-goals/summary/`, () => HttpResponse.json(savingsSummary)),
+  // No goals by default, so the dashboard's savings card never matches another test's amounts.
+  http.get(`${API}/savings-goals/`, () => HttpResponse.json([])),
+  http.get(`${API}/achievements/`, () => HttpResponse.json([])),
+  http.post(`${API}/achievements/mark-seen/`, () => HttpResponse.json({ marked: 0 })),
 ];
 
 export const server = setupServer(...defaultHandlers);

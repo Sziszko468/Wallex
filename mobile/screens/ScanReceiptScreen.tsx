@@ -3,23 +3,32 @@ import { ActivityIndicator, Image, Linking, Platform, StyleSheet, Text, View } f
 import { router } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { useAsyncData } from "../hooks/useAsyncData";
+import { useBaseCurrency } from "../hooks/useBaseCurrency";
 import { useCreateTransaction } from "../hooks/useCreateTransaction";
 import { listCategories } from "../services/categoriesService";
 import { scanReceipt } from "../services/receiptService";
 import { extractErrorMessage } from "../utils/errors";
+import { problemFromError, problemFromScan, type ProblemAction, type ScanProblem } from "../utils/receiptProblems";
 import { Screen } from "../components/Screen";
 import { Button } from "../components/Button";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { SectionState } from "../components/SectionState";
 import { ReceiptConfirmation, type ConfirmedReceipt } from "../components/receipts/ReceiptConfirmation";
+import { ScanProblemPanel } from "../components/receipts/ScanProblemPanel";
 import { colors, fontSize, radius, spacing } from "../utils/theme";
 import type { ReceiptScan } from "../types/receipt";
 
 const SUCCESS_DISMISS_DELAY_MS = 700;
 
+/**
+ * capture → processing → confirm → (Save) → the transaction.
+ * A scan that can't be reviewed ends in `problem` instead. Only the confirm step's
+ * Save button ever creates a transaction — a scan on its own never does.
+ */
 type Step =
   | { kind: "capture" }
   | { kind: "processing"; photoUri: string }
+  | { kind: "problem"; problem: ScanProblem; photoUri?: string; scan?: ReceiptScan }
   | { kind: "confirm"; photoUri: string; scan: ReceiptScan };
 
 type PickerResult = ImagePicker.ImagePickerResult;
@@ -29,6 +38,7 @@ export function ScanReceiptScreen() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [cameraBlocked, setCameraBlocked] = useState(false);
   const categories = useAsyncData(useCallback(() => listCategories(), []));
+  const baseCurrency = useBaseCurrency();
   const { create, isOffline } = useCreateTransaction();
 
   async function processPick(pick: () => Promise<PickerResult>) {
@@ -38,18 +48,32 @@ export function ScanReceiptScreen() {
       result = await pick();
     } catch (error) {
       setErrorMessage(extractErrorMessage(error));
+      setStep({ kind: "capture" });
       return;
     }
     const asset = result.canceled ? undefined : result.assets[0];
-    if (!asset) return; // the user closed the camera/library — stay here
+    if (!asset) return; // the user closed the camera/library — stay where we were
 
     setStep({ kind: "processing", photoUri: asset.uri });
     try {
       const scan = await scanReceipt({ uri: asset.uri, width: asset.width });
-      setStep({ kind: "confirm", photoUri: asset.uri, scan });
+      const problem = problemFromScan(scan);
+      setStep(
+        problem
+          ? { kind: "problem", problem, photoUri: asset.uri, scan }
+          : { kind: "confirm", photoUri: asset.uri, scan }
+      );
     } catch (error) {
-      setErrorMessage(extractErrorMessage(error));
-      setStep({ kind: "capture" });
+      setStep({ kind: "problem", problem: problemFromError(error), photoUri: asset.uri });
+    }
+  }
+
+  function handleProblemAction(action: ProblemAction) {
+    if (action === "retake") void handleTakePhoto();
+    else if (action === "library") void handleChoosePhoto();
+    else if (action === "manual") router.replace("/add-transaction");
+    else if (step.kind === "problem" && step.scan && step.photoUri) {
+      setStep({ kind: "confirm", photoUri: step.photoUri, scan: step.scan });
     }
   }
 
@@ -68,9 +92,11 @@ export function ScanReceiptScreen() {
   }
 
   async function handleSave(receipt: ConfirmedReceipt) {
+    // The same Transaction API (and offline outbox) as the manual form.
     const result = await create({
       type: "expense",
       amount: receipt.amount,
+      currency: receipt.currency,
       category: receipt.category,
       description: receipt.merchant,
       date: receipt.date,
@@ -91,6 +117,14 @@ export function ScanReceiptScreen() {
     );
   }
 
+  if (step.kind === "problem") {
+    return (
+      <Screen scroll>
+        <ScanProblemPanel problem={step.problem} photoUri={step.photoUri} onAction={handleProblemAction} />
+      </Screen>
+    );
+  }
+
   if (step.kind === "confirm") {
     return (
       <Screen scroll>
@@ -100,6 +134,7 @@ export function ScanReceiptScreen() {
             <ReceiptConfirmation
               scan={step.scan}
               categories={categories.data}
+              baseCurrency={baseCurrency}
               isOffline={isOffline}
               onSave={handleSave}
               onRetake={() => setStep({ kind: "capture" })}

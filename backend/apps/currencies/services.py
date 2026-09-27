@@ -8,7 +8,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.budgets.models import Budget
-from apps.transactions.models import RecurringTransaction, Transaction
+from apps.transactions.models import Transaction
 
 from .ecb import EcbRate
 from .models import ExchangeRate
@@ -47,8 +47,10 @@ def change_base_currency(user, new_base: str) -> None:
       re-expressed against the new base, with the rate of the transaction's own date;
       the database then recomputes `base_amount`. A rate entered by hand stays in effect:
       new rate = old rate × (old base → new base).
-    - Budgets and recurring transactions are amounts *in* the base currency, so they are
-      converted at the latest rate and rounded to the new currency's unit.
+    - Budgets are amounts *in* the base currency, so they are converted at the latest
+      rate and rounded to the new currency's unit.
+    - Recurring transactions and subscriptions carry their own `currency` (what the bill
+      says) and are left alone; totals convert them when they are computed.
 
     All or nothing: if a rate is missing or a result doesn't fit, ConversionError is
     raised and nothing changes.
@@ -64,7 +66,6 @@ def change_base_currency(user, new_base: str) -> None:
         Transaction.objects.filter(user=locked).only("id", "amount", "currency", "exchange_rate", "date")
     )
     budgets = list(Budget.objects.filter(user=locked))
-    recurring = list(RecurringTransaction.objects.filter(user=locked))
     days = [item.date for item in transactions] + [today]
     rates = RateTable.load({old_base, new_base}, min(days), max(days))
 
@@ -78,17 +79,16 @@ def change_base_currency(user, new_base: str) -> None:
             raise ConversionError(f"A transaction of {item.amount} {item.currency} is too large to express in {new_base}.")
         item.updated_at = now
 
-    if budgets or recurring:
+    if budgets:
         latest = rates.rate(old_base, new_base, today).value
-        for item in [*budgets, *recurring]:
-            item.amount = to_currency(item.amount, latest, new_base)
-            if item.amount > MAX_AMOUNT:
-                raise ConversionError(f"A budget or recurring amount would be too large in {new_base}.")
-            item.updated_at = now
+        for budget in budgets:
+            budget.amount = to_currency(budget.amount, latest, new_base)
+            if budget.amount > MAX_AMOUNT:
+                raise ConversionError(f"A budget would be too large in {new_base}.")
+            budget.updated_at = now
 
     Transaction.objects.bulk_update(transactions, ["exchange_rate", "updated_at"], batch_size=BULK_BATCH_SIZE)
     Budget.objects.bulk_update(budgets, ["amount", "updated_at"], batch_size=BULK_BATCH_SIZE)
-    RecurringTransaction.objects.bulk_update(recurring, ["amount", "updated_at"], batch_size=BULK_BATCH_SIZE)
 
     locked.base_currency = new_base
     locked.save(update_fields=["base_currency"])
