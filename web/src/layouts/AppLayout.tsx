@@ -6,6 +6,7 @@ import styles from "./AppLayout.module.scss";
 
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Dashboard" },
+  { to: "/assistant", label: "Assistant" },
   { to: "/transactions", label: "Transactions" },
   { to: "/recurring", label: "Recurring" },
   { to: "/subscriptions", label: "Subscriptions" },

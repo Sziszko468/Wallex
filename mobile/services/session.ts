@@ -163,6 +163,21 @@ export async function getValidAccessToken(): Promise<string | null> {
  * can't be reused even if it leaked. Local cleanup is the caller's job and
  * must happen regardless of the outcome here.
  */
+/**
+ * Signs every device of the account out on the server — this phone included. Unlike
+ * revokeSession it must reach the server: when it throws, nothing was signed out.
+ */
+export async function revokeAllSessions(): Promise<number> {
+  const access = await getValidAccessToken();
+  if (!access) throw new SessionExpiredError();
+  const response = await axios.post<{ revoked_sessions: number }>(
+    `${API_BASE_URL}/auth/logout-all/`,
+    {},
+    { headers: { Authorization: `Bearer ${access}` }, timeout: LOGOUT_TIMEOUT_MS }
+  );
+  return response.data.revoked_sessions;
+}
+
 export async function revokeSession(): Promise<void> {
   if (!isActive) return;
   // Settle any pending rotation first, so we revoke the token that is

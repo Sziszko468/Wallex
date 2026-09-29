@@ -19,6 +19,8 @@ VALID_PROD_ENV = {
     "DJANGO_SETTINGS_MODULE": "config.settings.prod",
     "DJANGO_ALLOWED_HOSTS": "api.spendly.example",
     "DJANGO_SECRET_KEY": "q3v!8Zp@1Lw#9Rm$4Tx%7Ky^2Ns&6Hd*0Fb(5Gc)8Jv+3Qe=1Wa-9Ur_7Io~4Pz",
+    # Test-only values, never used outside these subprocesses.
+    "FIELD_ENCRYPTION_KEY": "Xk2#9vQ!mL7@pR4$wT8%zN1^cB6&hJ3*dF5(gS0)yU2+eA7=oI9-rK4_tP6~qW8",
     "CORS_ALLOWED_ORIGINS": "https://app.spendly.example",
     "DJANGO_DEBUG": "True",  # must be ignored in production
 }
@@ -54,8 +56,10 @@ def test_valid_production_settings_load_with_secure_defaults():
     )
 
     assert result.returncode == 0, result.stderr
+    # CORS credentials are allowed (the web refresh-token cookie), but only for the explicit https
+    # origins — never all origins.
     assert result.stdout.split() == [
-        "False", "True", "True", "True", "True", "DENY", "True", "same-origin", "False", "False",
+        "False", "True", "True", "True", "True", "DENY", "True", "same-origin", "False", "True",
     ]
 
 
@@ -99,6 +103,32 @@ def test_production_refuses_a_weak_jwt_signing_key(key):
     result = _import_prod(JWT_SIGNING_KEY=key)
     assert result.returncode != 0
     assert "JWT_SIGNING_KEY" in result.stderr
+
+
+@pytest.mark.parametrize("key", ["", "short", "change-me-" + "x" * 60])
+def test_production_refuses_a_weak_field_encryption_key(key):
+    result = _import_prod(FIELD_ENCRYPTION_KEY=key)
+    assert result.returncode != 0
+    assert "FIELD_ENCRYPTION_KEY" in result.stderr
+
+
+def test_production_refuses_to_encrypt_with_the_secret_key():
+    """Sharing SECRET_KEY would make every two-factor secret unreadable after rotating it."""
+    result = _run_without({"FIELD_ENCRYPTION_KEY"}, "import config.settings.prod")
+    assert result.returncode != 0
+    assert "FIELD_ENCRYPTION_KEY" in result.stderr
+
+
+def test_production_refuses_an_insecure_refresh_cookie():
+    result = _import_prod(AUTH_COOKIE_SECURE="False")
+    assert result.returncode != 0
+    assert "AUTH_COOKIE_SECURE" in result.stderr
+
+
+def test_the_admin_is_off_in_production_unless_enabled():
+    urls = "import django; django.setup(); from django.urls import get_resolver; print(any('admin' in str(p.pattern) for p in get_resolver().url_patterns))"
+    assert _run(urls).stdout.strip() == "False"
+    assert _run(urls, DJANGO_ADMIN_ENABLED="True").stdout.strip() == "True"
 
 
 def test_production_needs_no_cors_origins_by_default():
@@ -192,7 +222,7 @@ def test_health_probes_skip_the_https_redirect_but_the_api_does_not():
 
 
 SECRET_ASSIGNMENT = re.compile(
-    r"^\s*[\"']?(\w*(?:SECRET|PASSWORD|TOKEN|SIGNING_KEY|API_KEY)\w*)[\"']?\s*[:=]\s*[\"']([^\"']+)[\"']", re.M
+    r"^\s*[\"']?(\w*(?:SECRET|PASSWORD|TOKEN|SIGNING_KEY|API_KEY|ENCRYPTION_KEY)\w*)[\"']?\s*[:=]\s*[\"']([^\"']+)[\"']", re.M
 )
 # Dotted import paths (e.g. a serializer class) are configuration, not secrets.
 IMPORT_PATH = re.compile(r"^[a-z_][\w]*(\.[\w]+)+$")

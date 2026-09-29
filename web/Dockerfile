@@ -31,6 +31,7 @@ ENV API_UPSTREAM=http://backend:8000 \
     NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1
 
 COPY nginx/security-headers.conf /etc/nginx/snippets/security-headers.conf
+COPY nginx/proxy-to-django.conf /etc/nginx/snippets/proxy-to-django.conf
 COPY nginx/default.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=build /app/dist /usr/share/nginx/html
 

@@ -1,0 +1,54 @@
+@use "../../styles/variables" as vars;
+
+.suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: vars.$space-sm;
+}
+
+.heading {
+  margin: 0;
+  font-size: vars.$font-size-sm;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: vars.$color-text-muted;
+}
+
+.list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: vars.$space-sm;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  @media (min-width: vars.$breakpoint-tablet) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.chip {
+  width: 100%;
+  height: 100%;
+  padding: vars.$space-sm vars.$space-md;
+  font: inherit;
+  font-size: vars.$font-size-sm;
+  text-align: left;
+  color: vars.$color-text;
+  background-color: vars.$color-surface;
+  border: 1px solid vars.$color-border;
+  border-radius: vars.$radius-md;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+
+  &:hover:not(:disabled) {
+    border-color: vars.$color-primary;
+    background-color: rgba(99, 102, 241, 0.05);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+}

@@ -32,6 +32,10 @@ export const defaultHandlers = [
   ),
   http.get(`${API}/currencies/convert/`, () => HttpResponse.json(conversionPreview)),
   http.post(`${API}/auth/logout/`, () => HttpResponse.json({ detail: "Logged out successfully." })),
+  // No refresh cookie: this browser isn't signed in (signIn() in render.tsx changes that).
+  http.post(`${API}/auth/refresh/`, () =>
+    HttpResponse.json({ detail: "You are not signed in.", code: "session_ended" }, { status: 401 })
+  ),
   http.get(`${API}/categories/`, () => HttpResponse.json(categories)),
   http.get(`${API}/transactions/`, () => HttpResponse.json(emptyPage)),
   http.get(`${API}/analytics/dashboard/`, () => HttpResponse.json(dashboard)),

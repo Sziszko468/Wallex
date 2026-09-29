@@ -2,6 +2,7 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
 import { afterAll, afterEach, beforeAll } from "vitest";
 import { server } from "./server";
+import { clearTokens } from "../utils/tokenStorage";
 
 // Recharts measures its container; jsdom has no layout engine.
 class ResizeObserverStub {
@@ -17,5 +18,6 @@ afterEach(() => {
   cleanup();
   server.resetHandlers();
   localStorage.clear();
+  clearTokens(); // the access token lives in module memory
 });
 afterAll(() => server.close());

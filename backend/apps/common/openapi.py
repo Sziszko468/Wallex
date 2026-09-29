@@ -138,6 +138,7 @@ _MODEL_BY_RESOURCE = {
     "subscriptions": "Subscription",
     "devices": "Device",
     "notifications": "Notification",
+    "assistant": "AssistantConversation",
 }
 
 

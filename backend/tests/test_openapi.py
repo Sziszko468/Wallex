@@ -12,6 +12,8 @@ from io import StringIO
 from pathlib import Path
 from typing import Any
 
+import anthropic
+import httpx2
 import pytest
 import yaml
 from django.conf import settings
@@ -23,6 +25,7 @@ from jsonschema import Draft7Validator
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 
+from apps.analytics.conftest import FakeAnthropic, text_reply, tool_call_reply
 from apps.budgets.models import Budget, SavingsGoal
 from apps.categories.defaults import create_default_categories
 from apps.categories.models import Category, TransactionType
@@ -36,6 +39,7 @@ from apps.transactions.models import Frequency, RecurringTransaction, Transactio
 COMMITTED_SCHEMA = Path(settings.BASE_DIR) / "openapi.yaml"
 REGENERATE = "docker compose exec backend python manage.py spectacular --file openapi.yaml"
 TAG_NAMES = {tag["name"] for tag in settings.SPECTACULAR_SETTINGS["TAGS"]}
+PAGINATION_PARAMETERS = {"page", "page_size"}
 
 
 def _generate_yaml() -> str:
@@ -122,7 +126,10 @@ def test_every_operation_is_fully_documented(schema):
             problems.append(f"{name}: needs exactly one tag from SPECTACULAR_SETTINGS['TAGS']")
         if not any(code.startswith("2") for code in responses):
             problems.append(f"{name}: no success response")
-        takes_input = "requestBody" in operation or any(p["in"] == "query" for p in operation.get("parameters", []))
+        # Pagination can't fail validation: a bad `page` is a 404, a bad `page_size` falls back to the default.
+        takes_input = "requestBody" in operation or any(
+            p["in"] == "query" and p["name"] not in PAGINATION_PARAMETERS for p in operation.get("parameters", [])
+        )
         if takes_input and "400" not in responses:
             problems.append(f"{name}: accepts input but documents no 400")
         if "400" in responses and not responses["400"]["content"]["application/json"].get("examples"):
@@ -214,6 +221,71 @@ def test_authentication_contract(api_client, check, monkeypatch):
     throttled = api_client.post(reverse("auth-login"), creds, format="json")
     assert throttled.status_code == 429
     check("/api/auth/login/", "post", throttled)
+
+
+@pytest.mark.django_db
+def test_account_security_contract(user, check, monkeypatch):
+    from rest_framework.test import APIClient
+
+    from apps.users import crypto, mfa
+    from apps.users.models import TotpDevice
+
+    password = "testpass123"
+    creds = {"email": user.email, "password": password}
+    browser = APIClient()
+    login = browser.post(reverse("auth-login"), creds, format="json", HTTP_X_AUTH_TRANSPORT="cookie")
+    check("/api/auth/login/", "post", login)  # access only; the refresh token is a cookie
+    check("/api/auth/refresh/", "post", browser.post(reverse("auth-refresh"), HTTP_X_AUTH_TRANSPORT="cookie"))
+    check("/api/auth/refresh/", "post", APIClient().post(reverse("auth-refresh"), HTTP_X_AUTH_TRANSPORT="cookie"))  # 401
+
+    client = APIClient()
+    client.credentials(HTTP_AUTHORIZATION=f"Bearer {login.json()['access']}")
+    phone = APIClient().post(reverse("auth-login"), creds, format="json", HTTP_X_CLIENT_PLATFORM="ios").json()
+    sessions = client.get(reverse("session-list"))
+    check("/api/auth/sessions/", "get", sessions)
+    phone_id = next(row["id"] for row in sessions.json() if row["platform"] == "ios")
+    check("/api/auth/sessions/{id}/", "delete", client.delete(reverse("session-detail", args=[phone_id])))
+    check("/api/auth/sessions/{id}/", "delete", client.delete(reverse("session-detail", args=[phone_id])))  # 404 now
+    assert phone["refresh"]
+
+    check("/api/auth/password/", "post", client.post(reverse("auth-password"), {"current_password": "x", "new_password": "y"}, format="json"))
+    check("/api/auth/2fa/", "get", client.get(reverse("auth-2fa")))
+    check("/api/auth/2fa/setup/", "post", client.post(reverse("auth-2fa-setup"), {"password": "wrong"}, format="json"))
+    check("/api/auth/2fa/setup/", "post", client.post(reverse("auth-2fa-setup"), {"password": password}, format="json"))
+    check("/api/auth/2fa/confirm/", "post", client.post(reverse("auth-2fa-confirm"), {"code": "000000"}, format="json"))
+    monkeypatch.setattr(mfa, "_now", lambda: 1_790_000_000.0)
+    secret = crypto.decrypt(TotpDevice.objects.get(user=user).encrypted_secret)
+    code = lambda offset: mfa.hotp(mfa._key(secret), mfa.current_step() + offset)  # noqa: E731
+    confirmed = client.post(reverse("auth-2fa-confirm"), {"code": code(0)}, format="json")
+    check("/api/auth/2fa/confirm/", "post", confirmed)
+    check("/api/auth/2fa/", "get", client.get(reverse("auth-2fa")))
+
+    challenge = APIClient().post(reverse("auth-login"), creds, format="json")
+    check("/api/auth/login/", "post", challenge)  # mfa_required
+    token = challenge.json()["mfa_token"]
+    check("/api/auth/login/verify/", "post", APIClient().post(reverse("auth-login-verify"), {"mfa_token": token, "code": "000000"}, format="json"))
+    check("/api/auth/login/verify/", "post", APIClient().post(reverse("auth-login-verify"), {}, format="json"))
+    check("/api/auth/login/verify/", "post", APIClient().post(reverse("auth-login-verify"), {"mfa_token": token, "code": code(1)}, format="json"))
+
+    recovery = confirmed.json()["recovery_codes"]
+    check("/api/auth/2fa/recovery-codes/", "post", client.post(reverse("auth-2fa-recovery-codes"), {"password": password, "code": "000000"}, format="json"))
+    check("/api/auth/2fa/recovery-codes/", "post", client.post(reverse("auth-2fa-recovery-codes"), {"password": password, "code": recovery[0]}, format="json"))
+    check("/api/auth/2fa/disable/", "post", client.post(reverse("auth-2fa-disable"), {"password": password, "code": code(-1)}, format="json"))
+
+    check("/api/auth/security-events/", "get", client.get(reverse("auth-security-events")))
+    check("/api/auth/security-events/", "get", client.get(reverse("auth-security-events"), {"category": "login"}))
+    check("/api/auth/security-events/", "get", client.get(reverse("auth-security-events"), {"category": "nope"}))
+    check("/api/auth/security-events/", "get", client.get(reverse("auth-security-events"), {"page": 99}))
+
+    for _ in range(5):
+        APIClient().post(reverse("auth-login"), {**creds, "password": "wrong"}, format="json")
+    locked = APIClient().post(reverse("auth-login"), creds, format="json")
+    assert locked.status_code == 429
+    check("/api/auth/login/", "post", locked)
+
+    check("/api/auth/password/", "post", client.post(reverse("auth-password"), {"current_password": password, "new_password": "a sturdy passphrase 2026"}, format="json"))
+    check("/api/auth/logout-all/", "post", client.post(reverse("auth-logout-all")))
+    check("/api/auth/logout-all/", "post", client.post(reverse("auth-logout-all")))  # 401: this session ended too
 
 
 @pytest.mark.django_db
@@ -441,6 +513,35 @@ def test_receipt_scanning_contract(auth_client, ledger, check, settings):
     FakeOcrProvider.error = OcrUnavailableError("engine missing")
     check("/api/receipts/scan/", "post", scan(make_image()))
     FakeOcrProvider.error = None
+
+
+@pytest.mark.django_db
+def test_assistant_contract(auth_client, ledger, check, settings):
+    settings.AI_ASSISTANT = {**settings.AI_ASSISTANT, "ENABLED": True, "CLIENT": "apps.analytics.conftest.FakeAnthropic"}
+    FakeAnthropic.requests, FakeAnthropic.timeouts = [], []
+    conversations = "/api/assistant/conversations/"
+    ask = lambda url, message: auth_client.post(url, {"message": message}, format="json")  # noqa: E731
+
+    check("/api/assistant/", "get", auth_client.get("/api/assistant/"))
+    FakeAnthropic.script = [tool_call_reply(("get_monthly_spending", AUG)), text_reply("You spent **170.00 EUR** in August.")]
+    created = ask(conversations, "What did I spend in August?")
+    check("/api/assistant/conversations/", "post", created)
+    check("/api/assistant/conversations/", "post", ask(conversations, ""))
+    FakeAnthropic.script = [anthropic.APIConnectionError(request=httpx2.Request("POST", "https://api.anthropic.com"))]
+    check("/api/assistant/conversations/", "post", ask(conversations, "Again?"))
+
+    detail = f"{conversations}{created.json()['conversation']['id']}/"
+    check("/api/assistant/conversations/", "get", auth_client.get(conversations))
+    check("/api/assistant/conversations/{id}/", "get", auth_client.get(detail))
+    FakeAnthropic.script = [text_reply("Food: 150.00 EUR.")]
+    check("/api/assistant/conversations/{id}/messages/", "post", ask(f"{detail}messages/", "Which category?"))
+    check("/api/assistant/conversations/{id}/messages/", "post", ask(f"{detail}messages/", "x" * 1001))
+    check("/api/assistant/conversations/{id}/", "delete", auth_client.delete(detail))
+    check("/api/assistant/conversations/{id}/", "get", auth_client.get(detail))
+
+    settings.AI_ASSISTANT = {**settings.AI_ASSISTANT, "ENABLED": False}
+    check("/api/assistant/", "get", auth_client.get("/api/assistant/"))
+    check("/api/assistant/conversations/", "post", ask(conversations, "Hi"))
 
 
 @pytest.mark.django_db

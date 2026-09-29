@@ -59,7 +59,14 @@ def month_date_range(year, month):
 
 
 def get_month_summary(user, year, month):
-    start, end = month_date_range(year, month)
+    result = get_period_summary(user, *month_date_range(year, month))
+    result["year"] = year
+    result["month"] = month
+    return result
+
+
+def get_period_summary(user, start: date, end: date) -> dict:
+    """Income, expenses, balance and transaction count from `start` to `end`, both included. One query."""
     result = Transaction.objects.filter(user=user, date__gte=start, date__lte=end).aggregate(
         total_income=Coalesce(
             Sum("base_amount", filter=Q(type=TransactionType.INCOME)), Value(ZERO), output_field=MONEY_OUTPUT
@@ -70,8 +77,6 @@ def get_month_summary(user, year, month):
         transaction_count=Count("id"),
     )
     result["balance"] = result["total_income"] - result["total_expenses"]
-    result["year"] = year
-    result["month"] = month
     return result
 
 
@@ -226,6 +231,25 @@ def compared_month(year, month, against=Against.PREVIOUS_MONTH):
     if against == Against.PREVIOUS_YEAR:
         return year - 1, month
     return previous_month(year, month)
+
+
+def comparison_ranges(year: int, month: int, today: date, against=Against.PREVIOUS_MONTH):
+    """(current range, compared range, is_month_to_date) for comparing a month with an earlier one.
+
+    A month still in progress compared with a whole earlier month would show almost every
+    category as "decreased" early in the month. So for the current month both periods are
+    cut at today's day of the month (clamped to the compared month's length).
+    """
+    compared_year, compared_month_number = compared_month(year, month, against)
+    current_start, current_end = month_date_range(year, month)
+    previous_start, previous_end = month_date_range(compared_year, compared_month_number)
+
+    is_month_to_date = (year, month) == (today.year, today.month)
+    if is_month_to_date:
+        current_end = today
+        previous_end = previous_start.replace(day=min(today.day, previous_end.day))
+
+    return (current_start, current_end), (previous_start, previous_end), is_month_to_date
 
 
 def get_category_comparison(user, current_range, previous_range):

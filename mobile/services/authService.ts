@@ -1,14 +1,22 @@
 import axios from "axios";
+import { Platform } from "react-native";
 import { apiClient, API_BASE_URL } from "./apiClient";
-import type { AuthTokens, LoginPayload, RegisterPayload, User } from "../types/auth";
+import type { AuthTokens, LoginPayload, LoginResult, MfaLoginPayload, RegisterPayload, User } from "../types/auth";
 
 const AUTH_TIMEOUT_MS = 15_000;
 
-export async function login(payload: LoginPayload): Promise<AuthTokens> {
+// Labels the new session in the account's device list ("iPhone app", "Android app").
+const SIGN_IN_REQUEST = { timeout: AUTH_TIMEOUT_MS, headers: { "X-Client-Platform": Platform.OS } };
+
+/** Password step: tokens, or — with two-factor authentication on — a challenge for `verifyMfa`. */
+export async function login(payload: LoginPayload): Promise<LoginResult> {
   // Bare axios (not apiClient): there is no session to attach or refresh yet.
-  const response = await axios.post<AuthTokens>(`${API_BASE_URL}/auth/login/`, payload, {
-    timeout: AUTH_TIMEOUT_MS,
-  });
+  const response = await axios.post<LoginResult>(`${API_BASE_URL}/auth/login/`, payload, SIGN_IN_REQUEST);
+  return response.data;
+}
+
+export async function verifyMfa(payload: MfaLoginPayload): Promise<AuthTokens> {
+  const response = await axios.post<AuthTokens>(`${API_BASE_URL}/auth/login/verify/`, payload, SIGN_IN_REQUEST);
   return response.data;
 }
 

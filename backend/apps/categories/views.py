@@ -4,6 +4,7 @@ from rest_framework.response import Response
 
 from apps.common.concurrency import ConditionalWriteMixin
 from apps.common.permissions import IsOwner
+from apps.users.audit import AuditedDeleteMixin
 
 from .models import Category
 from .openapi import CATEGORY_VIEWSET_SCHEMA
@@ -12,7 +13,7 @@ from .serializers import CategorySerializer
 
 
 @CATEGORY_VIEWSET_SCHEMA
-class CategoryViewSet(ConditionalWriteMixin, viewsets.ModelViewSet):
+class CategoryViewSet(AuditedDeleteMixin, ConditionalWriteMixin, viewsets.ModelViewSet):
     # Only the model matters here (schema tooling); requests always go through get_queryset().
     queryset = Category.objects.none()
     serializer_class = CategorySerializer

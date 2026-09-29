@@ -83,6 +83,7 @@ Required variables are **bold**. Everything else has a safe default.
 |---|---|---|
 | **`DJANGO_SECRET_KEY`** | — | 50+ random chars. Placeholders, `django-insecure…` or short keys stop the app at startup. |
 | **`DJANGO_ALLOWED_HOSTS`** | — | Public host name(s), comma-separated. `*` or an empty value stops the app. The first entry is also used by the container health check. |
+| **`FIELD_ENCRYPTION_KEY`** | — | 50+ random chars, **different from** `DJANGO_SECRET_KEY`. Encrypts two-factor secrets and keys the recovery-code hashes. Missing, short or equal to the secret key stops the app. Losing it turns 2FA off for everyone (they set it up again); keep it with your other secrets. |
 | **`POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD`** | — | Shared with the postgres container. |
 | `POSTGRES_HOST` / `POSTGRES_PORT` | `localhost` / `5432` | `postgres` inside `docker-compose.prod.yml`. |
 | `POSTGRES_SSLMODE` | `prefer` | Use `require` (or stricter) for a database reached over a network you don't control. |
@@ -94,14 +95,22 @@ Required variables are **bold**. Everything else has a safe default.
 | `CORS_ALLOWED_ORIGINS` | *(none)* | Only for a web front end on **another** domain. `https://` origins only (section 8). |
 | `CSRF_TRUSTED_ORIGINS` | *(none)* | Only if the Django admin is used through a different origin than its own host. |
 | `JWT_SIGNING_KEY` | `DJANGO_SECRET_KEY` | Optional separate key; rotating it signs everyone out. If set, it must also be 50+ chars. An **empty** value would disable signing security, so it stops the app. |
+| `AUTH_COOKIE_SECURE` | `True` | The web app's refresh-token cookie (HttpOnly, SameSite=Strict, path `/api/auth/`) is sent over HTTPS only. Turning it off stops the app in production. |
+| `DJANGO_ADMIN_ENABLED` / `DJANGO_ADMIN_URL` | `False` / `admin/` | The Django admin signs in with a password only (no 2FA, no lockout), so it is off in production. Enable it only behind a VPN or IP allow-list, preferably at a path of your own. |
+| `AUTH_MFA_RATE`, `AUTH_SENSITIVE_RATE` | `10/minute`, `20/hour` | Two-factor codes at sign-in (per IP); password change and 2FA changes (per user). |
 | `CACHE_URL` | `dbcache://spendly_cache` | Cache for rate-limit counters, shared by all workers. Use `redis://…` for high traffic (needs the `redis` package). |
 | `DJANGO_LOG_LEVEL` | `INFO` | All logs go to stdout. |
 | `WEB_CONCURRENCY` | `2` | gunicorn worker processes, about 100 MB RAM each. |
-| `GUNICORN_TIMEOUT` | `60` | Seconds per request. Receipt OCR is the slowest endpoint. |
+| `GUNICORN_THREADS` | `4` | Threads per worker: a request waiting on the network (an AI assistant answer waits seconds for the model) doesn't block the others. |
+| `GUNICORN_TIMEOUT` | `60` | Worker heartbeat timeout. With threads, nginx's `proxy_read_timeout` bounds a request (90 s; 150 s for `/api/assistant/`). |
 | `PORT` | `8000` | Listening port. Platforms like Cloud Run or Render set it themselves. |
 | `API_USER_RATE`, `AUTH_LOGIN_RATE`, `AUTH_REGISTER_RATE`, `AUTH_REFRESH_RATE`, `RECEIPT_SCAN_RATE` | see `.env.prod.example` | DRF rate format `N/second\|minute\|hour\|day`. |
 | `RECEIPT_OCR_PROVIDER`, `RECEIPT_OCR_LANGUAGES` | Tesseract, `hun+eng` | The OCR engine is swappable (see `apps/receipts/ocr`). |
 | `EXPO_PUSH_ACCESS_TOKEN` | *(none)* | Only if "Enhanced push security" is enabled in the Expo dashboard. |
+| `ANTHROPIC_API_KEY` | *(none)* | Turns the AI finance assistant on (Claude API). A secret: store it in the platform's secret manager. Without it the assistant answers `503 assistant_not_configured` and the apps show that it isn't set up. |
+| `AI_ASSISTANT_MODEL`, `AI_ASSISTANT_EFFORT` | `claude-opus-5`, `medium` | Model and thinking effort. Raise the effort if answers fall short; lower it for speed and cost. |
+| `AI_ASSISTANT_TIMEOUT`, `ASSISTANT_RATE` | `90`, `30/hour` | Seconds one answer may take in total; questions per user. Every question is a paid model call. |
+| `AI_ASSISTANT_FALLBACKS` | `True` | When a safety classifier declines a request, the Claude API re-runs it on Anthropic's recommended fallback model (beta `fallbacks: "default"`). |
 | `API_DOCS_ENABLED` | `False` (prod), `True` (dev) | Serves Swagger UI at `/api/docs/` and the OpenAPI schema at `/api/schema/`. Both are public when enabled, so turn them on deliberately. The committed `backend/openapi.yaml` is always available. |
 
 `DJANGO_SETTINGS_MODULE=config.settings.prod` is set inside the production image.
@@ -310,6 +319,16 @@ It is idempotent, so a missed or doubled run is harmless.
   ```
 - **Cloud:** use the platform's cron job feature (Render Cron Job, Cloud Scheduler +
   Cloud Run job, Fly Machines schedule) with the backend image and the same environment.
+
+### Security records
+
+`python manage.py prune_security_data` should run **once a day**. It enforces retention:
+audit events after 365 days (sign-in attempts for addresses without an account after 30),
+ended sessions after 90 days, and expired JWT bookkeeping rows.
+
+```
+15 3 * * * cd /srv/spendly && docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T backend python manage.py prune_security_data
+```
 
 ### Exchange rates
 

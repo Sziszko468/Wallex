@@ -7,6 +7,7 @@ import { AppLayout } from "./layouts/AppLayout";
 import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { AssistantPage } from "./pages/AssistantPage";
 import { TransactionsPage } from "./pages/TransactionsPage";
 import { RecurringTransactionsPage } from "./pages/RecurringTransactionsPage";
 import { SubscriptionsPage } from "./pages/SubscriptionsPage";
@@ -18,6 +19,7 @@ import { AchievementsPage } from "./pages/AchievementsPage";
 import { ImportPage } from "./pages/ImportPage";
 import { CategoriesPage } from "./pages/CategoriesPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { SecurityPage } from "./pages/SecurityPage";
 
 /** The whole route tree — rendered by tests inside a MemoryRouter. */
 export function AppRoutes() {
@@ -33,6 +35,8 @@ export function AppRoutes() {
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
           <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/assistant" element={<AssistantPage />} />
+          <Route path="/assistant/:conversationId" element={<AssistantPage />} />
           <Route path="/transactions" element={<TransactionsPage />} />
           <Route path="/recurring" element={<RecurringTransactionsPage />} />
           <Route path="/subscriptions" element={<SubscriptionsPage />} />
@@ -44,6 +48,7 @@ export function AppRoutes() {
           <Route path="/import" element={<ImportPage />} />
           <Route path="/categories" element={<CategoriesPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/settings/security" element={<SecurityPage />} />
         </Route>
       </Route>
 

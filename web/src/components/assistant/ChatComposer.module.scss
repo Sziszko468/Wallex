@@ -1,0 +1,58 @@
+@use "../../styles/variables" as vars;
+
+.composer {
+  display: flex;
+  flex-direction: column;
+  gap: vars.$space-xs;
+  padding: vars.$space-sm;
+  background-color: vars.$color-surface;
+  border: 1px solid vars.$color-border;
+  border-radius: vars.$radius-md;
+
+  &:focus-within {
+    border-color: vars.$color-primary;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  }
+}
+
+.label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.input {
+  width: 100%;
+  min-height: 3rem;
+  max-height: 10rem;
+  padding: vars.$space-xs;
+  font: inherit;
+  color: vars.$color-text;
+  background: transparent;
+  border: none;
+  resize: vertical;
+
+  &:focus {
+    outline: none;
+  }
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: vars.$space-sm;
+}
+
+.counter {
+  font-size: 0.75rem;
+  color: vars.$color-text-muted;
+}
+
+.send {
+  width: auto;
+  padding: 0.5rem vars.$space-lg;
+}

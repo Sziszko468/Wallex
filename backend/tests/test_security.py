@@ -13,6 +13,7 @@ import pytest
 from django.urls import URLPattern, URLResolver, get_resolver, reverse
 from rest_framework import status
 
+from apps.analytics.models import AssistantConversation, AssistantMessage
 from apps.budgets.models import Budget, SavingsGoal
 from apps.categories.models import Category, TransactionType
 from apps.notifications.models import Device, Notification, NotificationKind
@@ -20,7 +21,16 @@ from apps.subscriptions.models import Subscription
 from apps.transactions.models import Frequency, RecurringTransaction, Transaction
 
 # Endpoints that must work without a token. Health probes and the API docs return no user data.
-PUBLIC_ROUTES = {"auth-register", "auth-login", "auth-refresh", "health-live", "health-ready", "api-schema", "api-docs"}
+PUBLIC_ROUTES = {
+    "auth-register",
+    "auth-login",
+    "auth-login-verify",
+    "auth-refresh",
+    "health-live",
+    "health-ready",
+    "api-schema",
+    "api-docs",
+}
 
 
 def _api_routes():
@@ -110,10 +120,22 @@ def _device(user):
     return Device.objects.create(user=user, expo_push_token="ExponentPushToken[theirs]", platform="ios")
 
 
+def _session(user):
+    from apps.users.sessions import start_session
+
+    return start_session(user)[0]
+
+
 def _notification(user):
     return Notification.objects.create(
         user=user, kind=NotificationKind.INSIGHT, title="Financial insight", body="Theirs.", dedupe_key="theirs"
     )
+
+
+def _assistant_conversation(user):
+    conversation = AssistantConversation.objects.create(user=user, title="Their question")
+    AssistantMessage.objects.create(conversation=conversation, role="user", content="Their question")
+    return conversation
 
 
 # url name prefix -> factory for an object owned by the given user
@@ -126,6 +148,8 @@ OWNED_RESOURCES = {
     "subscription": _subscription,
     "device": _device,
     "notification": _notification,
+    "session": _session,
+    "assistantconversation": _assistant_conversation,
 }
 # Deleting a notification would let its event notify again (see NotificationViewSet).
 UNDELETABLE = {"notification"}

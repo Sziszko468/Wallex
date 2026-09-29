@@ -92,3 +92,49 @@ class UserAchievement(models.Model):
     def __str__(self):
         state = "unlocked" if self.is_unlocked else f"{self.progress}/{self.achievement.target}"
         return f"{self.user} · {self.achievement.name} ({state})"
+
+
+# --- AI finance assistant ----------------------------------------------------------------------
+
+
+class AssistantConversation(models.Model):
+    """A chat with the finance assistant. Shared by every device of the user (web, iOS, Android)."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="assistant_conversations"
+    )
+    # The first question, shortened — what the history list shows.
+    title = models.CharField(max_length=120)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at", "-id"]
+        indexes = [models.Index(fields=["user", "-updated_at"], name="assistant_conv_user_idx")]
+
+    def __str__(self):
+        return f"{self.user} · {self.title}"
+
+
+class AssistantRole(models.TextChoices):
+    USER = "user", "User"
+    ASSISTANT = "assistant", "Assistant"
+
+
+class AssistantMessage(models.Model):
+    """One question or answer. Only the text is kept — never the financial data the tools returned
+    (each question fetches fresh figures), just which tools an answer was based on."""
+
+    conversation = models.ForeignKey(AssistantConversation, on_delete=models.CASCADE, related_name="messages")
+    role = models.CharField(max_length=10, choices=AssistantRole.choices)
+    content = models.TextField()
+    # Assistant answers: the backend tools the answer is based on, e.g.
+    # [{"tool": "get_category_spending", "arguments": {"year": 2026, "month": 9}}].
+    sources = models.JSONField(default=list, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+
+    def __str__(self):
+        return f"{self.role}: {self.content[:50]}"

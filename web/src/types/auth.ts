@@ -15,9 +15,24 @@ export interface UpdateUserPayload {
   base_currency: CurrencyCode;
 }
 
-export interface AuthTokens {
+/** Browsers get only the access token; the refresh token is an HttpOnly cookie. */
+export interface AccessToken {
   access: string;
-  refresh: string;
+}
+
+/** The password was right, but two-factor authentication is on: a code is needed. */
+export interface MfaChallenge {
+  mfa_required: true;
+  mfa_token: string;
+  expires_in: number;
+}
+
+export type LoginResult = AccessToken | MfaChallenge;
+
+export interface MfaLoginPayload {
+  mfa_token: string;
+  /** Authenticator code, or an unused recovery code. */
+  code: string;
 }
 
 export interface LoginPayload {

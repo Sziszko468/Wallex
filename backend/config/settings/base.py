@@ -97,9 +97,12 @@ DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
 AUTH_USER_MODEL = "users.User"
 AUTHENTICATION_BACKENDS = ["apps.users.backends.CaseInsensitiveEmailBackend"]
 
+# Length is what makes a password strong: 12+ characters, long passphrases welcome (up to
+# 128), none of the 20,000 most common passwords, not only digits, not similar to the email.
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
-    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 12}},
+    {"NAME": "apps.users.validators.MaximumLengthValidator", "OPTIONS": {"max_length": 128}},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
@@ -116,8 +119,9 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 REST_FRAMEWORK = {
+    # JWT + the token's session must still be active (apps/users/authentication.py).
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "apps.users.authentication.SessionJWTAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.IsAuthenticated",
@@ -131,8 +135,14 @@ REST_FRAMEWORK = {
         "user": env("API_USER_RATE", default="2000/hour"),
         "auth_login": env("AUTH_LOGIN_RATE", default="10/minute"),
         "auth_register": env("AUTH_REGISTER_RATE", default="10/hour"),
+        # Two-factor codes on sign-in (per IP; the per-account lockout also counts them).
+        "auth_mfa": env("AUTH_MFA_RATE", default="10/minute"),
+        # Password change, 2FA setup/disable, new recovery codes (per user).
+        "auth_sensitive": env("AUTH_SENSITIVE_RATE", default="20/hour"),
         "auth_refresh": env("AUTH_REFRESH_RATE", default="30/minute"),
         "receipt_scan": env("RECEIPT_SCAN_RATE", default="30/hour"),
+        # Questions to the AI assistant (per user): every one is a paid model call.
+        "assistant": env("ASSISTANT_RATE", default="30/hour"),
     },
     # How many reverse proxies sit in front of Django. Throttling identifies
     # clients by IP; with None, DRF trusts X-Forwarded-For as sent, which an
@@ -168,6 +178,9 @@ SPECTACULAR_SETTINGS = {
         "AchievementCategoryEnum": "apps.analytics.openapi.ACHIEVEMENT_CATEGORY_CHOICES",
         "AchievementUnitEnum": "apps.analytics.openapi.ACHIEVEMENT_UNIT_CHOICES",
         "DevicePlatformEnum": "apps.notifications.models.DevicePlatform",
+        "ClientPlatformEnum": "apps.users.models.ClientPlatform",
+        "AuditActionEnum": "apps.users.models.AuditAction",
+        "AuditCategoryEnum": "apps.users.models.AuditCategory",
         "NotificationKindEnum": "apps.notifications.models.NotificationKind",
         "RelatedObjectTypeEnum": "apps.notifications.models.RelatedType",
         "InsightTypeEnum": "apps.analytics.openapi.INSIGHT_TYPE_CHOICES",
@@ -179,6 +192,9 @@ SPECTACULAR_SETTINGS = {
         "OcrConfidenceEnum": "apps.receipts.openapi.CONFIDENCE_CHOICES",
         "SuggestionSourceEnum": "apps.receipts.openapi.SOURCE_CHOICES",
         "ReceiptOutcomeEnum": "apps.receipts.openapi.OUTCOME_CHOICES",
+        "AssistantToolEnum": "apps.analytics.assistant.serializers.TOOL_CHOICES",
+        "AssistantRoleEnum": "apps.analytics.models.AssistantRole",
+        "AssistantErrorCodeEnum": "apps.analytics.assistant.openapi.ERROR_CODE_CHOICES",
     },
     "POSTPROCESSING_HOOKS": [
         "drf_spectacular.hooks.postprocess_schema_enums",
@@ -187,6 +203,7 @@ SPECTACULAR_SETTINGS = {
     "TAGS": [
         {"name": "Authentication", "description": "Register, obtain and refresh JWTs, log out."},
         {"name": "Users", "description": "The signed-in user's profile."},
+        {"name": "Account Security", "description": "Signed-in devices, signing out everywhere, password, two-factor authentication, security log."},
         {"name": "Transactions", "description": "Income and expense records — the core of the API."},
         {"name": "CSV Import", "description": "Bulk-create transactions from a bank export."},
         {"name": "Categories", "description": "Income/expense categories, including the 10 system defaults."},
@@ -198,6 +215,7 @@ SPECTACULAR_SETTINGS = {
         {"name": "Analytics", "description": "Read-only monthly summaries computed on the server."},
         {"name": "Financial Insights", "description": "Rule-based observations about a month's finances."},
         {"name": "Achievements", "description": "Milestones earned from the user's own data, with progress."},
+        {"name": "AI Assistant", "description": "Questions about the user's own finances, answered by Claude from read-only backend tools."},
         {"name": "Receipt Scanning", "description": "OCR suggestions from a receipt photo."},
         {"name": "Notifications", "description": "In-app notifications decided by the server, their preferences, and push devices."},
         {"name": "Sync", "description": "Keeping web, iPhone and Android in step: change detection, never-cached responses."},
@@ -217,8 +235,27 @@ CORS_ALLOWED_ORIGINS = env.list(
 # If-Match carries the version a conditional write is based on (apps/common/concurrency.py);
 # a browser on another origin may only send it once the preflight allows it. ETag is exposed
 # so browser clients can read it too.
-CORS_ALLOW_HEADERS = (*default_headers, "if-match")
+CORS_ALLOW_HEADERS = (*default_headers, "if-match", "x-auth-transport", "x-client-platform")
 CORS_EXPOSE_HEADERS = ["ETag"]
+# The web app's refresh token is an HttpOnly cookie (apps/users/cookies.py): cross-origin requests
+# may carry credentials — only for the explicit origins above, never for a wildcard.
+CORS_ALLOW_CREDENTIALS = True
+
+# --- Account security ----------------------------------------------------------------------
+# Browser refresh-token cookie: HttpOnly, sent only to /api/auth/, never to other sites.
+AUTH_REFRESH_COOKIE = {
+    "NAME": "spendly_refresh",
+    "PATH": "/api/auth/",
+    "SECURE": env.bool("AUTH_COOKIE_SECURE", default=True),
+    "SAMESITE": "Strict",
+}
+# Encrypts two-factor secrets and keys recovery-code hashes (apps/users/crypto.py). Production
+# requires a dedicated value: rotating SECRET_KEY must not make 2FA secrets unreadable.
+FIELD_ENCRYPTION_KEY = env("FIELD_ENCRYPTION_KEY", default=SECRET_KEY)
+# The Django admin has password-only sign-in: production keeps it off unless it is needed
+# (and then behind a VPN / IP allow-list), at a path of your choosing.
+ADMIN_ENABLED = env.bool("DJANGO_ADMIN_ENABLED", default=True)
+ADMIN_URL = env("DJANGO_ADMIN_URL", default="admin/")
 
 # Receipt scanning. The OCR engine is swappable: any class implementing
 # apps.receipts.ocr.OcrProvider, e.g. a cloud OCR adapter.
@@ -236,6 +273,26 @@ CSV_IMPORT_MAX_ROWS = 5000
 # Optional: only needed once "Enhanced push security" is enabled for the Expo project.
 EXPO_PUSH_ACCESS_TOKEN = env("EXPO_PUSH_ACCESS_TOKEN", default="")
 
+# --- AI finance assistant ----------------------------------------------------------------------
+# Answers questions about the user's own finances with Claude. The model never reaches the
+# database: all it can do is call the read-only tools in apps/analytics/assistant/tools.py,
+# which return aggregated figures of the signed-in user. Without an API key the feature is off.
+ANTHROPIC_API_KEY = env("ANTHROPIC_API_KEY", default="")
+AI_ASSISTANT = {
+    "ENABLED": bool(ANTHROPIC_API_KEY),
+    # Builds the model client (swappable, e.g. for tests).
+    "CLIENT": env("AI_ASSISTANT_CLIENT", default="apps.analytics.assistant.client.anthropic_client"),
+    "MODEL": env("AI_ASSISTANT_MODEL", default="claude-opus-5"),
+    # How hard the model thinks: "medium" keeps chat answers quick; raise it if answers fall short.
+    "EFFORT": env("AI_ASSISTANT_EFFORT", default="medium"),
+    "MAX_TOKENS": env.int("AI_ASSISTANT_MAX_TOKENS", default=16000),
+    # When a safety classifier declines a request, the Claude API re-runs it on Anthropic's
+    # recommended fallback model instead of refusing (Claude API only — off for other platforms).
+    "FALLBACKS": env.bool("AI_ASSISTANT_FALLBACKS", default=True),
+    # Seconds one answer may take in total, every model call and tool round included.
+    "TIMEOUT": env.int("AI_ASSISTANT_TIMEOUT", default=90),
+}
+
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
@@ -245,5 +302,8 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
     # A separate key can be rotated (signing everyone out) without touching SECRET_KEY.
     "SIGNING_KEY": env("JWT_SIGNING_KEY", default=SECRET_KEY),
-    "TOKEN_REFRESH_SERIALIZER": "apps.users.serializers.SafeTokenRefreshSerializer",
+    # Tokens name who issued them and for which API; tokens of another system signed with
+    # the same key are refused.
+    "ISSUER": "spendly",
+    "AUDIENCE": "spendly-api",
 }

@@ -58,6 +58,11 @@ export function formatDate(isoDate: string): string {
   });
 }
 
+/** A server timestamp (ISO 8601, UTC) in the viewer's time zone: "Sep 28, 2026, 14:05". */
+export function formatDateTime(isoTimestamp: string): string {
+  return new Date(isoTimestamp).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+}
+
 export function formatMonthYear(year: number, month: number): string {
   return new Date(year, month - 1, 1).toLocaleDateString(undefined, {
     month: "long",

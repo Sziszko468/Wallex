@@ -14,6 +14,7 @@ import {
   activateSession,
   clearSession,
   isRefreshTokenUsable,
+  revokeAllSessions,
   revokeSession,
   SessionClosedError,
   SessionExpiredError,
@@ -45,7 +46,7 @@ import {
 } from "../utils/offlineStore";
 import { getTokenUserId } from "../utils/jwt";
 import { isOfflineError } from "../utils/network";
-import type { LoginPayload, RegisterPayload, User } from "../types/auth";
+import type { AuthTokens, LoginPayload, RegisterPayload, User } from "../types/auth";
 import { logWarning } from "../utils/logging";
 
 /**
@@ -64,6 +65,9 @@ export type SignOutReason = "expired" | "biometricsUnavailable" | "storageError"
 // Re-lock when the app comes back after being in the background this long.
 const LOCK_AFTER_BACKGROUND_MS = 60_000;
 
+/** The password was checked: either signed in, or a two-factor code is needed. */
+export type LoginOutcome = { status: "signedIn" } | { status: "mfaRequired"; mfaToken: string };
+
 interface AuthContextValue {
   status: AuthStatus;
   user: User | null;
@@ -72,9 +76,13 @@ interface AuthContextValue {
   signOutReason: SignOutReason | null;
   biometricCapability: BiometricCapability | null;
   isBiometricLockEnabled: boolean;
-  login: (payload: LoginPayload) => Promise<void>;
+  login: (payload: LoginPayload) => Promise<LoginOutcome>;
+  /** Second step of a sign-in with two-factor authentication. */
+  verifyMfa: (mfaToken: string, code: string) => Promise<void>;
   register: (payload: RegisterPayload) => Promise<void>;
   logout: () => Promise<void>;
+  /** Signs every device of the account out, this one too. Throws (and stays signed in) if the server can't be reached. */
+  logoutEverywhere: () => Promise<void>;
   unlock: () => Promise<BiometricResult>;
   retry: () => Promise<void>;
   enableBiometricLock: () => Promise<BiometricResult>;
@@ -249,8 +257,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.remove();
   }, [isBiometricLockEnabled, status]);
 
-  const login = useCallback(async (payload: LoginPayload) => {
-    const tokens = await authService.login(payload);
+  const completeSignIn = useCallback(async (tokens: AuthTokens) => {
     await startSession(tokens);
     let currentUser: User;
     try {
@@ -262,6 +269,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     enterSignedIn(currentUser);
   }, [enterSignedIn]);
 
+  const login = useCallback(
+    async (payload: LoginPayload): Promise<LoginOutcome> => {
+      const result = await authService.login(payload);
+      if ("mfa_required" in result) {
+        return { status: "mfaRequired", mfaToken: result.mfa_token };
+      }
+      await completeSignIn(result);
+      return { status: "signedIn" };
+    },
+    [completeSignIn]
+  );
+
+  const verifyMfa = useCallback(
+    async (mfaToken: string, code: string) => {
+      await completeSignIn(await authService.verifyMfa({ mfa_token: mfaToken, code }));
+    },
+    [completeSignIn]
+  );
+
   const register = useCallback(
     async (payload: RegisterPayload) => {
       await authService.register(payload);
@@ -269,6 +295,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     [login]
   );
+
+  /** Everything this phone keeps about the signed-in user: the session, cached data, the last user. */
+  const forgetLocally = useCallback(
+    async (userId: number | null) => {
+      await clearSession();
+      // Cached data and unsynced transactions of this user (the UI warns first).
+      if (userId !== null) await clearUserData(userId).catch(warnOnFailure("Failed to clear offline data"));
+      await forgetLastUser().catch(warnOnFailure("Failed to forget last user"));
+      markSignedOut(null);
+    },
+    [markSignedOut]
+  );
+
+  const logoutEverywhere = useCallback(async () => {
+    const userId = await getSessionUserId();
+    try {
+      await unregisterCurrentDevice();
+    } catch (error) {
+      logWarning("Failed to unregister push device", error);
+    }
+    await revokeAllSessions(); // throws: still signed in everywhere, the screen says so
+    await forgetLocally(userId);
+  }, [forgetLocally]);
 
   const logout = useCallback(async () => {
     const userId = await getSessionUserId();
@@ -290,13 +339,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // and the refresh token expires on its own server-side.
       logWarning("Server-side logout failed", error);
     } finally {
-      await clearSession();
-      // Cached data and unsynced transactions of this user (the UI warns first).
-      if (userId !== null) await clearUserData(userId).catch(warnOnFailure("Failed to clear offline data"));
-      await forgetLastUser().catch(warnOnFailure("Failed to forget last user"));
-      markSignedOut(null);
+      await forgetLocally(userId);
     }
-  }, [markSignedOut]);
+  }, [forgetLocally]);
 
   const unlock = useCallback(async () => {
     const label = biometricCapability?.label ?? "Biometrics";
@@ -344,8 +389,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     biometricCapability,
     isBiometricLockEnabled,
     login,
+    verifyMfa,
     register,
     logout,
+    logoutEverywhere,
     unlock,
     retry,
     enableBiometricLock,

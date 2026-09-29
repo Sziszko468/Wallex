@@ -60,8 +60,13 @@ def hotp(key: bytes, counter: int, digits: int = DIGITS) -> str:
     return str(number % 10**digits).zfill(digits)
 
 
+def _now() -> float:
+    """The clock codes are checked against (tests replace it)."""
+    return time.time()
+
+
 def current_step(now: float | None = None) -> int:
-    return int((time.time() if now is None else now) // PERIOD)
+    return int((_now() if now is None else now) // PERIOD)
 
 
 def matching_step(secret: str, code: str, now: float | None = None) -> int | None:

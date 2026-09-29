@@ -118,6 +118,17 @@ Design goals:
   screen in the background. Edits carry the version they started from (`If-Match`), so a
   stale edit on one device can never silently overwrite a newer one: the user sees the other
   device's version instead. API responses are never cached.
+- **AI finance assistant:** a chat (web and mobile, one API) that answers questions such as
+  *What did I spend the most on this month?*, *Why did my spending go up?* or *How am I doing
+  with my Japan trip goal?*. The model (Claude, via the official Anthropic SDK) never touches
+  the database: it can only call seven read-only backend tools — monthly spending, spending by
+  category and by merchant, budget status, subscription costs, savings progress, month
+  comparison — which reuse the dashboard's services for the signed-in user and return
+  aggregated figures without ids, name or e-mail. Answers must come from those results; when
+  they aren't enough the assistant says *"Nem áll rendelkezésre elegendő adat."* (or the English
+  equivalent) instead of guessing, and every answer lists the data it was based on. The server
+  keeps the conversation history (text only, never the tool results), suggests questions from
+  the user's own data, and is off unless `ANTHROPIC_API_KEY` is set.
 - **Multi-currency:** EUR, HUF, USD, GBP, JPY and CHF. A transaction keeps the amount and
   currency it was paid in; its value in the user's base currency is fixed with the ECB
   reference rate of its date. Every total is in the base currency, and changing the base
@@ -272,7 +283,8 @@ Router). The platform differences are handled by Expo modules:
 
 | Area | Endpoints |
 |---|---|
-| Authentication | `POST /api/auth/register/` · `login/` · `refresh/` · `logout/` · `GET PATCH /api/auth/me/` |
+| Authentication | `POST /api/auth/register/` · `login/` · `login/verify/` (2FA) · `refresh/` · `logout/` · `GET PATCH /api/auth/me/` |
+| Account security | `POST /api/auth/logout-all/` · `GET /api/auth/sessions/` · `DELETE …/{id}/` · `POST /api/auth/password/` · `GET /api/auth/2fa/` · `POST …/2fa/setup/ confirm/ disable/ recovery-codes/` · `GET /api/auth/security-events/` |
 | Transactions | `GET POST /api/transactions/` · `GET PUT PATCH DELETE /api/transactions/{id}/` |
 | CSV import | `POST /api/transactions/import/` |
 | Categories | `GET POST /api/categories/` · `GET PATCH DELETE /api/categories/{id}/` |
@@ -404,10 +416,12 @@ JWT access and refresh tokens (SimpleJWT):
   - The access token is refreshed proactively before it expires.
   - A session that can't reach the server is kept rather than dropped.
   - An optional biometric lock gates the app.
-- **Web:** the tokens are kept in `localStorage`. The risk is reduced by a strict
-  Content-Security-Policy, short-lived access tokens and rotation. Moving the refresh token
-  to an `HttpOnly` cookie is the planned upgrade (see
-  [Future improvements](#future-improvements)).
+- **Web:** the refresh token is an `HttpOnly`, `Secure`, `SameSite=Strict` cookie that page
+  scripts can never read; the access token lives only in memory, and a reload gets a new one
+  from the cookie.
+- **Sessions:** every sign-in is a session tied to its device. Signing a device out, or out
+  everywhere, stops its tokens on the very next request; a reused refresh token revokes the
+  whole session as a precaution.
 
 ## Docker
 
@@ -521,13 +535,23 @@ fixed. The details are in [docs/security-audit.md](docs/security-audit.md). High
   object-level permissions; other users' data returns `404`.
 - **Rate limiting:** on login, registration, token refresh and OCR, with proxy-aware
   client IPs; the shared cache counts across all workers.
-- **Tokens:** JWT rotation with a blacklist; logout can only revoke the caller's own token.
+- **Sessions and tokens:** one session per device, revocable at once (device list, "log out of
+  all devices", password change signs other devices out); refresh-token reuse revokes the
+  session; 30-day absolute lifetime; tokens carry issuer and audience.
+- **Brute force:** per-IP rate limits plus a per-account lock after 5 wrong passwords or
+  codes in 15 minutes (from any address).
+- **Two-factor authentication:** authenticator-app codes (TOTP) with replay protection,
+  single-use recovery codes, secrets encrypted at rest.
+- **Audit log:** sign-ins (also failed ones), security changes and every deletion of
+  financial data, with device and address; users see their own login history.
+- **User isolation, checked everywhere:** a test calls every readable endpoint as user A
+  with user B's data marked by a canary and B's ids in the URLs; nothing of B's may appear.
 - **Validation:** strict input validation, and upload limits enforced before the body is
   parsed (`413`). CSV and image uploads are validated: size, format, decompression bombs.
 - **Production settings refuse to start** with an unsafe configuration.
   `manage.py check --deploy` passes, and HSTS, secure cookies and secure headers are set.
-- **Web:** Content-Security-Policy, `frame-ancestors 'none'`, nosniff, a strict referrer
-  policy.
+- **Web:** HttpOnly refresh cookie, memory-only access token, Content-Security-Policy,
+  `frame-ancestors 'none'`, nosniff, a strict referrer policy.
 - **Mobile:**
   - Keychain/Keystore storage and Android backup disabled,
   - https-only release builds and a biometric lock,
@@ -580,8 +604,9 @@ spendly/
   only on read.
 - **Savings history:** a log of each deposit and withdrawal (the goal currently keeps only its
   balance), enabling a savings-rate chart and "on track for the target date" hints.
-- **Web auth hardening:** move the refresh token to an `HttpOnly`, `SameSite` cookie and
-  keep the access token in memory only.
+- **Account recovery and security on mobile:** password reset by e-mail (needs e-mail
+  delivery); the device list and 2FA setup in the mobile app (it already signs in with 2FA
+  and can log out of all devices); a QR code for 2FA setup.
 - **CI/CD:** GitHub Actions for tests, type checks, migration checks and image builds on
   every pull request.
 - **Generated API client:** TypeScript types for both apps generated from `openapi.yaml`,
@@ -591,4 +616,8 @@ spendly/
 - **End-to-end tests:** Playwright (web) and Maestro (mobile) on real flows.
 - **Mobile currencies:** a currency picker on the mobile transaction form (the receipt
   confirmation screen has one; the manual form still records in the base currency).
+- **Streaming assistant answers:** the answer appears only when complete (a few seconds with a
+  progress indicator); streaming it word by word needs SSE on the server and a streaming HTTP
+  client on React Native. An eval set of real questions would also help tune the prompt and
+  the `effort` setting against the actual model.
 - **UX:** proper tab-bar icons, dark mode, Hungarian localisation.

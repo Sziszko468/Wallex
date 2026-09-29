@@ -1,16 +1,16 @@
 import { http, HttpResponse } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { apiClient, setOnAuthFailure } from "./apiClient";
-import { getAccessToken, getRefreshToken, setTokens } from "../utils/tokenStorage";
+import { getAccessToken, setAccessToken } from "../utils/tokenStorage";
 import { API, server } from "../test/server";
 import { subscribeLocalWrites } from "./localWrites";
 
 describe("apiClient", () => {
   beforeEach(() => {
-    setTokens({ access: "old-access", refresh: "old-refresh" });
+    setAccessToken("old-access");
   });
 
-  it("sends the stored access token", async () => {
+  it("sends the access token from memory", async () => {
     let authHeader: string | null = null;
     server.use(
       http.get(`${API}/categories/`, ({ request }) => {
@@ -24,22 +24,27 @@ describe("apiClient", () => {
     expect(authHeader).toBe("Bearer old-access");
   });
 
-  it("refreshes an expired access token once and retries the request", async () => {
+  it("refreshes an expired access token with the refresh cookie and retries once", async () => {
+    const refreshes: { transport: string | null; body: unknown }[] = [];
     server.use(
       http.get(`${API}/categories/`, ({ request }) =>
         request.headers.get("Authorization") === "Bearer new-access"
           ? HttpResponse.json([{ id: 1 }])
           : HttpResponse.json({ detail: "Token expired" }, { status: 401 })
       ),
-      http.post(`${API}/auth/refresh/`, () => HttpResponse.json({ access: "new-access", refresh: "new-refresh" }))
+      http.post(`${API}/auth/refresh/`, async ({ request }) => {
+        refreshes.push({ transport: request.headers.get("X-Auth-Transport"), body: await request.json() });
+        return HttpResponse.json({ access: "new-access" });
+      })
     );
 
     const response = await apiClient.get("/categories/");
 
     expect(response.data).toEqual([{ id: 1 }]);
     expect(getAccessToken()).toBe("new-access");
-    // The backend rotates refresh tokens — the new one must replace the old.
-    expect(getRefreshToken()).toBe("new-refresh");
+    // The browser sends the HttpOnly cookie; the page never holds a refresh token to send.
+    expect(refreshes).toEqual([{ transport: "cookie", body: {} }]);
+    expect(Object.keys(localStorage)).toEqual([]);
   });
 
   it("shares ONE refresh between concurrent 401s (rotation would break a second one)", async () => {
@@ -53,7 +58,7 @@ describe("apiClient", () => {
       http.post(`${API}/auth/refresh/`, async () => {
         refreshCalls();
         await new Promise((resolve) => setTimeout(resolve, 20));
-        return HttpResponse.json({ access: "new-access", refresh: "new-refresh" });
+        return HttpResponse.json({ access: "new-access" });
       })
     );
 
@@ -67,19 +72,20 @@ describe("apiClient", () => {
     expect(refreshCalls).toHaveBeenCalledTimes(1);
   });
 
-  it("signs the user out when the refresh token is rejected", async () => {
+  it("signs the user out when the session has ended", async () => {
     const onAuthFailure = vi.fn();
     setOnAuthFailure(onAuthFailure);
     server.use(
       http.get(`${API}/categories/`, () => HttpResponse.json({ detail: "expired" }, { status: 401 })),
-      http.post(`${API}/auth/refresh/`, () => HttpResponse.json({ detail: "blacklisted" }, { status: 401 }))
+      http.post(`${API}/auth/refresh/`, () =>
+        HttpResponse.json({ detail: "Your session has ended.", code: "session_ended" }, { status: 401 })
+      )
     );
 
     await expect(apiClient.get("/categories/")).rejects.toThrow();
 
     expect(onAuthFailure).toHaveBeenCalledOnce();
     expect(getAccessToken()).toBeNull();
-    expect(getRefreshToken()).toBeNull();
   });
 
   it("does not retry forever when the new token is rejected too", async () => {
@@ -112,43 +118,46 @@ describe("apiClient", () => {
 
 describe("apiClient and other tabs / devices", () => {
   beforeEach(() => {
-    setTokens({ access: "old-access", refresh: "old-refresh" });
+    setAccessToken("old-access");
   });
 
-  it("reports successful writes (so every view can reload) — but not reads, failures or token refreshes", async () => {
+  it("reports data writes (so every view can reload) — not reads, failures or account calls", async () => {
     const writes = vi.fn();
     const unsubscribe = subscribeLocalWrites(writes);
     server.use(
       http.post(`${API}/budgets/`, () => HttpResponse.json({ id: 1 }, { status: 201 })),
       http.delete(`${API}/budgets/:id/`, () => HttpResponse.json({ detail: "Not found." }, { status: 404 })),
-      http.post(`${API}/auth/logout/`, () => HttpResponse.json({ detail: "ok" }))
+      http.post(`${API}/auth/logout/`, () => HttpResponse.json({ detail: "ok" })),
+      http.post(`${API}/auth/password/`, () => HttpResponse.json({ revoked_sessions: 1 }))
     );
 
     await apiClient.get("/categories/");
     await apiClient.post("/budgets/", {});
     await apiClient.delete("/budgets/5/").catch(() => undefined);
     await apiClient.post("/auth/logout/", {});
+    await apiClient.post("/auth/password/", {});
+    await apiClient.patch("/auth/me/", { base_currency: "HUF" }); // changes every amount shown
     unsubscribe();
 
-    expect(writes).toHaveBeenCalledTimes(1);
+    expect(writes).toHaveBeenCalledTimes(2);
   });
 
-  it("uses the token another tab just refreshed instead of spending the used-up one", async () => {
-    const refreshCalls = vi.fn();
+  it("refreshes under a lock shared by the browser's tabs", async () => {
+    const order: string[] = [];
     server.use(
       http.get(`${API}/categories/`, ({ request }) =>
-        request.headers.get("Authorization") === "Bearer tab2-access"
+        request.headers.get("Authorization") === "Bearer new-access"
           ? HttpResponse.json([{ id: 1 }])
           : HttpResponse.json({ detail: "Token expired" }, { status: 401 })
       ),
       http.post(`${API}/auth/refresh/`, () => {
-        refreshCalls();
-        return HttpResponse.json({ detail: "Token is blacklisted" }, { status: 401 });
+        order.push("refresh");
+        return HttpResponse.json({ access: "new-access" });
       })
     );
-    // While this tab waited for the lock, the other tab refreshed and stored the new pair.
+    // Another tab holds the lock first; this tab's refresh starts only after it is released.
     const request = vi.fn(async (_name: string, task: () => Promise<unknown>) => {
-      setTokens({ access: "tab2-access", refresh: "tab2-refresh" });
+      order.push("other tab done");
       return task();
     });
     Object.defineProperty(navigator, "locks", { value: { request }, configurable: true });
@@ -157,8 +166,7 @@ describe("apiClient and other tabs / devices", () => {
 
       expect(response.data).toEqual([{ id: 1 }]);
       expect(request).toHaveBeenCalledWith("spendly-token-refresh", expect.any(Function));
-      expect(refreshCalls).not.toHaveBeenCalled(); // the rotated-away token was never sent
-      expect(getRefreshToken()).toBe("tab2-refresh");
+      expect(order).toEqual(["other tab done", "refresh"]);
     } finally {
       Reflect.deleteProperty(navigator, "locks");
     }

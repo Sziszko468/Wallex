@@ -1,0 +1,86 @@
+@use "../../styles/variables" as vars;
+
+.card {
+  background-color: vars.$color-surface;
+  border: 1px solid vars.$color-border;
+  border-radius: vars.$radius-md;
+  padding: vars.$space-lg;
+  margin-bottom: vars.$space-md;
+  max-width: 640px;
+}
+
+.hint {
+  margin-top: 0;
+  font-size: vars.$font-size-sm;
+  color: vars.$color-text-muted;
+}
+
+.notice {
+  padding: vars.$space-sm vars.$space-md;
+  border-radius: vars.$radius-sm;
+  background-color: rgba(22, 163, 74, 0.1);
+  color: vars.$color-success;
+  font-size: vars.$font-size-sm;
+}
+
+.list {
+  list-style: none;
+  margin: 0 0 vars.$space-md;
+  padding: 0;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: vars.$space-md;
+  padding: vars.$space-sm 0;
+  border-bottom: 1px solid vars.$color-border;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.meta {
+  font-size: vars.$font-size-sm;
+  color: vars.$color-text-muted;
+  overflow-wrap: anywhere;
+}
+
+.badge {
+  margin-left: vars.$space-sm;
+  padding: 2px vars.$space-sm;
+  border-radius: 999px;
+  background-color: rgba(79, 70, 229, 0.1);
+  color: vars.$color-primary;
+  font-size: vars.$font-size-sm;
+  font-weight: 600;
+}
+
+.failed {
+  color: vars.$color-danger;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: vars.$space-sm;
+}
+
+.secret code,
+.codes code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 1rem;
+  letter-spacing: 0.05em;
+}
+
+.codes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: vars.$space-xs vars.$space-md;
+  list-style: none;
+  padding: vars.$space-md;
+  border: 1px dashed vars.$color-border;
+  border-radius: vars.$radius-sm;
+}

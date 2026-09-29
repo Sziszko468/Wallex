@@ -1,7 +1,6 @@
 import pytest
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
-from rest_framework_simplejwt.tokens import RefreshToken
 
 User = get_user_model()
 
@@ -25,9 +24,17 @@ def api_client():
     return APIClient()
 
 
+def issue_tokens(django_user):
+    """A signed-in device: a real session and its token pair (tokens without a session are refused)."""
+    from apps.users.sessions import start_session
+
+    _, refresh = start_session(django_user)
+    return refresh.access_token, refresh
+
+
 def _authenticated_client(django_user):
     client = APIClient()
-    access = RefreshToken.for_user(django_user).access_token
+    access, _ = issue_tokens(django_user)
     client.credentials(HTTP_AUTHORIZATION=f"Bearer {access}")
     return client
 
@@ -88,3 +95,13 @@ def reset_throttle_counters():
     from django.core.cache import cache
 
     cache.clear()
+
+
+def refuse_model_client():
+    raise AssertionError("Tests must not call the real model API; use the `fake_model` fixture (apps/analytics/conftest.py).")
+
+
+@pytest.fixture(autouse=True)
+def no_model_calls(settings):
+    """No test may reach the Anthropic API, even when an ANTHROPIC_API_KEY is configured locally."""
+    settings.AI_ASSISTANT = {**settings.AI_ASSISTANT, "CLIENT": "conftest.refuse_model_client"}

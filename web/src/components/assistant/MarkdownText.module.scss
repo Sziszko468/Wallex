@@ -1,0 +1,24 @@
+@use "../../styles/variables" as vars;
+
+.markdown {
+  display: flex;
+  flex-direction: column;
+  gap: vars.$space-sm;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+
+  p,
+  ul,
+  ol {
+    margin: 0;
+  }
+
+  ul,
+  ol {
+    padding-left: 1.25rem;
+  }
+
+  li + li {
+    margin-top: 0.15rem;
+  }
+}

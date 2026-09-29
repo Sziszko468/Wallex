@@ -5,6 +5,7 @@ from rest_framework.response import Response
 
 from apps.common.concurrency import ConditionalWriteMixin
 from apps.common.permissions import IsOwner
+from apps.users.audit import AuditedDeleteMixin
 
 from . import services
 from .models import Subscription
@@ -15,7 +16,7 @@ STATUS_ORDER = {services.Status.ACTIVE: 0, services.Status.PAUSED: 1, services.S
 
 
 @SUBSCRIPTION_VIEWSET_SCHEMA
-class SubscriptionViewSet(ConditionalWriteMixin, viewsets.ModelViewSet):
+class SubscriptionViewSet(AuditedDeleteMixin, ConditionalWriteMixin, viewsets.ModelViewSet):
     # Only the model matters here (schema tooling); requests always go through get_queryset().
     queryset = Subscription.objects.none()
     serializer_class = SubscriptionSerializer

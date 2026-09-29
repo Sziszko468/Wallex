@@ -1,0 +1,135 @@
+@use "../../styles/variables" as vars;
+
+.thread {
+  display: flex;
+  flex-direction: column;
+}
+
+.messages {
+  display: flex;
+  flex-direction: column;
+  gap: vars.$space-md;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fromUser,
+.fromAssistant {
+  display: flex;
+  flex-direction: column;
+  gap: vars.$space-xs;
+  max-width: 100%;
+
+  @media (min-width: vars.$breakpoint-tablet) {
+    max-width: 85%;
+  }
+}
+
+.fromUser {
+  align-self: flex-end;
+  align-items: flex-end;
+
+  .bubble {
+    background-color: vars.$color-primary;
+    color: white;
+    border-bottom-right-radius: vars.$radius-sm;
+  }
+}
+
+.fromAssistant {
+  align-self: flex-start;
+  align-items: flex-start;
+
+  .bubble {
+    background-color: vars.$color-surface;
+    border: 1px solid vars.$color-border;
+    border-bottom-left-radius: vars.$radius-sm;
+  }
+}
+
+.bubble {
+  padding: 0.65rem vars.$space-md;
+  border-radius: 16px;
+  font-size: 0.95rem;
+}
+
+.question {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+
+.sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: vars.$space-xs;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  &::before {
+    content: "Based on:";
+    align-self: center;
+    font-size: 0.75rem;
+    color: vars.$color-text-muted;
+  }
+}
+
+.source {
+  padding: 0.1rem vars.$space-sm;
+  font-size: 0.75rem;
+  color: vars.$color-primary-dark;
+  background-color: rgba(99, 102, 241, 0.08);
+  border-radius: 999px;
+}
+
+.sourceDetail {
+  color: vars.$color-text-muted;
+}
+
+.thinking {
+  display: inline-flex;
+  align-items: center;
+  gap: vars.$space-sm;
+  color: vars.$color-text-muted;
+}
+
+.dots {
+  display: inline-flex;
+  gap: 3px;
+
+  span {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background-color: vars.$color-text-muted;
+    animation: blink 1.2s infinite ease-in-out;
+  }
+
+  span:nth-child(2) {
+    animation-delay: 0.2s;
+  }
+
+  span:nth-child(3) {
+    animation-delay: 0.4s;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    span {
+      animation: none;
+    }
+  }
+}
+
+@keyframes blink {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+  }
+  40% {
+    opacity: 1;
+  }
+}

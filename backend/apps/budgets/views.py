@@ -8,6 +8,7 @@ from apps.common.concurrency import ConditionalWriteMixin
 from apps.common.permissions import IsOwner
 from apps.currencies.rates import Converter
 from apps.notifications.rules import check_budget_thresholds, check_savings_goal
+from apps.users.audit import AuditedDeleteMixin
 
 from . import savings
 from .models import Budget, SavingsGoal, SavingsGoalStatus
@@ -22,7 +23,7 @@ from .serializers import BudgetSerializer, MoneyMovementSerializer, SavingsGoalS
 
 
 @BUDGET_VIEWSET_SCHEMA
-class BudgetViewSet(ConditionalWriteMixin, viewsets.ModelViewSet):
+class BudgetViewSet(AuditedDeleteMixin, ConditionalWriteMixin, viewsets.ModelViewSet):
     # Only the model matters here (schema tooling); requests always go through get_queryset().
     queryset = Budget.objects.none()
     serializer_class = BudgetSerializer
@@ -54,7 +55,7 @@ def _progress(goal: SavingsGoal):
 
 
 @SAVINGS_GOAL_VIEWSET_SCHEMA
-class SavingsGoalViewSet(ConditionalWriteMixin, viewsets.ModelViewSet):
+class SavingsGoalViewSet(AuditedDeleteMixin, ConditionalWriteMixin, viewsets.ModelViewSet):
     # Only the model matters here (schema tooling); requests always go through get_queryset().
     queryset = SavingsGoal.objects.none()
     serializer_class = SavingsGoalSerializer

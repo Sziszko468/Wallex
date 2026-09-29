@@ -167,4 +167,60 @@ describe("auth state machine (app start, lock, offline, logout)", () => {
     expect(await getRefreshToken()).toBeNull();
     expect((await AsyncStorage.getAllKeys()).filter((key) => key.startsWith("spendly_offline"))).toEqual([]);
   });
+
+  it("two-factor on: the password alone stores nothing, the code signs in", async () => {
+    mockAuthService.login.mockResolvedValue({ mfa_required: true, mfa_token: "challenge-1", expires_in: 300 });
+    mockAuthService.verifyMfa.mockResolvedValue({
+      access: makeJwt({ expiresInSeconds: 900 }),
+      refresh: makeJwt({ expiresInSeconds: 3600 }),
+    });
+    mockAuthService.getCurrentUser.mockResolvedValue(anna);
+    const { result } = await renderAuth();
+
+    let outcome: Awaited<ReturnType<typeof result.current.login>> | undefined;
+    await act(async () => {
+      outcome = await result.current.login({ email: anna.email, password: "pw" });
+    });
+    expect(outcome).toEqual({ status: "mfaRequired", mfaToken: "challenge-1" });
+    expect(result.current.status).toBe("signedOut");
+    expect(await getRefreshToken()).toBeNull();
+
+    await act(() => result.current.verifyMfa("challenge-1", "492039"));
+
+    expect(mockAuthService.verifyMfa).toHaveBeenCalledWith({ mfa_token: "challenge-1", code: "492039" });
+    expect(result.current.status).toBe("signedIn");
+    expect(await getRefreshToken()).not.toBeNull();
+  });
+
+  it("log out of all devices: the server ends every session, then this phone forgets its own", async () => {
+    mockAuthService.login.mockResolvedValue({
+      access: makeJwt({ expiresInSeconds: 900 }),
+      refresh: makeJwt({ expiresInSeconds: 3600 }),
+    });
+    mockAuthService.getCurrentUser.mockResolvedValue(anna);
+    const { result } = await renderAuth();
+    await act(() => result.current.login({ email: anna.email, password: "pw" }));
+
+    await act(() => result.current.logoutEverywhere());
+
+    expect(axios.post).toHaveBeenCalledWith(expect.stringContaining("/auth/logout-all/"), {}, expect.anything());
+    expect(result.current.status).toBe("signedOut");
+    expect(await getRefreshToken()).toBeNull();
+  });
+
+  it("log out of all devices while offline: nothing changes, the error reaches the screen", async () => {
+    mockAuthService.login.mockResolvedValue({
+      access: makeJwt({ expiresInSeconds: 900 }),
+      refresh: makeJwt({ expiresInSeconds: 3600 }),
+    });
+    mockAuthService.getCurrentUser.mockResolvedValue(anna);
+    const { result } = await renderAuth();
+    await act(() => result.current.login({ email: anna.email, password: "pw" }));
+    jest.mocked(axios.post).mockRejectedValueOnce(networkError());
+
+    await expect(act(() => result.current.logoutEverywhere())).rejects.toBeTruthy();
+
+    expect(result.current.status).toBe("signedIn"); // the other devices are still signed in too
+    expect(await getRefreshToken()).not.toBeNull();
+  });
 });

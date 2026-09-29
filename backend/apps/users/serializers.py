@@ -2,13 +2,14 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
-from rest_framework.exceptions import AuthenticationFailed
-from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 
 from apps.categories.defaults import create_default_categories
 from apps.currencies.rates import ConversionError
 from apps.currencies.services import change_base_currency
+
+from .models import AUDIT_CATEGORIES, AuditCategory, AuditEvent, UserSession
 
 User = get_user_model()
 
@@ -17,7 +18,9 @@ class RegisterSerializer(serializers.ModelSerializer):
     # max_length: the email is also stored as `username` (max 150 characters).
     email = serializers.EmailField(max_length=150, help_text="Login name. Stored lower-cased; unique.")
     password = serializers.CharField(
-        write_only=True, required=True, help_text="At least 8 characters, not common, not only digits."
+        write_only=True,
+        required=True,
+        help_text="12–128 characters, not a common password, not only digits, not similar to the email or name.",
     )
     password_confirm = serializers.CharField(write_only=True, required=True, help_text="Must equal `password`.")
 
@@ -64,18 +67,6 @@ class RegisterSerializer(serializers.ModelSerializer):
         return user
 
 
-class SafeTokenRefreshSerializer(TokenRefreshSerializer):
-    """simplejwt looks the token's user up with .get() — a deleted user would be a 500."""
-
-    def validate(self, attrs):
-        try:
-            return super().validate(attrs)
-        except User.DoesNotExist as error:
-            raise AuthenticationFailed(
-                "No active account found for the given token.", "no_active_account"
-            ) from error
-
-
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -99,3 +90,109 @@ class UserSerializer(serializers.ModelSerializer):
             except ConversionError as error:
                 raise serializers.ValidationError({"base_currency": [str(error)]}) from error
         return instance
+
+
+def check_new_password(password: str, user) -> None:
+    """The password policy (AUTH_PASSWORD_VALIDATORS) as a DRF validation error."""
+    try:
+        validate_password(password, user=user)
+    except DjangoValidationError as exc:
+        raise serializers.ValidationError(list(exc.messages)) from exc
+
+
+# --- Signing in ----------------------------------------------------------------------------
+
+
+class LoginSerializer(serializers.Serializer):
+    email = serializers.EmailField(max_length=254, help_text="Case-insensitive.")
+    password = serializers.CharField(write_only=True, max_length=4096, trim_whitespace=False)
+
+
+class MfaLoginSerializer(serializers.Serializer):
+    mfa_token = serializers.CharField(max_length=512, help_text="From the `POST /api/auth/login/` answer.")
+    code = serializers.CharField(
+        max_length=32, help_text="6-digit code from the authenticator app, or an unused recovery code."
+    )
+
+
+class RefreshRequestSerializer(serializers.Serializer):
+    refresh = serializers.CharField(
+        required=False,
+        help_text="The current refresh token (apps). Browsers leave it out: theirs is in an HttpOnly cookie.",
+    )
+
+
+# --- Account security -------------------------------------------------------------------------
+
+
+class PasswordChangeSerializer(serializers.Serializer):
+    current_password = serializers.CharField(write_only=True, max_length=4096, trim_whitespace=False)
+    new_password = serializers.CharField(write_only=True, max_length=4096, trim_whitespace=False)
+
+    def validate_current_password(self, value):
+        if not self.context["request"].user.check_password(value):
+            raise serializers.ValidationError("Wrong password.")
+        return value
+
+    def validate_new_password(self, value):
+        check_new_password(value, self.context["request"].user)
+        return value
+
+    def validate(self, attrs):
+        if attrs["current_password"] == attrs["new_password"]:
+            raise serializers.ValidationError({"new_password": ["Choose a password you haven't used here."]})
+        return attrs
+
+
+class PasswordConfirmationSerializer(serializers.Serializer):
+    """Sensitive changes need the password again, so a borrowed signed-in device isn't enough."""
+
+    password = serializers.CharField(write_only=True, max_length=4096, trim_whitespace=False)
+
+    def validate_password(self, value):
+        if not self.context["request"].user.check_password(value):
+            raise serializers.ValidationError("Wrong password.")
+        return value
+
+
+class MfaCodeSerializer(serializers.Serializer):
+    code = serializers.CharField(max_length=32, help_text="6-digit code from the authenticator app.")
+
+
+class PasswordAndCodeSerializer(PasswordConfirmationSerializer):
+    code = serializers.CharField(max_length=32, help_text="Authenticator code or an unused recovery code.")
+
+
+class SessionSerializer(serializers.ModelSerializer):
+    current = serializers.SerializerMethodField(help_text="The session this request was made with.")
+
+    class Meta:
+        model = UserSession
+        fields = ["id", "platform", "user_agent", "ip_address", "created_at", "last_used_at", "expires_at", "current"]
+        extra_kwargs = {
+            "platform": {"help_text": "`web`, `ios`, `android` or `unknown`."},
+            "user_agent": {"help_text": "Browser or app, as it identified itself."},
+            "ip_address": {"help_text": "Address of the last token refresh."},
+            "created_at": {"help_text": "When the user signed in on this device."},
+            "last_used_at": {"help_text": "Last token refresh (at most ~15 minutes behind real use)."},
+            "expires_at": {"help_text": "After this the device must sign in again."},
+        }
+
+    def get_current(self, session) -> bool:
+        return str(session.key) == str(self.context.get("current_session_key"))
+
+
+class AuditEventSerializer(serializers.ModelSerializer):
+    description = serializers.CharField(source="get_action_display", help_text="Human-readable action.")
+    category = serializers.SerializerMethodField(help_text="`login`, `account` or `data`.")
+
+    class Meta:
+        model = AuditEvent
+        fields = ["id", "action", "description", "category", "ip_address", "user_agent", "metadata", "created_at"]
+        extra_kwargs = {
+            "metadata": {"help_text": "Details of the event, e.g. `{\"method\": \"totp\"}` or the deleted object."},
+        }
+
+    @extend_schema_field(serializers.ChoiceField(choices=AuditCategory.choices))
+    def get_category(self, event) -> str:
+        return next(category for category, actions in AUDIT_CATEGORIES.items() if event.action in actions)

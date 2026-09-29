@@ -4,11 +4,15 @@ import { MemoryRouter } from "react-router-dom";
 import userEvent from "@testing-library/user-event";
 import { AuthProvider } from "../hooks/useAuth";
 import { AppRoutes } from "../App";
-import { setTokens } from "../utils/tokenStorage";
+import { http, HttpResponse } from "msw";
+import { API, server } from "./server";
 
-/** Stores tokens like a previous login did — the app then bootstraps via GET /auth/me/. */
+/**
+ * Like a browser that signed in earlier: it holds a refresh cookie, so the app's start-up
+ * refresh answers with an access token and the app then loads the user (GET /auth/me/).
+ */
 export function signIn() {
-  setTokens({ access: "access-token", refresh: "refresh-token" });
+  server.use(http.post(`${API}/auth/refresh/`, () => HttpResponse.json({ access: "access-token" })));
 }
 
 /** The real route tree + auth provider, starting at `path`. */

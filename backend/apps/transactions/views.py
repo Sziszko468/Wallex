@@ -15,6 +15,9 @@ from apps.common.pagination import StandardPagination
 from apps.common.permissions import IsOwner
 from apps.common.uploads import declared_body_exceeds, file_too_large
 from apps.notifications.rules import check_budget_thresholds
+from apps.users import audit
+from apps.users.audit import AuditedDeleteMixin
+from apps.users.models import AuditAction
 
 from .filters import StableOrderingFilter, TransactionFilter
 from .models import RecurringTransaction, Transaction
@@ -24,7 +27,7 @@ from .services import CsvValidationError, import_transactions_from_csv
 
 
 @TRANSACTION_VIEWSET_SCHEMA
-class TransactionViewSet(ConditionalWriteMixin, viewsets.ModelViewSet):
+class TransactionViewSet(AuditedDeleteMixin, ConditionalWriteMixin, viewsets.ModelViewSet):
     # Only the model matters here (schema tooling); requests always go through get_queryset().
     queryset = Transaction.objects.none()
     serializer_class = TransactionSerializer
@@ -114,6 +117,14 @@ class TransactionViewSet(ConditionalWriteMixin, viewsets.ModelViewSet):
 
         for year, month in sorted(summary.expense_months):
             check_budget_thresholds(request.user, year, month)
+        if summary.imported:
+            audit.record(
+                AuditAction.TRANSACTIONS_IMPORTED,
+                request=request,
+                imported=summary.imported,
+                skipped=summary.skipped,
+                failed=summary.failed,
+            )
 
         return Response(
             {
@@ -130,7 +141,7 @@ class TransactionViewSet(ConditionalWriteMixin, viewsets.ModelViewSet):
 
 
 @RECURRING_VIEWSET_SCHEMA
-class RecurringTransactionViewSet(ConditionalWriteMixin, viewsets.ModelViewSet):
+class RecurringTransactionViewSet(AuditedDeleteMixin, ConditionalWriteMixin, viewsets.ModelViewSet):
     # Only the model matters here (schema tooling); requests always go through get_queryset().
     queryset = RecurringTransaction.objects.none()
     serializer_class = RecurringTransactionSerializer

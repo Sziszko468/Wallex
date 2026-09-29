@@ -37,20 +37,21 @@ server {
     }
 
     # --- Django: REST API, admin, admin static files ---------------------------------------
+    # The AI assistant waits for the language model: an answer may take up to
+    # AI_ASSISTANT_TIMEOUT (90 s by default), so it gets a longer read timeout.
+    location ^~ /api/assistant/ {
+        set $backend ${API_UPSTREAM};
+        proxy_pass $backend;
+        include /etc/nginx/snippets/proxy-to-django.conf;
+        proxy_read_timeout 150s;
+    }
+
     location ~ ^/(api|admin|static)/ {
         # A variable makes nginx resolve the name per request (see `resolver` above);
         # the original request URI is passed on unchanged.
         set $backend ${API_UPSTREAM};
         proxy_pass $backend;
-
-        proxy_http_version 1.1;
-        # The public host name, port included: Django validates it against ALLOWED_HOSTS.
-        proxy_set_header Host $http_host;
-        # Append the client address; DRF_NUM_PROXIES tells Django how many hops to trust.
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $forwarded_proto;
-
-        # Longer than gunicorn's 60s worker timeout, so gunicorn reports the slow request.
+        include /etc/nginx/snippets/proxy-to-django.conf;
         proxy_read_timeout 90s;
     }
 

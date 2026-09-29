@@ -18,8 +18,8 @@ interface RetryableRequestConfig extends InternalAxiosRequestConfig {
 
 // "Has anything changed?" is meaningless from the cache: an old answer would hide real changes.
 const NEVER_CACHED = ["/sync/status/"];
-// Requests that change no user data (signing in and out, token refresh).
-const NOT_DATA_WRITES = ["/auth/login/", "/auth/register/", "/auth/refresh/", "/auth/logout/"];
+// Requests that change no financial data (signing in and out, token refresh, asking the AI assistant).
+const NOT_DATA_WRITES = ["/auth/login/", "/auth/register/", "/auth/refresh/", "/auth/logout/", "/assistant/"];
 const READ_METHODS = ["get", "head", "options"];
 
 function isCacheable(config: InternalAxiosRequestConfig): boolean {

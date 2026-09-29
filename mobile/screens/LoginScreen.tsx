@@ -17,25 +17,74 @@ const SIGN_OUT_NOTICES: Record<SignOutReason, string> = {
 };
 
 export function LoginScreen() {
-  const { login, signOutReason } = useAuth();
+  const { login, verifyMfa, signOutReason } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  // Set once the password was right but two-factor authentication needs a code.
+  const [mfaToken, setMfaToken] = useState<string | null>(null);
+  const [code, setCode] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  async function handleSubmit() {
+  // No manual navigation after signing in: the root layout's Stack.Protected guard
+  // switches to the (app) group automatically once isAuthenticated flips.
+  async function run(step: () => Promise<void>) {
     setErrorMessage(null);
     setIsSubmitting(true);
     try {
-      await login({ email, password });
-      // No manual navigation: the root layout's Stack.Protected guard
-      // switches to the (app) group automatically once isAuthenticated flips.
+      await step();
     } catch (error) {
       setErrorMessage(extractErrorMessage(error));
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  function handleSubmit() {
+    void run(async () => {
+      const outcome = await login({ email, password });
+      if (outcome.status === "mfaRequired") {
+        setMfaToken(outcome.mfaToken);
+        setPassword("");
+      }
+    });
+  }
+
+  function handleCode() {
+    if (mfaToken) void run(() => verifyMfa(mfaToken, code));
+  }
+
+  if (mfaToken) {
+    return (
+      <Screen scroll>
+        <Text style={styles.brand}>Spendly</Text>
+        <Text style={styles.heading}>Two-factor authentication</Text>
+        <Text style={styles.hint}>
+          Enter the 6-digit code from your authenticator app, or one of your recovery codes.
+        </Text>
+        <ErrorBanner message={errorMessage} />
+        <TextField
+          label="Authentication code"
+          keyboardType="number-pad"
+          textContentType="oneTimeCode"
+          autoComplete="one-time-code"
+          autoFocus
+          value={code}
+          onChangeText={setCode}
+        />
+        <Button title="Verify" onPress={handleCode} isLoading={isSubmitting} />
+        <Button
+          title="Use a different account"
+          variant="secondary"
+          onPress={() => {
+            setMfaToken(null);
+            setCode("");
+            setErrorMessage(null);
+          }}
+        />
+      </Screen>
+    );
   }
 
   return (
@@ -84,6 +133,11 @@ const styles = StyleSheet.create({
     fontSize: fontSize.lg,
     fontWeight: "700",
     color: colors.text,
+    marginBottom: spacing.md,
+  },
+  hint: {
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
     marginBottom: spacing.md,
   },
   footer: {

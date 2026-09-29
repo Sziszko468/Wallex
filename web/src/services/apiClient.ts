@@ -1,15 +1,19 @@
 import axios, { type InternalAxiosRequestConfig } from "axios";
-import {
-  clearTokens,
-  getAccessToken,
-  getRefreshToken,
-  setAccessToken,
-  setRefreshToken,
-} from "../utils/tokenStorage";
+import { clearTokens, getAccessToken, setAccessToken } from "../utils/tokenStorage";
 import { notifyLocalWrite } from "./localWrites";
 
 export const API_BASE_URL =
   (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "http://localhost:8000/api";
+
+/**
+ * Sent with every sign-in, refresh and sign-out: the server then keeps the refresh token in an
+ * HttpOnly cookie (only for /api/auth/) instead of the JSON body, and labels the session "web"
+ * in the user's device list. `withCredentials` lets the browser send and store that cookie.
+ */
+export const AUTH_REQUEST = {
+  withCredentials: true,
+  headers: { "X-Auth-Transport": "cookie", "X-Client-Platform": "web" },
+} as const;
 
 export const apiClient = axios.create({ baseURL: API_BASE_URL });
 
@@ -32,53 +36,45 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-let refreshPromise: Promise<string> | null = null;
-
 const REFRESH_LOCK = "spendly-token-refresh";
 
 /**
- * Every tab of this browser shares the tokens in localStorage, and a refresh token works
- * only once (the backend rotates and blacklists it). Two tabs refreshing at the same moment
- * would therefore log one of them out. A Web Lock makes the tabs take turns; a tab that
- * waited finds a refresh token other than the one it started with — another tab already
- * refreshed — and simply uses the new access token.
+ * All tabs of this browser share one refresh-token cookie, and a refresh token works only
+ * once (the server rotates it — and treats a second use as theft). A Web Lock makes the tabs
+ * refresh one after the other; the browser always sends the newest cookie, so a tab that
+ * waited simply refreshes with the token the previous tab received.
  */
 function withRefreshLock<T>(task: () => Promise<T>): Promise<T> {
   const locks = typeof navigator !== "undefined" ? navigator.locks : undefined;
   return locks ? locks.request(REFRESH_LOCK, task) : task();
 }
 
-async function refreshAccessToken(): Promise<string> {
-  const startedWith = getRefreshToken();
-  return withRefreshLock(async () => {
-    const refresh = getRefreshToken();
-    if (!refresh) {
-      throw new Error("No refresh token available");
-    }
-    const access = getAccessToken();
-    if (refresh !== startedWith && access) {
-      return access; // refreshed by another tab while we waited
-    }
-    const response = await axios.post<{ access: string; refresh?: string }>(
-      `${API_BASE_URL}/auth/refresh/`,
-      { refresh }
-    );
+let refreshPromise: Promise<string> | null = null;
+
+/** A new access token from the refresh cookie. Rejects when the browser is not signed in. */
+export function refreshSession(): Promise<string> {
+  refreshPromise ??= withRefreshLock(async () => {
+    const response = await axios.post<{ access: string }>(`${API_BASE_URL}/auth/refresh/`, {}, AUTH_REQUEST);
     setAccessToken(response.data.access);
-    if (response.data.refresh) {
-      setRefreshToken(response.data.refresh);
-    }
     return response.data.access;
+  }).finally(() => {
+    refreshPromise = null;
   });
+  return refreshPromise;
 }
 
-// Requests that change no user data (signing in and out, token refresh).
-const NOT_DATA_WRITES = ["/auth/login/", "/auth/register/", "/auth/refresh/", "/auth/logout/"];
-const READ_METHODS = ["get", "head", "options"];
+// Sign-in, sessions, password and 2FA change no financial data (the profile at /auth/me/ does);
+// neither does asking the AI assistant.
+function isDataWrite(method: string, url: string): boolean {
+  if (["get", "head", "options"].includes(method.toLowerCase())) return false;
+  if (url.includes("/assistant/")) return false;
+  return !url.includes("/auth/") || url.includes("/auth/me/");
+}
 
 apiClient.interceptors.response.use(
   (response) => {
     const { method = "get", url = "" } = response.config;
-    if (!READ_METHODS.includes(method.toLowerCase()) && !NOT_DATA_WRITES.some((path) => url.includes(path))) {
+    if (isDataWrite(method, url)) {
       notifyLocalWrite();
     }
     return response;
@@ -94,13 +90,11 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry && !isRefreshCall) {
       originalRequest._retry = true;
       try {
-        refreshPromise ??= refreshAccessToken().finally(() => {
-          refreshPromise = null;
-        });
-        const newAccessToken = await refreshPromise;
+        const newAccessToken = await refreshSession();
         originalRequest.headers.set("Authorization", `Bearer ${newAccessToken}`);
         return await apiClient(originalRequest);
       } catch (refreshError) {
+        // Signed out elsewhere, session revoked, or older than 30 days: back to the login page.
         clearTokens();
         onAuthFailure?.();
         return Promise.reject(refreshError);

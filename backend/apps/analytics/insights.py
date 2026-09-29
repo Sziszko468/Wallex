@@ -6,7 +6,6 @@ Adding a rule therefore never adds a query, and each rule can be unit-tested
 without touching the database.
 """
 
-from calendar import monthrange
 from dataclasses import dataclass
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
@@ -71,7 +70,7 @@ class InsightContext:
     total_expenses: Decimal
     # Full selected month, sorted by total descending.
     category_totals: list[tuple[int, CategoryTotal]]
-    # Period-aligned totals for the month-over-month comparison (see _comparison_ranges).
+    # Period-aligned totals for the month-over-month comparison (see services.comparison_ranges).
     comparison_current: dict[int, CategoryTotal]
     comparison_previous: dict[int, CategoryTotal]
     is_month_to_date: bool
@@ -92,31 +91,12 @@ def _totals_by_category(rows) -> dict[int, CategoryTotal]:
     return {row["category_id"]: CategoryTotal(row["category__name"], row["total"]) for row in rows}
 
 
-def _comparison_ranges(year: int, month: int, today: date):
-    """Date ranges for comparing the selected month with the previous one.
-
-    When the selected month is the current month it is still in progress, so
-    comparing it with the whole previous month would report almost every
-    category as "decreased" early in the month. In that case both periods are
-    cut at today's day of the month (clamped to the previous month's length).
-    """
-    prev_year, prev_month = services.previous_month(year, month)
-    current_start, current_end = services.month_date_range(year, month)
-    previous_start, previous_end = services.month_date_range(prev_year, prev_month)
-
-    is_month_to_date = (year, month) == (today.year, today.month)
-    if is_month_to_date:
-        current_end = today
-        previous_end = previous_start.replace(day=min(today.day, monthrange(prev_year, prev_month)[1]))
-
-    return (current_start, current_end), (previous_start, previous_end), is_month_to_date
-
-
 def build_context(user, year: int, month: int, today: date) -> InsightContext:
     """Fetch everything the rules need. Always exactly 6 queries."""
     summary = services.get_month_summary(user, year, month)
     category_rows = services.get_category_expense_rows(user, year, month)
-    current_range, previous_range, is_month_to_date = _comparison_ranges(year, month, today)
+    # Month-to-date on both sides for the current month (see services.comparison_ranges).
+    current_range, previous_range, is_month_to_date = services.comparison_ranges(year, month, today)
 
     return InsightContext(
         total_income=summary["total_income"],

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { StyleSheet, Switch, Text, View } from "react-native";
+import { Alert, StyleSheet, Switch, Text, View } from "react-native";
 import { router } from "expo-router";
 import { useAuth } from "../hooks/useAuth";
 import { useOffline } from "../hooks/useOffline";
@@ -13,6 +13,7 @@ export function SettingsScreen() {
   const {
     user,
     logout,
+    logoutEverywhere,
     biometricCapability,
     isBiometricLockEnabled,
     enableBiometricLock,
@@ -21,6 +22,8 @@ export function SettingsScreen() {
   const { pendingTransactions } = useOffline();
   const unsyncedCount = pendingTransactions.length;
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isLoggingOutEverywhere, setIsLoggingOutEverywhere] = useState(false);
+  const [sessionError, setSessionError] = useState<string | null>(null);
   const [isUpdatingLock, setIsUpdatingLock] = useState(false);
   const [lockError, setLockError] = useState<string | null>(null);
 
@@ -54,6 +57,28 @@ export function SettingsScreen() {
       // (auth) group automatically once isAuthenticated flips to false.
     } finally {
       setIsLoggingOut(false);
+    }
+  }
+
+  function confirmLogoutEverywhere() {
+    Alert.alert(
+      "Log out of all devices?",
+      "Every phone and browser signed in to your account is signed out, this one included.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Log out everywhere", style: "destructive", onPress: () => void handleLogoutEverywhere() },
+      ]
+    );
+  }
+
+  async function handleLogoutEverywhere() {
+    setSessionError(null);
+    setIsLoggingOutEverywhere(true);
+    try {
+      await logoutEverywhere();
+    } catch (error) {
+      setSessionError(extractErrorMessage(error));
+      setIsLoggingOutEverywhere(false);
     }
   }
 
@@ -125,6 +150,16 @@ export function SettingsScreen() {
           }
         />
         <Button title="Log out" variant="danger" onPress={handleLogout} isLoading={isLoggingOut} />
+        <Text style={[styles.cardText, styles.spaced]}>
+          Lost a phone or signed in somewhere you shouldn&apos;t have? End every session at once.
+        </Text>
+        <ErrorBanner message={sessionError} />
+        <Button
+          title="Log out of all devices"
+          variant="secondary"
+          onPress={confirmLogoutEverywhere}
+          isLoading={isLoggingOutEverywhere}
+        />
       </View>
     </Screen>
   );
@@ -164,6 +199,9 @@ const styles = StyleSheet.create({
     fontSize: fontSize.base,
     color: colors.textMuted,
     marginBottom: spacing.md,
+  },
+  spaced: {
+    marginTop: spacing.lg,
   },
   switchRow: {
     flexDirection: "row",

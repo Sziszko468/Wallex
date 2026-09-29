@@ -1,8 +1,9 @@
 import pytest
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
-from rest_framework_simplejwt.tokens import RefreshToken
+from conftest import issue_tokens
 
 from apps.categories.defaults import DEFAULT_CATEGORIES
 from apps.categories.models import Category
@@ -115,7 +116,7 @@ def test_login_nonexistent_email_rejected(api_client):
 
 @pytest.mark.django_db
 def test_refresh_rotates_token(api_client, user):
-    refresh = RefreshToken.for_user(user)
+    _, refresh = issue_tokens(user)
     response = api_client.post(reverse("auth-refresh"), {"refresh": str(refresh)})
     assert response.status_code == status.HTTP_200_OK
     assert "access" in response.data
@@ -131,7 +132,7 @@ def test_refresh_invalid_token_rejected(api_client):
 
 @pytest.mark.django_db
 def test_me_returns_authenticated_user(api_client, user):
-    access = RefreshToken.for_user(user).access_token
+    access, _ = issue_tokens(user)
     api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {access}")
     response = api_client.get(reverse("auth-me"))
     assert response.status_code == status.HTTP_200_OK
@@ -146,25 +147,29 @@ def test_me_requires_authentication(api_client):
 
 
 @pytest.mark.django_db
-def test_logout_blacklists_refresh_token(api_client, user):
-    refresh = RefreshToken.for_user(user)
-    access = refresh.access_token
+def test_logout_ends_the_session(api_client, user):
+    access, refresh = issue_tokens(user)
     api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {access}")
 
     logout_response = api_client.post(reverse("auth-logout"), {"refresh": str(refresh)})
     assert logout_response.status_code == status.HTTP_200_OK
 
+    # The access token stops working at once, not when it expires.
+    assert api_client.get(reverse("auth-me")).status_code == status.HTTP_401_UNAUTHORIZED
     api_client.credentials()
     refresh_response = api_client.post(reverse("auth-refresh"), {"refresh": str(refresh)})
     assert refresh_response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 @pytest.mark.django_db
-def test_logout_requires_refresh_token(api_client, user):
-    access = RefreshToken.for_user(user).access_token
+def test_logout_without_a_refresh_token_ends_the_callers_session(api_client, user):
+    access, refresh = issue_tokens(user)
     api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {access}")
-    response = api_client.post(reverse("auth-logout"), {})
-    assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    assert api_client.post(reverse("auth-logout"), {}).status_code == status.HTTP_200_OK
+
+    api_client.credentials()
+    assert api_client.post(reverse("auth-refresh"), {"refresh": str(refresh)}).status_code == 401
 
 
 @pytest.mark.django_db
@@ -180,9 +185,16 @@ def test_register_does_not_return_tokens(api_client):
 
 @pytest.mark.django_db
 def test_rotated_refresh_token_cannot_be_reused(api_client, user):
-    """A stolen refresh token stops working as soon as the real client refreshes."""
-    old_refresh = str(RefreshToken.for_user(user))
+    """A stolen refresh token stops working as soon as the real client refreshes (after the
+    30-second retry grace — see tests/test_account_security.py for the grace itself)."""
+    from datetime import timedelta
+
+    from apps.users.models import UserSession
+
+    _, refresh = issue_tokens(user)
+    old_refresh = str(refresh)
     assert api_client.post(reverse("auth-refresh"), {"refresh": old_refresh}).status_code == status.HTTP_200_OK
+    UserSession.objects.update(rotated_at=timezone.now() - timedelta(minutes=1))
 
     reuse = api_client.post(reverse("auth-refresh"), {"refresh": old_refresh})
 
@@ -191,7 +203,8 @@ def test_rotated_refresh_token_cannot_be_reused(api_client, user):
 
 @pytest.mark.django_db
 def test_refresh_token_is_not_accepted_as_access_token(api_client, user):
-    api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {RefreshToken.for_user(user)}")
+    _, refresh = issue_tokens(user)
+    api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {refresh}")
     assert api_client.get(reverse("auth-me")).status_code == status.HTTP_401_UNAUTHORIZED
 
 
@@ -204,8 +217,9 @@ def test_login_is_by_email_and_password_only(api_client, user):
 @pytest.mark.django_db
 def test_cannot_log_out_another_users_session(api_client, user, other_user):
     """Logout may only revoke the caller's own refresh token."""
-    victims_refresh = RefreshToken.for_user(other_user)
-    api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {RefreshToken.for_user(user).access_token}")
+    _, victims_refresh = issue_tokens(other_user)
+    access, _ = issue_tokens(user)
+    api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {access}")
 
     response = api_client.post(reverse("auth-logout"), {"refresh": str(victims_refresh)})
 

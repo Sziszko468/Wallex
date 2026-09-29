@@ -5,7 +5,8 @@ from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.urls import reverse
 from rest_framework import status
-from rest_framework_simplejwt.tokens import RefreshToken
+
+from conftest import issue_tokens
 
 User = get_user_model()
 PASSWORD = "StrongPass!2024"
@@ -99,7 +100,7 @@ def test_weak_passwords_rejected(api_client, weak):
 
 @pytest.mark.django_db
 def test_refresh_for_a_deleted_user_is_rejected_not_a_server_error(api_client, user):
-    refresh = str(RefreshToken.for_user(user))
+    refresh = str(issue_tokens(user)[1])
     user.delete()
 
     response = api_client.post(reverse("auth-refresh"), {"refresh": refresh})
@@ -109,18 +110,18 @@ def test_refresh_for_a_deleted_user_is_rejected_not_a_server_error(api_client, u
 
 @pytest.mark.django_db
 def test_deactivated_user_cannot_refresh_or_use_access_token(api_client, user):
-    refresh = RefreshToken.for_user(user)
+    access, refresh = issue_tokens(user)
     user.is_active = False
     user.save()
 
     assert api_client.post(reverse("auth-refresh"), {"refresh": str(refresh)}).status_code == 401
-    api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {refresh.access_token}")
+    api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {access}")
     assert api_client.get(reverse("auth-me")).status_code == 401
 
 
 @pytest.mark.django_db
 def test_tampered_token_is_rejected(api_client, user):
-    access = str(RefreshToken.for_user(user).access_token)
+    access = str(issue_tokens(user)[0])
     header, payload, signature = access.split(".")
     tampered = f"{header}.{payload}.{signature[:-2]}xx"
 
@@ -148,8 +149,9 @@ def test_unsigned_alg_none_token_is_rejected(api_client, user):
 
 @pytest.mark.django_db
 def test_login_attempts_are_rate_limited(api_client, user):
+    """Per IP, across accounts (the per-account lock is tested in tests/test_account_security.py)."""
     codes = [
-        api_client.post(reverse("auth-login"), {"email": user.email, "password": f"wrong-{i}"}).status_code
+        api_client.post(reverse("auth-login"), {"email": f"guess{i}@example.com", "password": "wrong"}).status_code
         for i in range(12)
     ]
 
@@ -189,7 +191,7 @@ def test_spoofed_forwarded_for_header_does_not_reset_the_login_limit(api_client,
     codes = [
         api_client.post(
             reverse("auth-login"),
-            {"email": user.email, "password": "wrong"},
+            {"email": f"guess{i}@example.com", "password": "wrong"},
             HTTP_X_FORWARDED_FOR=f"10.0.0.{i}",
         ).status_code
         for i in range(12)

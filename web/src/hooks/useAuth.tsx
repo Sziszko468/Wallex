@@ -6,25 +6,26 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import axios from "axios";
 import * as authService from "../services/authService";
-import { setOnAuthFailure } from "../services/apiClient";
-import {
-  clearTokens,
-  getAccessToken,
-  getRefreshToken,
-  setTokens,
-} from "../utils/tokenStorage";
+import { refreshSession, setOnAuthFailure } from "../services/apiClient";
+import { clearTokens, removeLegacyTokens, setAccessToken } from "../utils/tokenStorage";
 import type { LoginPayload, RegisterPayload, User } from "../types/auth";
 import type { CurrencyCode } from "../types/currency";
+
+/** The password was checked: either signed in, or a two-factor code is needed. */
+export type LoginOutcome = { status: "signedIn" } | { status: "mfaRequired"; mfaToken: string };
 
 interface AuthContextValue {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (payload: LoginPayload) => Promise<void>;
+  login: (payload: LoginPayload) => Promise<LoginOutcome>;
+  /** Second step of a sign-in with two-factor authentication. */
+  verifyMfa: (mfaToken: string, code: string) => Promise<void>;
   register: (payload: RegisterPayload) => Promise<void>;
   logout: () => Promise<void>;
+  /** Signs every device out (this one too). Returns how many sessions ended. */
+  logoutEverywhere: () => Promise<number>;
   /** Converts the user's data on the server, then updates `user`. */
   changeBaseCurrency: (currency: CurrencyCode) => Promise<void>;
 }
@@ -40,22 +41,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // The access token lives in memory, so every page load asks the refresh cookie for a new
+    // one. No cookie (or an ended session) means signed out. The cookie is HttpOnly: a network
+    // error can't destroy it, the next load simply tries again.
     async function bootstrap() {
-      if (!getAccessToken()) {
-        setIsLoading(false);
-        return;
-      }
+      removeLegacyTokens();
       try {
-        const currentUser = await authService.getCurrentUser();
-        setUser(currentUser);
-      } catch (error) {
-        // Only a real response (e.g. 401 for an invalid/expired token) means
-        // the session is actually gone. A network error (backend briefly
-        // unreachable, offline, ...) shouldn't wipe otherwise-valid tokens —
-        // that would force a fresh login for something that fixes itself.
-        if (axios.isAxiosError(error) && error.response) {
-          clearTokens();
-        }
+        await refreshSession();
+        setUser(await authService.getCurrentUser());
+      } catch {
+        clearTokens();
       } finally {
         setIsLoading(false);
       }
@@ -63,12 +58,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void bootstrap();
   }, []);
 
-  const login = useCallback(async (payload: LoginPayload) => {
-    const tokens = await authService.login(payload);
-    setTokens(tokens);
-    const currentUser = await authService.getCurrentUser();
-    setUser(currentUser);
+  const completeSignIn = useCallback(async (access: string) => {
+    setAccessToken(access);
+    setUser(await authService.getCurrentUser());
   }, []);
+
+  const login = useCallback(
+    async (payload: LoginPayload): Promise<LoginOutcome> => {
+      const result = await authService.login(payload);
+      if ("mfa_required" in result) {
+        return { status: "mfaRequired", mfaToken: result.mfa_token };
+      }
+      await completeSignIn(result.access);
+      return { status: "signedIn" };
+    },
+    [completeSignIn]
+  );
+
+  const verifyMfa = useCallback(
+    async (mfaToken: string, code: string) => {
+      const { access } = await authService.verifyMfa({ mfa_token: mfaToken, code });
+      await completeSignIn(access);
+    },
+    [completeSignIn]
+  );
 
   const register = useCallback(
     async (payload: RegisterPayload) => {
@@ -79,17 +92,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(async () => {
-    const refresh = getRefreshToken();
     try {
-      if (refresh) {
-        await authService.logout(refresh);
-      }
+      await authService.logout();
     } catch {
-      // Best-effort: even if the blacklist call fails, clear local state.
+      // Best-effort: even if the server call fails, forget the session here.
     } finally {
       clearTokens();
       setUser(null);
     }
+  }, []);
+
+  const logoutEverywhere = useCallback(async () => {
+    const count = await authService.logoutEverywhere();
+    clearTokens();
+    setUser(null);
+    return count;
   }, []);
 
   const changeBaseCurrency = useCallback(async (currency: CurrencyCode) => {
@@ -101,8 +118,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAuthenticated: user !== null,
     isLoading,
     login,
+    verifyMfa,
     register,
     logout,
+    logoutEverywhere,
     changeBaseCurrency,
   };
 

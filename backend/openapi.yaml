@@ -87,7 +87,7 @@ info:
     | `409` | The action conflicts with existing data (e.g. deleting a category in use) | `{"detail": "…"}` |
     | `413` | Upload too large | `{"<field>": ["…"]}` |
     | `429` | Rate limit hit; retry after `Retry-After` seconds | `{"detail": "…"}` |
-    | `503` | A dependency is temporarily unavailable (receipt OCR, health probe) | `{"detail": "…"}` |
+    | `503` | A dependency is temporarily unavailable (receipt OCR, the AI assistant's model, health probe) | `{"detail": "…"}` |
 
     Error messages are written for end users and may be shown as they are.
 
@@ -99,6 +99,7 @@ info:
     | `POST /api/auth/register/` | 10 / hour | client IP |
     | `POST /api/auth/refresh/` | 30 / minute | client IP |
     | `POST /api/receipts/scan/` | 30 / hour | user |
+    | Questions to the AI assistant (`POST /api/assistant/conversations/…`) | 30 / hour | user |
     | Everything else | 2000 / hour | user (IP when anonymous) |
 
     ## Idempotent transaction creation
@@ -1138,12 +1139,1080 @@ paths:
               schema:
                 type: integer
               description: Seconds until the next request is allowed.
+  /api/assistant/:
+    get:
+      operationId: assistant_retrieve
+      description: |-
+        Whether the assistant can be used on this server (`available` is false without a model API key), questions to suggest — picked from what data the user has, e.g. a question about their own savings goal — and the question length limit.
+
+        The assistant (Claude) never reads the database. It can only call seven read-only backend tools
+        — monthly spending, spending by category, by merchant, budget status, subscription costs, savings
+        progress and month comparison — which run the same services as the dashboard, for the signed-in
+        user only, and return aggregated figures without ids, name or e-mail. Answers are based on those
+        results alone; when they are not enough, the answer says so ("Nem áll rendelkezésre elegendő adat." /
+        "There isn't enough data available.") instead of guessing. `sources` lists the tools an answer used.
+
+        The server keeps the history (the text of questions and answers; never the tool results — every
+        question fetches fresh figures). Questions: max 1000 characters; a conversation holds
+        25 questions. **Answering takes a few seconds, up to about 90**: use a long client
+        timeout and show progress. Nothing is stored when no answer comes back (`503`) — send the question again.
+        Limited to 30 questions per hour per user (`ASSISTANT_RATE`).
+      summary: Assistant status and suggested questions
+      tags:
+      - AI Assistant
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssistantStatus'
+              examples:
+                Available:
+                  value:
+                    available: true
+                    suggested_questions:
+                    - What did I spend the most on this month?
+                    - Where did I spend more than last month?
+                    - Which of my subscriptions costs the most?
+                    - How am I doing with my Japan trip savings goal?
+                    max_question_length: 1000
+          description: ''
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/assistant/conversations/:
+    get:
+      operationId: assistant_conversations_list
+      description: The conversation history, most recently active first, **paginated**
+        (`count`, `next`, `previous`, `results`).
+      summary: List conversations
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - AI Assistant
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedConversationList'
+              examples:
+                Page:
+                  value:
+                    count: 123
+                    next: http://api.example.org/accounts/?page=4
+                    previous: http://api.example.org/accounts/?page=2
+                    results:
+                    - count: 1
+                      next: null
+                      previous: null
+                      results:
+                      - id: 5
+                        title: What did I spend the most on this month?
+                        created_at: '2026-09-29T10:15:08.405118Z'
+                        updated_at: '2026-09-29T10:15:08.405164Z'
+          description: ''
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                PastTheEnd:
+                  value:
+                    detail: Invalid page.
+                  summary: Past the end
+          description: '`page` is past the last page.'
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+    post:
+      operationId: assistant_conversations_create
+      description: |-
+        Starts a conversation with its first question and returns the question and the answer.
+
+        The assistant (Claude) never reads the database. It can only call seven read-only backend tools
+        — monthly spending, spending by category, by merchant, budget status, subscription costs, savings
+        progress and month comparison — which run the same services as the dashboard, for the signed-in
+        user only, and return aggregated figures without ids, name or e-mail. Answers are based on those
+        results alone; when they are not enough, the answer says so ("Nem áll rendelkezésre elegendő adat." /
+        "There isn't enough data available.") instead of guessing. `sources` lists the tools an answer used.
+
+        The server keeps the history (the text of questions and answers; never the tool results — every
+        question fetches fresh figures). Questions: max 1000 characters; a conversation holds
+        25 questions. **Answering takes a few seconds, up to about 90**: use a long client
+        timeout and show progress. Nothing is stored when no answer comes back (`503`) — send the question again.
+        Limited to 30 questions per hour per user (`ASSISTANT_RATE`).
+      summary: Ask a question in a new conversation
+      tags:
+      - AI Assistant
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuestionRequest'
+            examples:
+              Question:
+                value:
+                  message: What did I spend the most on this month?
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/QuestionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/QuestionRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Exchange'
+              examples:
+                Answered:
+                  value:
+                    conversation:
+                      id: 5
+                      title: What did I spend the most on this month?
+                      created_at: '2026-09-29T10:15:08.405118Z'
+                      updated_at: '2026-09-29T10:15:08.405164Z'
+                    messages:
+                    - id: 17
+                      role: user
+                      content: What did I spend the most on this month?
+                      sources: []
+                      created_at: '2026-09-29T10:15:08.410552Z'
+                    - id: 18
+                      role: assistant
+                      content: 'You spent the most on **Food**: €412.30 this month,
+                        38% of your €1,085.10 expenses.'
+                      sources:
+                      - tool: get_monthly_spending
+                        label: Monthly spending
+                        detail: September 2026
+                      created_at: '2026-09-29T10:15:08.412311Z'
+          description: Answered; the conversation was created.
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                Missing:
+                  value:
+                    message:
+                    - This field is required.
+                Empty:
+                  value:
+                    message:
+                    - This field may not be blank.
+                TooLong:
+                  value:
+                    message:
+                    - Ensure this field has no more than 1000 characters.
+                  summary: Too long
+          description: Validation failed; nothing was changed. See the examples for
+            typical messages.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssistantError'
+              examples:
+                Unavailable:
+                  value:
+                    detail: The assistant is temporarily unavailable. Please try again
+                      in a moment.
+                    code: assistant_unavailable
+                NotConfigured:
+                  value:
+                    detail: The AI assistant isn't set up on this server.
+                    code: assistant_not_configured
+                  summary: Not configured
+          description: No answer; nothing was stored.
+  /api/assistant/conversations/{id}/:
+    get:
+      operationId: assistant_conversations_retrieve
+      description: The conversation with all its messages, oldest first.
+      summary: Get a conversation
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - AI Assistant
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationDetail'
+              examples:
+                Conversation:
+                  value:
+                    id: 5
+                    title: What did I spend the most on this month?
+                    created_at: '2026-09-29T10:15:08.405118Z'
+                    updated_at: '2026-09-29T10:15:08.405164Z'
+                    messages:
+                    - id: 17
+                      role: user
+                      content: What did I spend the most on this month?
+                      sources: []
+                      created_at: '2026-09-29T10:15:08.410552Z'
+                    - id: 18
+                      role: assistant
+                      content: 'You spent the most on **Food**: €412.30 this month,
+                        38% of your €1,085.10 expenses.'
+                      sources:
+                      - tool: get_monthly_spending
+                        label: Monthly spending
+                        detail: September 2026
+                      created_at: '2026-09-29T10:15:08.412311Z'
+          description: ''
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '404':
+          description: No such object for the signed-in user. Objects of other users
+            are reported exactly the same way.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NotFound:
+                  value:
+                    detail: No AssistantConversation matches the given query.
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+    delete:
+      operationId: assistant_conversations_destroy
+      description: Deletes the conversation and its messages on every device.
+      summary: Delete a conversation
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - AI Assistant
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '404':
+          description: No such object for the signed-in user. Objects of other users
+            are reported exactly the same way.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NotFound:
+                  value:
+                    detail: No AssistantConversation matches the given query.
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/assistant/conversations/{id}/messages/:
+    post:
+      operationId: assistant_conversations_messages_create
+      description: |-
+        Asks in an existing conversation; the earlier questions and answers go to the model as context. Returns the question and the answer.
+
+        The assistant (Claude) never reads the database. It can only call seven read-only backend tools
+        — monthly spending, spending by category, by merchant, budget status, subscription costs, savings
+        progress and month comparison — which run the same services as the dashboard, for the signed-in
+        user only, and return aggregated figures without ids, name or e-mail. Answers are based on those
+        results alone; when they are not enough, the answer says so ("Nem áll rendelkezésre elegendő adat." /
+        "There isn't enough data available.") instead of guessing. `sources` lists the tools an answer used.
+
+        The server keeps the history (the text of questions and answers; never the tool results — every
+        question fetches fresh figures). Questions: max 1000 characters; a conversation holds
+        25 questions. **Answering takes a few seconds, up to about 90**: use a long client
+        timeout and show progress. Nothing is stored when no answer comes back (`503`) — send the question again.
+        Limited to 30 questions per hour per user (`ASSISTANT_RATE`).
+      summary: Ask a follow-up question
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - AI Assistant
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuestionRequest'
+            examples:
+              Question:
+                value:
+                  message: What did I spend the most on this month?
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/QuestionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/QuestionRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Exchange'
+              examples:
+                Answered:
+                  value:
+                    conversation:
+                      id: 5
+                      title: What did I spend the most on this month?
+                      created_at: '2026-09-29T10:15:08.405118Z'
+                      updated_at: '2026-09-29T10:15:08.405164Z'
+                    messages:
+                    - id: 17
+                      role: user
+                      content: What did I spend the most on this month?
+                      sources: []
+                      created_at: '2026-09-29T10:15:08.410552Z'
+                    - id: 18
+                      role: assistant
+                      content: 'You spent the most on **Food**: €412.30 this month,
+                        38% of your €1,085.10 expenses.'
+                      sources:
+                      - tool: get_monthly_spending
+                        label: Monthly spending
+                        detail: September 2026
+                      created_at: '2026-09-29T10:15:08.412311Z'
+          description: Answered.
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                Missing:
+                  value:
+                    message:
+                    - This field is required.
+                Empty:
+                  value:
+                    message:
+                    - This field may not be blank.
+                TooLong:
+                  value:
+                    message:
+                    - Ensure this field has no more than 1000 characters.
+                  summary: Too long
+                ConversationFull:
+                  value:
+                    non_field_errors:
+                    - This conversation is full. Start a new conversation to ask more.
+                  summary: Conversation full
+          description: Validation failed; nothing was changed. See the examples for
+            typical messages.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '404':
+          description: No such object for the signed-in user. Objects of other users
+            are reported exactly the same way.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NotFound:
+                  value:
+                    detail: No AssistantConversation matches the given query.
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssistantError'
+              examples:
+                Unavailable:
+                  value:
+                    detail: The assistant is temporarily unavailable. Please try again
+                      in a moment.
+                    code: assistant_unavailable
+                NotConfigured:
+                  value:
+                    detail: The AI assistant isn't set up on this server.
+                    code: assistant_not_configured
+                  summary: Not configured
+          description: No answer; nothing was stored.
+  /api/auth/2fa/:
+    get:
+      operationId: auth_2fa_retrieve
+      summary: Two-factor authentication status
+      tags:
+      - Account Security
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MfaStatus'
+              examples:
+                'On':
+                  value:
+                    enabled: true
+                    enabled_at: '2026-09-28T09:12:00Z'
+                    recovery_codes_left: 9
+          description: ''
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/auth/2fa/confirm/:
+    post:
+      operationId: auth_2fa_confirm_create
+      description: 'Step 2 of 2: a code from the new authenticator proves it works;
+        from now on signing in needs a code. The answer holds the 10 recovery codes,
+        **shown only this once**. At most 20 of these changes per hour per user; they
+        ask for the password again.'
+      summary: Turn two-factor authentication on
+      tags:
+      - Account Security
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MfaCodeRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MfaCodeRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MfaCodeRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecoveryCodes'
+              examples:
+                'On':
+                  value:
+                    recovery_codes:
+                    - k3m9-q2xa
+                    - p7tn-w4ds
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                WrongCode:
+                  value:
+                    code:
+                    - That code is not right. Check the time on your phone and try
+                      the newest code.
+                  summary: Wrong code
+                NoSetup:
+                  value:
+                    code:
+                    - Start the setup first.
+                  summary: No setup
+          description: Validation failed; nothing was changed. See the examples for
+            typical messages.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/auth/2fa/disable/:
+    post:
+      operationId: auth_2fa_disable_create
+      description: Needs the password and a current code (or a recovery code). At
+        most 20 of these changes per hour per user; they ask for the password again.
+      summary: Turn two-factor authentication off
+      tags:
+      - Account Security
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordAndCodeRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PasswordAndCodeRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PasswordAndCodeRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+              examples:
+                Success:
+                  value:
+                    detail: Two-factor authentication is off.
+          description: Two-factor authentication is off.
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                WrongPassword:
+                  value:
+                    password:
+                    - Wrong password.
+                  summary: Wrong password
+                WrongCode:
+                  value:
+                    code:
+                    - That code is not right.
+                  summary: Wrong code
+          description: Validation failed; nothing was changed. See the examples for
+            typical messages.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/auth/2fa/recovery-codes/:
+    post:
+      operationId: auth_2fa_recovery_codes_create
+      description: Replaces all recovery codes (the old ones stop working); the new
+        ones are shown only this once. Needs the password and a current code. At most
+        20 of these changes per hour per user; they ask for the password again.
+      summary: New recovery codes
+      tags:
+      - Account Security
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordAndCodeRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PasswordAndCodeRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PasswordAndCodeRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecoveryCodes'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                WrongPassword:
+                  value:
+                    password:
+                    - Wrong password.
+                  summary: Wrong password
+                WrongCode:
+                  value:
+                    code:
+                    - That code is not right.
+                  summary: Wrong code
+          description: Validation failed; nothing was changed. See the examples for
+            typical messages.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/auth/2fa/setup/:
+    post:
+      operationId: auth_2fa_setup_create
+      description: 'Step 1 of 2. Creates a new authenticator secret: add it to an
+        authenticator app (open `otpauth_uri` on the phone, or type `secret`). Nothing
+        changes until `POST /api/auth/2fa/confirm/` succeeds. At most 20 of these
+        changes per hour per user; they ask for the password again.'
+      summary: Set up two-factor authentication
+      tags:
+      - Account Security
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordConfirmationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PasswordConfirmationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PasswordConfirmationRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MfaSetup'
+              examples:
+                Secret:
+                  value:
+                    secret: JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP
+                    otpauth_uri: otpauth://totp/Spendly:ada%40example.com?secret=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP&issuer=Spendly&algorithm=SHA1&digits=6&period=30
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                WrongPassword:
+                  value:
+                    password:
+                    - Wrong password.
+                  summary: Wrong password
+                AlreadyOn:
+                  value:
+                    non_field_errors:
+                    - Two-factor authentication is already on. Turn it off first to
+                      set up a new authenticator.
+                  summary: Already on
+          description: Validation failed; nothing was changed. See the examples for
+            typical messages.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
   /api/auth/login/:
     post:
       operationId: auth_login_create
-      description: Exchanges email and password for an access token (15 min) and a
-        refresh token (7 days).
-      summary: Log in (obtain a token pair)
+      description: |-
+        Checks email and password. Without two-factor authentication the answer is a token pair: an access token (15 min) and a refresh token. **With 2FA on** it is `{mfa_required, mfa_token}` instead: send the code to `POST /api/auth/login/verify/`.
+
+        Every sign-in starts a **session** (one per device). All of its tokens carry the session (`sid` claim) and stop working the moment it ends: logout, logout everywhere, a password change, a detected token theft, or 30 days after the sign-in.
+
+        **Browsers** send `X-Auth-Transport: cookie`: the refresh token is then set as an HttpOnly, Secure, SameSite=Strict cookie for `/api/auth/` and left out of the JSON, so page scripts can never read it. **Apps** keep the refresh token in the Keychain / Keystore and get it in the body.
+
+        Every attempt is recorded in the account's security log (`GET /api/auth/security-events/`). After 5 wrong passwords or codes in 15 minutes the account is locked for sign-in (429).
+      summary: Sign in
+      parameters:
+      - in: header
+        name: X-Auth-Transport
+        schema:
+          type: string
+          enum:
+          - cookie
+        description: '`cookie` (browsers): the refresh token travels in an HttpOnly
+          cookie instead of the body.'
+      - in: header
+        name: X-Client-Platform
+        schema:
+          type: string
+          enum:
+          - android
+          - ios
+          - web
+        description: Shown in the device list of the new session.
       tags:
       - Authentication
       requestBody:
@@ -1152,11 +2221,11 @@ paths:
             schema:
               $ref: '#/components/schemas/LoginRequest'
             examples:
-              LogIn:
+              SignIn:
                 value:
                   email: ada@example.com
                   password: a-long-passphrase
-                summary: Log in
+                summary: Sign in
           application/x-www-form-urlencoded:
             schema:
               $ref: '#/components/schemas/LoginRequest'
@@ -1169,8 +2238,15 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TokenPair'
-          description: Logged in.
+                $ref: '#/components/schemas/LoginResult'
+              examples:
+                Two-factorNeeded:
+                  value:
+                    mfa_required: true
+                    mfa_token: eyJ1aWQiOjQyfQ:1v2
+                    expires_in: 300
+                  summary: Two-factor needed
+          description: Signed in, or the second factor is needed.
         '400':
           content:
             application/json:
@@ -1195,41 +2271,164 @@ paths:
                 WrongCredentials:
                   value:
                     detail: No active account found with the given credentials
+                    code: no_active_account
                   summary: Wrong credentials
           description: Wrong email or password, or the account is deactivated. Deliberately
-            doesn't say which.
+            does not say which.
         '429':
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/Locked'
               examples:
+                AccountLocked:
+                  value:
+                    detail: Too many failed sign-in attempts. Try again in 12 minutes.
+                    code: account_locked
+                    retry_after: 704
+                  summary: Account locked
                 Throttled:
                   value:
                     detail: Request was throttled. Expected available in 42 seconds.
-          description: Rate limit exceeded (10 attempts per minute per IP). Retry
-            after the number of seconds in `Retry-After`.
-  /api/auth/logout/:
+          description: 'Rate limited: too many requests from this address, **or**
+            5 wrong passwords / codes for this account within 15 minutes. Then even
+            the right password is refused until the lock ends (`Retry-After`). The
+            lock is per email, whether or not an account exists.'
+  /api/auth/login/verify/:
     post:
-      operationId: auth_logout_create
-      description: Blacklists the given refresh token so it can never be used again.
-        Only the caller's own token can be revoked. The access token stays valid until
-        it expires (max 15 minutes) — clients should discard both.
-      summary: Log out (revoke the refresh token)
+      operationId: auth_login_verify_create
+      description: 'Completes a sign-in that answered `mfa_required`: the `mfa_token`
+        from it (valid 5 minutes) plus the 6-digit code from the authenticator app,
+        or one of the recovery codes (each works once). A code is accepted only once.
+        Wrong codes count toward the per-account lock.'
+      summary: 'Sign in: second factor'
+      parameters:
+      - in: header
+        name: X-Auth-Transport
+        schema:
+          type: string
+          enum:
+          - cookie
+        description: '`cookie` (browsers): the refresh token travels in an HttpOnly
+          cookie instead of the body.'
+      - in: header
+        name: X-Client-Platform
+        schema:
+          type: string
+          enum:
+          - android
+          - ios
+          - web
+        description: Shown in the device list of the new session.
       tags:
       - Authentication
       requestBody:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RefreshTokenRequest'
+              $ref: '#/components/schemas/MfaLoginRequest'
+            examples:
+              Code:
+                value:
+                  mfa_token: eyJ1aWQiOjQyfQ:1v2
+                  code: '492039'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/RefreshTokenRequest'
+              $ref: '#/components/schemas/MfaLoginRequest'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/RefreshTokenRequest'
+              $ref: '#/components/schemas/MfaLoginRequest'
         required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenPair'
+          description: Signed in.
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                MissingFields:
+                  value:
+                    mfa_token:
+                    - This field is required.
+                    code:
+                    - This field is required.
+                  summary: Missing fields
+          description: Validation failed; nothing was changed. See the examples for
+            typical messages.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                WrongCode:
+                  value:
+                    detail: That code is not right. Try the newest code from your
+                      authenticator app.
+                    code: mfa_code_invalid
+                  summary: Wrong code
+                ChallengeExpired:
+                  value:
+                    detail: This sign-in attempt has expired. Enter your password
+                      again.
+                    code: mfa_challenge_invalid
+                  summary: Challenge expired
+          description: Wrong code, or the challenge expired or was tampered with (then
+            enter the password again).
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Locked'
+              examples:
+                AccountLocked:
+                  value:
+                    detail: Too many failed sign-in attempts. Try again in 12 minutes.
+                    code: account_locked
+                    retry_after: 704
+                  summary: Account locked
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          description: 'Rate limited: too many requests from this address, **or**
+            5 wrong passwords / codes for this account within 15 minutes. Then even
+            the right password is refused until the lock ends (`Retry-After`). The
+            lock is per email, whether or not an account exists.'
+  /api/auth/logout/:
+    post:
+      operationId: auth_logout_create
+      description: 'Ends the session of the access token: its refresh **and** access
+        tokens stop working at once. Apps may send their refresh token too (it must
+        be the caller''s own); the browser cookie is cleared.'
+      summary: Sign out this device
+      parameters:
+      - in: header
+        name: X-Auth-Transport
+        schema:
+          type: string
+          enum:
+          - cookie
+        description: '`cookie` (browsers): the refresh token travels in an HttpOnly
+          cookie instead of the body.'
+      tags:
+      - Authentication
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RefreshRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RefreshRequestRequest'
       security:
       - jwtAuth: []
       responses:
@@ -1242,23 +2441,77 @@ paths:
                 Success:
                   value:
                     detail: Logged out successfully.
-          description: Refresh token revoked.
+          description: Session ended.
         '400':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
               examples:
-                MissingToken:
-                  value:
-                    detail: Refresh token is required.
-                  summary: Missing token
                 InvalidToken:
                   value:
                     detail: Invalid or expired refresh token.
                   summary: Invalid token
-          description: No token sent, or it is invalid, expired, already revoked or
-            belongs to another user (all answered the same way).
+          description: The refresh token sent is invalid or belongs to another user
+            (answered the same way).
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/auth/logout-all/:
+    post:
+      operationId: auth_logout_all_create
+      description: 'Ends **every** session of the user: all phones, browsers and tabs,
+        this one included. Their access tokens stop working on their next request.'
+      summary: Sign out everywhere
+      tags:
+      - Account Security
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutAll'
+              examples:
+                SignedOut:
+                  value:
+                    revoked_sessions: 3
+                  summary: Signed out
+          description: ''
         '401':
           description: 'No valid access token: missing, malformed or expired. Refresh
             it with `POST /api/auth/refresh/` and retry once; if the refresh fails
@@ -1360,7 +2613,7 @@ paths:
         - budget amounts are converted at the latest rate and rounded to the new currency's unit (whole forints and yen);
         - recurring transactions, subscriptions and savings goals keep their amounts and `currency`; totals convert them.
 
-        All or nothing: if a needed exchange rate is missing, the answer is `400` and nothing changes.
+        All or nothing: if a needed exchange rate is missing, the answer is `400` and nothing changes. The change is recorded in the security log.
       summary: Change the base currency
       tags:
       - Users
@@ -1452,28 +2705,127 @@ paths:
               schema:
                 type: integer
               description: Seconds until the next request is allowed.
+  /api/auth/password/:
+    post:
+      operationId: auth_password_create
+      description: Needs the current password. The new one must follow the password
+        policy (12 to 128 characters, not common, not only digits, not similar to
+        the email). **Every other device is signed out**, so whoever knew the old
+        password loses access; this device stays signed in. At most 20 of these changes
+        per hour per user; they ask for the password again.
+      summary: Change the password
+      tags:
+      - Account Security
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordChangeRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PasswordChangeRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PasswordChangeRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasswordChanged'
+              examples:
+                Changed:
+                  value:
+                    detail: Password changed. Your other devices were signed out.
+                    revoked_sessions: 2
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                WrongCurrentPassword:
+                  value:
+                    current_password:
+                    - Wrong password.
+                  summary: Wrong current password
+                TooShort:
+                  value:
+                    new_password:
+                    - This password is too short. It must contain at least 12 characters.
+                  summary: Too short
+          description: Validation failed; nothing was changed. See the examples for
+            typical messages.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
   /api/auth/refresh/:
     post:
       operationId: auth_refresh_create
       description: |-
-        Returns a new access token **and a new refresh token**; the refresh token sent is invalidated immediately (rotation). Store the new one before doing anything else.
+        Returns a new access token **and a new refresh token** of the same session; the one sent can't be used again (rotation). Store the new one before doing anything else. Presenting an already replaced refresh token means it was copied: the whole session is revoked (a retry within 30 seconds, e.g. after a lost response, is still accepted).
 
-        Clients should run at most one refresh at a time: concurrent refreshes with the same token all but one fail with `401`.
+        **Browsers** send `X-Auth-Transport: cookie`: the refresh token is then set as an HttpOnly, Secure, SameSite=Strict cookie for `/api/auth/` and left out of the JSON, so page scripts can never read it. **Apps** keep the refresh token in the Keychain / Keystore and get it in the body. Browsers send no body.
       summary: Refresh the access token
+      parameters:
+      - in: header
+        name: X-Auth-Transport
+        schema:
+          type: string
+          enum:
+          - cookie
+        description: '`cookie` (browsers): the refresh token travels in an HttpOnly
+          cookie instead of the body.'
       tags:
       - Authentication
       requestBody:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RefreshTokenRequest'
+              $ref: '#/components/schemas/RefreshRequestRequest'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/RefreshTokenRequest'
+              $ref: '#/components/schemas/RefreshRequestRequest'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/RefreshTokenRequest'
-        required: true
+              $ref: '#/components/schemas/RefreshRequestRequest'
       responses:
         '200':
           content:
@@ -1500,18 +2852,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
               examples:
-                AlreadyUsedOrRevoked:
+                SessionEnded:
                   value:
-                    detail: Token is blacklisted
-                    code: token_not_valid
-                  summary: Already used or revoked
-                MalformedOrExpired:
-                  value:
-                    detail: Token is invalid
-                    code: token_not_valid
-                  summary: Malformed or expired
-          description: 'The refresh token is invalid, expired, already used (tokens
-            rotate) or revoked by logout. The session is over: log in again.'
+                    detail: Your session has ended. Please sign in again.
+                    code: session_ended
+                  summary: Session ended
+          description: 'The session is over (signed out, signed out everywhere, password
+            changed, older than 30 days, or a refresh token was used twice: then the
+            whole session is revoked as a precaution). Sign in again.'
         '429':
           content:
             application/json:
@@ -1529,7 +2877,7 @@ paths:
       description: |-
         Creates a user and seeds their 10 default categories (Housing, Food, Transport, Shopping, Entertainment, Health, Bills, Travel, Other as expense; Salary as income).
 
-        Registration does **not** log the user in — call `POST /api/auth/login/` next. The email is stored lower-cased and must be unique regardless of letter case. The password must satisfy Django's validators: at least 8 characters, not too similar to the name/email, not a common password, not entirely numeric.
+        Registration does **not** sign the user in: call `POST /api/auth/login/` next. The email is stored lower-cased and must be unique regardless of letter case. Password policy: 12 to 128 characters, not similar to the name or email, not one of the 20,000 most common passwords, not entirely numeric.
       summary: Create an account
       tags:
       - Authentication
@@ -1586,8 +2934,8 @@ paths:
                 WeakPassword:
                   value:
                     password:
+                    - This password is too short. It must contain at least 12 characters.
                     - This password is too common.
-                    - This password is entirely numeric.
                   summary: Weak password
                 PasswordsDiffer:
                   value:
@@ -1614,6 +2962,233 @@ paths:
                     detail: Request was throttled. Expected available in 42 seconds.
           description: Rate limit exceeded (10 registrations per hour per IP). Retry
             after the number of seconds in `Retry-After`.
+  /api/auth/security-events/:
+    get:
+      operationId: auth_security_events_list
+      description: 'The user''s own security events, newest first, **paginated**:
+        sign-ins (also failed and blocked ones aimed at this account), sign-outs,
+        devices signed out, password and 2FA changes, a detected token theft, base
+        currency changes, CSV imports and deletions. `?category=login` is the login
+        history.'
+      summary: Security log
+      parameters:
+      - in: query
+        name: category
+        schema:
+          type: string
+          enum:
+          - account
+          - data
+          - login
+        description: '`login`: sign-in attempts. `account`: sessions, password, 2FA.
+          `data`: imports, deletions, currency.'
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - Account Security
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAuditEventList'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                UnknownCategory:
+                  value:
+                    category:
+                    - '"x" is not one of: login, account, data.'
+                  summary: Unknown category
+          description: Validation failed; nothing was changed. See the examples for
+            typical messages.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                PastTheEnd:
+                  value:
+                    detail: Invalid page.
+                  summary: Past the end
+          description: '`page` is past the last page.'
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/auth/sessions/:
+    get:
+      operationId: auth_sessions_list
+      description: |-
+        The user's active sessions, most recently used first. Not paginated.
+
+        Every sign-in starts a **session** (one per device). All of its tokens carry the session (`sid` claim) and stop working the moment it ends: logout, logout everywhere, a password change, a detected token theft, or 30 days after the sign-in.
+      summary: List signed-in devices
+      tags:
+      - Account Security
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Session'
+          description: ''
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
+  /api/auth/sessions/{id}/:
+    delete:
+      operationId: auth_sessions_destroy
+      description: 'Ends that session (e.g. a lost phone): its tokens stop working
+        immediately.'
+      summary: Sign a device out
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - Account Security
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: Signed out.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '404':
+          description: No such object for the signed-in user. Objects of other users
+            are reported exactly the same way.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NotFound:
+                  value:
+                    detail: No object matches the given query.
+        '429':
+          description: Rate limit exceeded (see *Rate limits* in the introduction).
+            Retry after `Retry-After` seconds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the next request is allowed.
   /api/budgets/:
     get:
       operationId: budgets_list
@@ -1794,8 +3369,9 @@ paths:
   /api/budgets/{id}/:
     get:
       operationId: budgets_retrieve
-      description: 'For ModelViewSets of objects with `updated_at`: ETag on reads,
-        If-Match on writes.'
+      description: |-
+        For ModelViewSets of the user's financial data: every deletion lands in the audit log
+        (which object, from which device), so "who deleted this?" has an answer across devices.
       summary: Get a budget
       parameters:
       - in: path
@@ -2299,8 +3875,9 @@ paths:
   /api/categories/{id}/:
     get:
       operationId: categories_retrieve
-      description: 'For ModelViewSets of objects with `updated_at`: ETag on reads,
-        If-Match on writes.'
+      description: |-
+        For ModelViewSets of the user's financial data: every deletion lands in the audit log
+        (which object, from which device), so "who deleted this?" has an answer across devices.
       summary: Get a category
       parameters:
       - in: path
@@ -4135,8 +5712,9 @@ paths:
   /api/recurring-transactions/{id}/:
     get:
       operationId: recurring_transactions_retrieve
-      description: 'For ModelViewSets of objects with `updated_at`: ETag on reads,
-        If-Match on writes.'
+      description: |-
+        For ModelViewSets of the user's financial data: every deletion lands in the audit log
+        (which object, from which device), so "who deleted this?" has an answer across devices.
       summary: Get a recurring transaction
       parameters:
       - in: path
@@ -4690,8 +6268,9 @@ paths:
   /api/savings-goals/{id}/:
     get:
       operationId: savings_goals_retrieve
-      description: 'For ModelViewSets of objects with `updated_at`: ETag on reads,
-        If-Match on writes.'
+      description: |-
+        For ModelViewSets of the user's financial data: every deletion lands in the audit log
+        (which object, from which device), so "who deleted this?" has an answer across devices.
       summary: Get a savings goal
       parameters:
       - in: path
@@ -5584,8 +7163,9 @@ paths:
   /api/subscriptions/{id}/:
     get:
       operationId: subscriptions_retrieve
-      description: 'For ModelViewSets of objects with `updated_at`: ETag on reads,
-        If-Match on writes.'
+      description: |-
+        For ModelViewSets of the user's financial data: every deletion lands in the audit log
+        (which object, from which device), so "who deleted this?" has an answer across devices.
       summary: Get a subscription
       parameters:
       - in: path
@@ -6426,8 +8006,9 @@ paths:
   /api/transactions/{id}/:
     get:
       operationId: transactions_retrieve
-      description: 'For ModelViewSets of objects with `updated_at`: ETag on reads,
-        If-Match on writes.'
+      description: |-
+        For ModelViewSets of the user's financial data: every deletion lands in the audit log
+        (which object, from which device), so "who deleted this?" has an answer across devices.
       summary: Get a transaction
       parameters:
       - in: path
@@ -6887,8 +8468,9 @@ paths:
               description: Seconds until the next request is allowed.
     delete:
       operationId: transactions_destroy
-      description: 'For ModelViewSets of objects with `updated_at`: ETag on reads,
-        If-Match on writes.'
+      description: |-
+        For ModelViewSets of the user's financial data: every deletion lands in the audit log
+        (which object, from which device), so "who deleted this?" has an answer across devices.
       summary: Delete a transaction
       parameters:
       - in: path
@@ -7252,6 +8834,180 @@ components:
         * `count` - Count
         * `days` - Days
         * `money` - Money
+    AssistantError:
+      type: object
+      properties:
+        detail:
+          type: string
+          description: Safe to show to the user.
+        code:
+          allOf:
+          - $ref: '#/components/schemas/AssistantErrorCodeEnum'
+          description: |-
+            `assistant_unavailable`: no answer this time (model API down or busy, too slow) — retry. `assistant_not_configured`: the server has no model API key — retrying won't help.
+
+            * `assistant_unavailable` - assistant_unavailable
+            * `assistant_not_configured` - assistant_not_configured
+      required:
+      - code
+      - detail
+    AssistantErrorCodeEnum:
+      enum:
+      - assistant_unavailable
+      - assistant_not_configured
+      type: string
+      description: |-
+        * `assistant_unavailable` - assistant_unavailable
+        * `assistant_not_configured` - assistant_not_configured
+    AssistantMessage:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        role:
+          $ref: '#/components/schemas/AssistantRoleEnum'
+        content:
+          type: string
+          description: The question, or the answer as plain text with light Markdown
+            (`**bold**`, `- ` list items).
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/DataSource'
+          description: 'Answers: the backend data the answer is based on (empty for
+            questions and refusals).'
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - content
+      - created_at
+      - id
+      - role
+      - sources
+    AssistantRoleEnum:
+      enum:
+      - user
+      - assistant
+      type: string
+      description: |-
+        * `user` - User
+        * `assistant` - Assistant
+    AssistantStatus:
+      type: object
+      properties:
+        available:
+          type: boolean
+        suggested_questions:
+          type: array
+          items:
+            type: string
+          description: Up to 6; empty when not available.
+        max_question_length:
+          type: integer
+      required:
+      - available
+      - max_question_length
+      - suggested_questions
+    AssistantToolEnum:
+      enum:
+      - get_monthly_spending
+      - get_category_spending
+      - get_merchant_spending
+      - get_budget_status
+      - get_subscription_costs
+      - get_savings_progress
+      - get_month_comparison
+      type: string
+      description: |-
+        * `get_monthly_spending` - get_monthly_spending
+        * `get_category_spending` - get_category_spending
+        * `get_merchant_spending` - get_merchant_spending
+        * `get_budget_status` - get_budget_status
+        * `get_subscription_costs` - get_subscription_costs
+        * `get_savings_progress` - get_savings_progress
+        * `get_month_comparison` - get_month_comparison
+    AuditActionEnum:
+      enum:
+      - account_created
+      - login_succeeded
+      - login_failed
+      - login_blocked
+      - mfa_failed
+      - logout
+      - logout_all
+      - session_revoked
+      - refresh_token_reused
+      - password_changed
+      - mfa_enabled
+      - mfa_disabled
+      - recovery_code_used
+      - recovery_codes_regenerated
+      - base_currency_changed
+      - transactions_imported
+      - object_deleted
+      type: string
+      description: |-
+        * `account_created` - Account created
+        * `login_succeeded` - Signed in
+        * `login_failed` - Wrong email or password
+        * `login_blocked` - Sign-in blocked after too many failures
+        * `mfa_failed` - Wrong two-factor code
+        * `logout` - Signed out
+        * `logout_all` - Signed out everywhere
+        * `session_revoked` - Device signed out
+        * `refresh_token_reused` - Stolen session blocked
+        * `password_changed` - Password changed
+        * `mfa_enabled` - Two-factor authentication turned on
+        * `mfa_disabled` - Two-factor authentication turned off
+        * `recovery_code_used` - Recovery code used
+        * `recovery_codes_regenerated` - New recovery codes
+        * `base_currency_changed` - Base currency changed
+        * `transactions_imported` - Transactions imported
+        * `object_deleted` - Deleted
+    AuditCategoryEnum:
+      enum:
+      - login
+      - account
+      - data
+      type: string
+    AuditEvent:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        action:
+          $ref: '#/components/schemas/AuditActionEnum'
+        description:
+          type: string
+          description: Human-readable action.
+        category:
+          allOf:
+          - $ref: '#/components/schemas/AuditCategoryEnum'
+          description: '`login`, `account` or `data`.'
+          readOnly: true
+        ip_address:
+          type: string
+          nullable: true
+        user_agent:
+          type: string
+          maxLength: 255
+        metadata:
+          description: 'Details of the event, e.g. `{"method": "totp"}` or the deleted
+            object.'
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - action
+      - category
+      - created_at
+      - description
+      - id
     Budget:
       type: object
       properties:
@@ -7634,6 +9390,18 @@ components:
       - change_amount
       - change_percentage
       - total
+    ClientPlatformEnum:
+      enum:
+      - web
+      - ios
+      - android
+      - unknown
+      type: string
+      description: |-
+        * `web` - Web
+        * `ios` - iOS
+        * `android` - Android
+        * `unknown` - Unknown
     Comparison:
       type: object
       properties:
@@ -7723,6 +9491,56 @@ components:
       - balance
       - total_expenses
       - total_income
+    Conversation:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          description: The first question, shortened.
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - title
+      - updated_at
+    ConversationDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          description: The first question, shortened.
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssistantMessage'
+          description: Oldest first.
+      required:
+      - created_at
+      - id
+      - messages
+      - title
+      - updated_at
     Conversion:
       type: object
       properties:
@@ -7901,6 +9719,24 @@ components:
       - monthly_total
       - unconverted_currencies
       - yearly_total
+    DataSource:
+      type: object
+      description: One backend tool an answer is based on.
+      properties:
+        tool:
+          $ref: '#/components/schemas/AssistantToolEnum'
+        label:
+          type: string
+          description: What to show, e.g. `Spending by category`.
+        detail:
+          type: string
+          nullable: true
+          description: The period or name it was about, e.g. `September 2026 vs August
+            2026`; or `null`.
+      required:
+      - detail
+      - label
+      - tool
     Device:
       type: object
       properties:
@@ -7992,6 +9828,20 @@ components:
           description: 'JWT errors only: why each token type rejected the token.'
       required:
       - detail
+    Exchange:
+      type: object
+      description: A question and its answer, just stored.
+      properties:
+        conversation:
+          $ref: '#/components/schemas/Conversation'
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssistantMessage'
+          description: The question, then the answer.
+      required:
+      - conversation
+      - messages
     FrequencyEnum:
       enum:
       - weekly
@@ -8158,6 +10008,19 @@ components:
             * `error` - error
       required:
       - status
+    Locked:
+      type: object
+      properties:
+        detail:
+          type: string
+        code:
+          type: string
+          description: '`account_locked` for the per-account lock.'
+        retry_after:
+          type: integer
+          description: Seconds until sign-in is allowed again.
+      required:
+      - detail
     LoginRequest:
       type: object
       properties:
@@ -8166,13 +10029,27 @@ components:
           format: email
           minLength: 1
           description: Case-insensitive.
+          maxLength: 254
         password:
           type: string
           writeOnly: true
           minLength: 1
+          maxLength: 4096
       required:
       - email
       - password
+    LoginResult:
+      oneOf:
+      - $ref: '#/components/schemas/TokenPair'
+      - $ref: '#/components/schemas/MfaChallenge'
+    LogoutAll:
+      type: object
+      properties:
+        revoked_sessions:
+          type: integer
+          description: Sessions ended.
+      required:
+      - revoked_sessions
     MarkAllRead:
       type: object
       properties:
@@ -8266,6 +10143,75 @@ components:
           description: Confirmation message.
       required:
       - detail
+    MfaChallenge:
+      type: object
+      properties:
+        mfa_required:
+          type: boolean
+          description: 'Always `true`: send a code to `/api/auth/login/verify/`.'
+        mfa_token:
+          type: string
+          description: Proves the password step; send it with the code.
+        expires_in:
+          type: integer
+          description: Seconds the challenge is valid (300).
+      required:
+      - expires_in
+      - mfa_required
+      - mfa_token
+    MfaCodeRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+          description: 6-digit code from the authenticator app.
+          maxLength: 32
+      required:
+      - code
+    MfaLoginRequest:
+      type: object
+      properties:
+        mfa_token:
+          type: string
+          minLength: 1
+          description: From the `POST /api/auth/login/` answer.
+          maxLength: 512
+        code:
+          type: string
+          minLength: 1
+          description: 6-digit code from the authenticator app, or an unused recovery
+            code.
+          maxLength: 32
+      required:
+      - code
+      - mfa_token
+    MfaSetup:
+      type: object
+      properties:
+        secret:
+          type: string
+          description: Base32 key.
+        otpauth_uri:
+          type: string
+      required:
+      - otpauth_uri
+      - secret
+    MfaStatus:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        enabled_at:
+          type: string
+          format: date-time
+          nullable: true
+        recovery_codes_left:
+          type: integer
+      required:
+      - enabled
+      - enabled_at
+      - recovery_codes_left
     MoneyMovementRequest:
       type: object
       properties:
@@ -8488,6 +10434,52 @@ components:
       description: |-
         * `high` - high
         * `low` - low
+    PaginatedAuditEventList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditEvent'
+    PaginatedConversationList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Conversation'
     PaginatedNotificationList:
       type: object
       required:
@@ -8534,6 +10526,62 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Transaction'
+    PasswordAndCodeRequest:
+      type: object
+      description: Sensitive changes need the password again, so a borrowed signed-in
+        device isn't enough.
+      properties:
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+          maxLength: 4096
+        code:
+          type: string
+          minLength: 1
+          description: Authenticator code or an unused recovery code.
+          maxLength: 32
+      required:
+      - code
+      - password
+    PasswordChangeRequest:
+      type: object
+      properties:
+        current_password:
+          type: string
+          writeOnly: true
+          minLength: 1
+          maxLength: 4096
+        new_password:
+          type: string
+          writeOnly: true
+          minLength: 1
+          maxLength: 4096
+      required:
+      - current_password
+      - new_password
+    PasswordChanged:
+      type: object
+      properties:
+        detail:
+          type: string
+        revoked_sessions:
+          type: integer
+      required:
+      - detail
+      - revoked_sessions
+    PasswordConfirmationRequest:
+      type: object
+      description: Sensitive changes need the password again, so a borrowed signed-in
+        device isn't enough.
+      properties:
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+          maxLength: 4096
+      required:
+      - password
     PatchedBudgetRequest:
       type: object
       properties:
@@ -8868,6 +10916,16 @@ components:
             * `GBP` - British pound
             * `JPY` - Japanese yen
             * `CHF` - Swiss franc
+    QuestionRequest:
+      type: object
+      properties:
+        message:
+          type: string
+          minLength: 1
+          description: The user's question (max 1000 characters).
+          maxLength: 1000
+      required:
+      - message
     Readiness:
       type: object
       properties:
@@ -8987,6 +11045,17 @@ components:
       - outcome
       - text_found
       - unsupported_currency
+    RecoveryCodes:
+      type: object
+      properties:
+        recovery_codes:
+          type: array
+          items:
+            type: string
+          description: '10 single-use codes like `k3m9-q2xa`. Shown only now: the
+            server keeps only hashes.'
+      required:
+      - recovery_codes
     RecurringTransaction:
       type: object
       description: |-
@@ -9155,15 +11224,14 @@ components:
       - name
       - start_date
       - type
-    RefreshTokenRequest:
+    RefreshRequestRequest:
       type: object
       properties:
         refresh:
           type: string
           minLength: 1
-          description: The most recent refresh token.
-      required:
-      - refresh
+          description: 'The current refresh token (apps). Browsers leave it out: theirs
+            is in an HttpOnly cookie.'
     Register:
       type: object
       properties:
@@ -9207,7 +11275,8 @@ components:
           type: string
           writeOnly: true
           minLength: 1
-          description: At least 8 characters, not common, not only digits.
+          description: 12–128 characters, not a common password, not only digits,
+            not similar to the email or name.
         password_confirm:
           type: string
           writeOnly: true
@@ -9573,6 +11642,52 @@ components:
       required:
       - confidence
       - value
+    Session:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        platform:
+          allOf:
+          - $ref: '#/components/schemas/ClientPlatformEnum'
+          description: |-
+            `web`, `ios`, `android` or `unknown`.
+
+            * `web` - Web
+            * `ios` - iOS
+            * `android` - Android
+            * `unknown` - Unknown
+        user_agent:
+          type: string
+          description: Browser or app, as it identified itself.
+          maxLength: 255
+        ip_address:
+          type: string
+          nullable: true
+          description: Address of the last token refresh.
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          description: When the user signed in on this device.
+        last_used_at:
+          type: string
+          format: date-time
+          description: Last token refresh (at most ~15 minutes behind real use).
+        expires_at:
+          type: string
+          format: date-time
+          description: After this the device must sign in again.
+        current:
+          type: boolean
+          readOnly: true
+          description: The session this request was made with.
+      required:
+      - created_at
+      - current
+      - expires_at
+      - id
     SpendingPatterns:
       type: object
       properties:
@@ -9992,11 +12107,11 @@ components:
           description: 'JWT for the `Authorization: Bearer` header. Valid for 15 minutes.'
         refresh:
           type: string
-          description: JWT for `/api/auth/refresh/` and `/api/auth/logout/`. Valid
-            for 7 days, single use.
+          description: 'Single-use JWT for `/api/auth/refresh/`, valid for 7 days
+            of inactivity. Left out for browsers (`X-Auth-Transport: cookie`): theirs
+            is set as an HttpOnly cookie.'
       required:
       - access
-      - refresh
     TopCategory:
       type: object
       properties:
@@ -10363,6 +12478,9 @@ tags:
   description: Register, obtain and refresh JWTs, log out.
 - name: Users
   description: The signed-in user's profile.
+- name: Account Security
+  description: Signed-in devices, signing out everywhere, password, two-factor authentication,
+    security log.
 - name: Transactions
   description: Income and expense records — the core of the API.
 - name: CSV Import
@@ -10386,6 +12504,9 @@ tags:
   description: Rule-based observations about a month's finances.
 - name: Achievements
   description: Milestones earned from the user's own data, with progress.
+- name: AI Assistant
+  description: Questions about the user's own finances, answered by Claude from read-only
+    backend tools.
 - name: Receipt Scanning
   description: OCR suggestions from a receipt photo.
 - name: Notifications

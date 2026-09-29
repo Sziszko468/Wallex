@@ -32,7 +32,7 @@ rendered exactly as the API returns them.**
 - Base URL: `${API_BASE_URL}/api` (web: `VITE_API_BASE_URL`, mobile: resolved by
   `utils/apiBaseUrl.ts`). All paths below are relative to that.
 - Auth: `Authorization: Bearer <access_token>` on every endpoint in this document (all of them
-  require a logged-in user; see the auth-flow steps for `/api/auth/*`).
+  require a logged-in user; see **Authentication & account security** for `/api/auth/*`).
 - All list/detail responses are scoped to the authenticated user — there is no way to read
   another user's data through any of these endpoints.
 - Money fields (`amount`, `total_income`, `total_expenses`, `balance`, `spent_amount`,
@@ -856,6 +856,73 @@ not sent to — the session on them can no longer be valid.
 `setNotificationRead`, `markAllNotificationsRead`, `getNotificationPreferences`,
 `updateNotificationPreferences` in both `web/src/services/notificationsService.ts` and
 `mobile/services/notificationsService.ts`; `registerDevice`, `deleteDevice` in mobile only.
+
+---
+
+## Authentication & account security — `/api/auth/*`
+
+The backend decides everything; the clients only store what it hands out. Summary (every
+shape is in the OpenAPI document):
+
+### Sessions
+
+Every sign-in is a **session** (one per device). All tokens carry its id (`sid` claim), and
+every request checks that the session is still active, so ending a session locks its access
+token out on the next request, not after its 15 minutes.
+
+- **Rotation with theft detection:** a refresh token works once. Presenting an already
+  replaced one means it was copied, so the whole session is revoked (the thief and the real
+  device must both sign in again) and `refresh_token_reused` is logged. A retry of the
+  previous token within 30 seconds (a lost response) is accepted.
+- **Lifetime:** access 15 min; refresh 7 days of inactivity; the session itself at most
+  30 days, then sign in again.
+- Tokens carry `iss: "spendly"` and `aud: "spendly-api"`; tokens without a session (issued
+  before this version) are refused, so users sign in once after the upgrade.
+
+### Where the refresh token lives
+
+| Client | Refresh token | Access token |
+|---|---|---|
+| Web | **HttpOnly cookie** `spendly_refresh` (Secure, SameSite=Strict, path `/api/auth/`): send `X-Auth-Transport: cookie` and `withCredentials`; the JSON has only `access` | module memory only; a reload refreshes from the cookie |
+| Mobile | JSON body, stored in Keychain / Keystore (`WHEN_UNLOCKED_THIS_DEVICE_ONLY`) behind the optional biometric lock | memory only |
+
+The cookie is read only together with the `X-Auth-Transport` header (CSRF protection).
+Clients send `X-Client-Platform: web | ios | android` at sign-in to label the session.
+
+### Signing in
+
+1. `POST /api/auth/login/` `{email, password}` → `{access, refresh?}`, **or** with 2FA on
+   `{"mfa_required": true, "mfa_token": "…", "expires_in": 300}`.
+2. `POST /api/auth/login/verify/` `{mfa_token, code}` → tokens. `code` is the 6-digit
+   authenticator code or an unused recovery code; each works once.
+
+Wrong credentials → `401 no_active_account` (the same for unknown emails). **Per-account
+lock:** after 5 wrong passwords or codes for one email within 15 minutes (from any IP), sign-in
+answers `429 {"code": "account_locked", "retry_after": seconds}` with `Retry-After`, even with
+the right password, until the oldest failure is 15 minutes old. Per-IP limits apply as well.
+
+### Endpoints
+
+| Endpoint | What it does |
+|---|---|
+| `POST /api/auth/refresh/` | New pair of the same session (body `{refresh}` for apps, the cookie for browsers); `401 session_ended` = sign in again |
+| `POST /api/auth/logout/` | Ends this device's session (body optional); clears the cookie |
+| `POST /api/auth/logout-all/` | Ends **every** session of the account → `{"revoked_sessions": n}` |
+| `GET /api/auth/sessions/`, `DELETE …/{id}/` | Signed-in devices (`platform`, `user_agent`, `ip_address`, times, `current`); sign one out |
+| `POST /api/auth/password/` | `{current_password, new_password}`; signs every **other** device out |
+| `GET /api/auth/2fa/` | `{enabled, enabled_at, recovery_codes_left}` |
+| `POST /api/auth/2fa/setup/` | `{password}` → `{secret, otpauth_uri}` (not active yet) |
+| `POST /api/auth/2fa/confirm/` | `{code}` → turns it on → `{recovery_codes: [10]}`, shown once |
+| `POST /api/auth/2fa/disable/`, `…/recovery-codes/` | `{password, code}` |
+| `GET /api/auth/security-events/?category=login\|account\|data` | The user's own security log, paginated; `category=login` is the login history |
+
+Password policy: 12–128 characters, not common, not only digits, not similar to the email.
+Password and 2FA changes: 20 per hour per user.
+
+**Client functions:** web `services/authService.ts` (`login`, `verifyMfa`, `logout`,
+`logoutEverywhere`) and `services/securityService.ts` (sessions, password, 2FA, log); mobile
+`services/authService.ts` (`login`, `verifyMfa`) and `services/session.ts`
+(`revokeSession`, `revokeAllSessions`).
 
 ---
 

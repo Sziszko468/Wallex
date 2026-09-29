@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { Button } from "../components/Button";
 import { ConfirmDialog } from "../components/ConfirmDialog";
@@ -84,6 +84,15 @@ export function SettingsPage() {
         <Button onClick={() => setIsConfirmOpen(true)} disabled={selectedCurrency === baseCurrency}>
           Change base currency
         </Button>
+      </div>
+
+      <div className={styles.card}>
+        <h2>Security</h2>
+        <p className={styles.hint}>
+          Signed-in devices, logging out everywhere, your password, two-factor authentication and recent
+          sign-ins.
+        </p>
+        <Link to="/settings/security">Manage security</Link>
       </div>
 
       <div className={styles.card}>

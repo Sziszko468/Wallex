@@ -1,0 +1,177 @@
+@use "../styles/variables" as vars;
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: vars.$space-lg;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: vars.$space-md;
+
+  @media (min-width: vars.$breakpoint-tablet) {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+}
+
+.heading {
+  margin: 0;
+  font-size: vars.$font-size-xl;
+}
+
+.subtitle {
+  max-width: 40rem;
+  margin: vars.$space-xs 0 0;
+  font-size: vars.$font-size-sm;
+  color: vars.$color-text-muted;
+}
+
+.headerActions {
+  display: flex;
+  flex-shrink: 0;
+  gap: vars.$space-sm;
+}
+
+.historyToggle,
+.newChat {
+  padding: vars.$space-sm vars.$space-md;
+  font: inherit;
+  font-size: vars.$font-size-sm;
+  font-weight: 600;
+  border-radius: vars.$radius-md;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.historyToggle {
+  color: vars.$color-text;
+  background: vars.$color-surface;
+  border: 1px solid vars.$color-border;
+
+  @media (min-width: vars.$breakpoint-tablet) {
+    display: none;
+  }
+}
+
+.newChat {
+  color: white;
+  background-color: vars.$color-primary;
+  border: 1px solid vars.$color-primary;
+
+  &:hover {
+    background-color: vars.$color-primary-dark;
+  }
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: vars.$space-lg;
+
+  @media (min-width: vars.$breakpoint-tablet) {
+    grid-template-columns: 15rem minmax(0, 1fr);
+    align-items: start;
+  }
+
+  @media (min-width: vars.$breakpoint-desktop) {
+    grid-template-columns: 17rem minmax(0, 1fr);
+  }
+}
+
+// Below tablet width the history is a panel opened with the "History" button.
+.sidebar {
+  display: none;
+  padding: vars.$space-md;
+  background-color: vars.$color-surface;
+  border: 1px solid vars.$color-border;
+  border-radius: vars.$radius-md;
+
+  &.sidebarOpen {
+    display: block;
+  }
+
+  @media (min-width: vars.$breakpoint-tablet) {
+    position: sticky;
+    top: 6rem;
+    display: block;
+    max-height: calc(100vh - 8rem);
+    overflow-y: auto;
+  }
+}
+
+.chat {
+  display: flex;
+  flex-direction: column;
+  gap: vars.$space-md;
+  min-width: 0;
+}
+
+.notice {
+  margin: 0;
+  padding: vars.$space-sm vars.$space-md;
+  font-size: vars.$font-size-sm;
+  color: vars.$color-warning;
+  background-color: rgba(217, 119, 6, 0.08);
+  border: 1px solid rgba(217, 119, 6, 0.3);
+  border-radius: vars.$radius-sm;
+}
+
+.thread {
+  min-height: 12rem;
+}
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  gap: vars.$space-md;
+
+  > :first-child {
+    align-self: flex-end;
+  }
+}
+
+.gone {
+  font-size: vars.$font-size-sm;
+  color: vars.$color-text-muted;
+
+  p {
+    margin: 0 0 vars.$space-sm;
+  }
+}
+
+.welcome {
+  display: flex;
+  flex-direction: column;
+  gap: vars.$space-lg;
+  padding-top: vars.$space-md;
+}
+
+.welcomeTitle {
+  margin: 0;
+  font-size: vars.$font-size-lg;
+  font-weight: 600;
+}
+
+// The question box stays reachable at the bottom while a long conversation scrolls.
+.composerArea {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  padding: vars.$space-sm 0 vars.$space-md;
+  background-color: vars.$color-background;
+
+  > [role="alert"] {
+    margin-bottom: vars.$space-sm;
+  }
+}
+
+.disclaimer {
+  margin: vars.$space-xs 0 0;
+  font-size: 0.75rem;
+  color: vars.$color-text-muted;
+}

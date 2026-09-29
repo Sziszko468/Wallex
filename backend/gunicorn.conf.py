@@ -9,7 +9,12 @@ bind = f"0.0.0.0:{os.environ.get('PORT', '8000')}"
 # Rule of thumb: 2 × CPU cores + 1, capped by the memory the instance has.
 workers = int(os.environ.get("WEB_CONCURRENCY", "2"))
 
+# Threads per worker (gthread): while one request waits on the network — an AI assistant
+# answer waits several seconds for the language model — the others keep being served.
+threads = int(os.environ.get("GUNICORN_THREADS", "4"))
+
 # Receipt OCR on a large photo can take several seconds; everything else is milliseconds.
+# (With threads this is the worker's heartbeat; nginx's proxy_read_timeout bounds a request.)
 timeout = int(os.environ.get("GUNICORN_TIMEOUT", "60"))
 graceful_timeout = 30
 keepalive = 5

@@ -4,6 +4,7 @@ from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from rest_framework.routers import DefaultRouter
 
+from apps.analytics.assistant.views import AssistantConversationViewSet, AssistantStatusView
 from apps.analytics.views import AchievementViewSet
 from apps.budgets.views import BudgetViewSet, SavingsGoalViewSet
 from apps.categories.views import CategoryViewSet
@@ -25,19 +26,23 @@ router.register("subscriptions", SubscriptionViewSet, basename="subscription")
 router.register("devices", DeviceViewSet, basename="device")
 router.register("notifications", NotificationViewSet, basename="notification")
 router.register("achievements", AchievementViewSet, basename="achievement")
+router.register("assistant/conversations", AssistantConversationViewSet, basename="assistantconversation")
 
 urlpatterns = [
-    path("admin/", admin.site.urls),
     path("api/health/", LivenessView.as_view(), name="health-live"),
     path("api/health/ready/", ReadinessView.as_view(), name="health-ready"),
     path("api/auth/", include("apps.users.urls")),
     path("api/analytics/", include("apps.analytics.urls")),
+    path("api/assistant/", AssistantStatusView.as_view(), name="assistant-status"),
     path("api/currencies/", include("apps.currencies.urls")),
     path("api/sync/status/", SyncStatusView.as_view(), name="sync-status"),
     path("api/notifications/", include("apps.notifications.urls")),
     path("api/receipts/", include("apps.receipts.urls")),
     path("api/", include(router.urls)),
 ]
+
+if settings.ADMIN_ENABLED:
+    urlpatterns.insert(0, path(settings.ADMIN_URL, admin.site.urls))
 
 if settings.API_DOCS_ENABLED:
     urlpatterns += [

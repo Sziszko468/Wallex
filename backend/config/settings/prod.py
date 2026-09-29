@@ -1,7 +1,17 @@
 from django.core.exceptions import ImproperlyConfigured
 
 from .base import *  # noqa: F401,F403
-from .base import ALLOWED_HOSTS, DATABASES, MIDDLEWARE, REST_FRAMEWORK, SECRET_KEY, SIMPLE_JWT, env
+from .base import (
+    ALLOWED_HOSTS,
+    AUTH_REFRESH_COOKIE,
+    DATABASES,
+    FIELD_ENCRYPTION_KEY,
+    MIDDLEWARE,
+    REST_FRAMEWORK,
+    SECRET_KEY,
+    SIMPLE_JWT,
+    env,
+)
 
 
 def _require(condition: bool, message: str) -> None:
@@ -35,6 +45,15 @@ _require(
     all(origin.startswith("https://") for origin in CORS_ALLOWED_ORIGINS),
     "CORS_ALLOWED_ORIGINS must only contain https:// origins in production.",
 )
+_require(
+    _is_strong_key(FIELD_ENCRYPTION_KEY) and FIELD_ENCRYPTION_KEY != SECRET_KEY,
+    "FIELD_ENCRYPTION_KEY must be its own long random value in production (it encrypts two-factor "
+    "secrets; sharing SECRET_KEY would make them unreadable after rotating it).",
+)
+_require(AUTH_REFRESH_COOKIE["SECURE"], "AUTH_COOKIE_SECURE can't be turned off in production.")
+
+# The admin signs in with a password only: off unless explicitly enabled (then keep it behind a VPN).
+ADMIN_ENABLED = env.bool("DJANGO_ADMIN_ENABLED", default=False)
 
 DEBUG = False
 

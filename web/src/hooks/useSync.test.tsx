@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { apiClient } from "../services/apiClient";
 import { makeSyncStatus } from "../test/fixtures";
 import { API, server } from "../test/server";
-import { setTokens } from "../utils/tokenStorage";
+import { setAccessToken } from "../utils/tokenStorage";
 import { SYNC_POLL_INTERVAL_MS } from "../utils/syncClock";
 import { useAsyncData } from "./useAsyncData";
 import { SyncProvider } from "./useSync";
@@ -50,7 +50,7 @@ function comeBackToTheTab() {
   });
 }
 
-beforeEach(() => setTokens({ access: "access", refresh: "refresh" }));
+beforeEach(() => setAccessToken("access"));
 
 describe("SyncProvider + useAsyncData", () => {
   it("reloads a view in the background when another device changed the data", async () => {

@@ -82,7 +82,7 @@ Every error has a JSON body and a meaningful status code:
 | `409` | The action conflicts with existing data (e.g. deleting a category in use) | `{"detail": "…"}` |
 | `413` | Upload too large | `{"<field>": ["…"]}` |
 | `429` | Rate limit hit; retry after `Retry-After` seconds | `{"detail": "…"}` |
-| `503` | A dependency is temporarily unavailable (receipt OCR, health probe) | `{"detail": "…"}` |
+| `503` | A dependency is temporarily unavailable (receipt OCR, the AI assistant's model, health probe) | `{"detail": "…"}` |
 
 Error messages are written for end users and may be shown as they are.
 
@@ -94,6 +94,7 @@ Error messages are written for end users and may be shown as they are.
 | `POST /api/auth/register/` | 10 / hour | client IP |
 | `POST /api/auth/refresh/` | 30 / minute | client IP |
 | `POST /api/receipts/scan/` | 30 / hour | user |
+| Questions to the AI assistant (`POST /api/assistant/conversations/…`) | 30 / hour | user |
 | Everything else | 2000 / hour | user (IP when anonymous) |
 
 ## Idempotent transaction creation
