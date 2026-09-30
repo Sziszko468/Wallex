@@ -1,0 +1,42 @@
+@use "../styles/mixins" as m;
+
+.card {
+  min-width: 0;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.subtle {
+  background-color: var(--color-surface-subtle);
+}
+
+// The hero wash: two soft tonal glows (sage top-left, sand bottom-right) over the surface.
+.tinted {
+  background:
+    radial-gradient(90% 130% at 0% 0%, var(--wash-sage) 0%, transparent 62%),
+    radial-gradient(70% 110% at 100% 100%, var(--wash-sand) 0%, transparent 58%),
+    var(--color-surface);
+  border-color: var(--color-border);
+  border-radius: var(--radius-xl);
+}
+
+.padding-none {
+  padding: 0;
+}
+
+.padding-md {
+  padding: var(--space-4);
+
+  @include m.tablet-up {
+    padding: var(--space-5);
+  }
+}
+
+.padding-lg {
+  padding: var(--space-5);
+
+  @include m.tablet-up {
+    padding: var(--space-8);
+  }
+}

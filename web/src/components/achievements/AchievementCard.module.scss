@@ -1,87 +1,77 @@
-@use "../../styles/variables" as vars;
+@use "../../styles/mixins" as m;
 
 .card {
   display: flex;
   align-items: flex-start;
-  gap: vars.$space-md;
-  padding: vars.$space-md;
-  background-color: vars.$color-surface;
-  border: 1px solid vars.$color-border;
-  border-radius: vars.$radius-md;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
 }
 
 .icon {
+  display: inline-flex;
   flex-shrink: 0;
-  width: 2.5rem;
-  height: 2.5rem;
-  display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  font-size: 1.25rem;
-  background-color: vars.$color-background;
-  border: 1px solid vars.$color-border;
+  width: 3rem;
+  height: 3rem;
+  font-size: 1.5rem;
+  background-color: var(--color-bg-subtle);
+  border-radius: var(--radius-full);
 }
 
 // Locked: present but quiet — no colour until it's earned.
 .locked .icon {
   filter: grayscale(1);
-  opacity: 0.45;
+  opacity: 0.5;
 }
 
 .unlocked .icon {
-  background-color: rgba(99, 102, 241, 0.08);
-  border-color: rgba(99, 102, 241, 0.25);
+  background-color: var(--color-primary-soft);
 }
 
 .body {
-  flex: 1;
-  min-width: 0;
   display: flex;
+  flex: 1;
   flex-direction: column;
-  gap: vars.$space-xs;
+  gap: var(--space-1);
+  min-width: 0;
 }
 
 .titleRow {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: vars.$space-sm;
+  gap: var(--space-2);
 }
 
 .title {
-  margin: 0;
-  font-size: vars.$font-size-base;
-  font-weight: 600;
-  color: vars.$color-text;
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0;
+  color: var(--color-text);
 }
 
 .locked .title {
-  color: vars.$color-text-muted;
-}
-
-.newBadge {
-  padding: 0.05rem 0.4rem;
-  border-radius: 999px;
-  font-size: 0.7rem;
-  font-weight: 700;
-  color: vars.$color-primary-dark;
-  background-color: rgba(99, 102, 241, 0.12);
+  color: var(--color-text-secondary);
 }
 
 .meta {
-  margin: 0;
-  font-size: 0.8rem;
-  color: vars.$color-text-muted;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
 }
 
 .progress {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
-  margin-top: vars.$space-xs;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
 }
 
 .progressText {
-  font-size: 0.75rem;
-  color: vars.$color-text-muted;
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  @include m.tabular-numbers;
 }

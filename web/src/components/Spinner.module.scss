@@ -1,20 +1,20 @@
-@use "../styles/variables" as vars;
+@use "../styles/mixins" as m;
 
 .spinner {
   display: inline-flex;
   align-items: center;
-  gap: vars.$space-sm;
-  color: vars.$color-text-muted;
-  font-size: vars.$font-size-sm;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
 }
 
-.circle {
-  width: 1.25rem;
-  height: 1.25rem;
-  border: 2px solid vars.$color-border;
-  border-top-color: vars.$color-primary;
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
+.ring {
+  display: inline-flex;
+  animation: turn 2.4s linear infinite;
+
+  @include m.reduced-motion {
+    animation: none;
+  }
 }
 
 .label {
@@ -26,10 +26,16 @@
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  padding: vars.$space-lg;
+  min-height: 100dvh;
+  padding: var(--space-6);
+  background-color: var(--color-bg);
+
+  .spinner {
+    flex-direction: column;
+  }
 }
 
-@keyframes spin {
+@keyframes turn {
   to {
     transform: rotate(360deg);
   }

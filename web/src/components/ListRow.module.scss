@@ -1,0 +1,101 @@
+@use "../styles/mixins" as m;
+
+.surface {
+  padding: var(--space-1);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+// Phones: mark | text | figures on the first line, actions on a second line below.
+// Tablet up: everything on one line, the actions at the far right.
+.row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--space-2) var(--space-3);
+  align-items: center;
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  transition: background-color var(--duration-fast) var(--ease-standard);
+
+  &:hover,
+  &:focus-within {
+    background-color: var(--color-surface-subtle);
+  }
+
+  @include m.tablet-up {
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+  }
+}
+
+.dimmed .leading,
+.dimmed .text {
+  opacity: 0.6;
+}
+
+.leading {
+  display: inline-flex;
+}
+
+.text {
+  min-width: 0;
+}
+
+.title {
+  @include m.truncate;
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+
+  a {
+    color: inherit;
+    text-decoration: none;
+
+    &:hover {
+      color: var(--color-primary-ink);
+      text-decoration: underline;
+    }
+  }
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+.trailing {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-1);
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  text-align: right;
+  white-space: nowrap;
+  color: var(--color-text);
+  @include m.tabular-numbers;
+}
+
+// Always visible: these lists have no details view, so the actions must be reachable on touch too.
+.actions {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: 2px;
+  margin-left: calc(2.5rem + var(--space-3));
+
+  @include m.tablet-up {
+    grid-column: auto;
+    margin-left: 0;
+  }
+}

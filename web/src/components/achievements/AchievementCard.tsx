@@ -1,6 +1,7 @@
 import type { Achievement } from "../../types/achievement";
 import { describeProgress } from "../../utils/achievements";
 import { formatDate } from "../../utils/format";
+import { Badge } from "../Badge";
 import { ProgressBar } from "../ProgressBar";
 import styles from "./AchievementCard.module.scss";
 
@@ -19,7 +20,7 @@ export function AchievementCard({ achievement }: AchievementCardProps) {
       <div className={styles.body}>
         <div className={styles.titleRow}>
           <h3 className={styles.title}>{achievement.title}</h3>
-          {achievement.is_new && <span className={styles.newBadge}>New</span>}
+          {achievement.is_new && <Badge tone="primary">New</Badge>}
         </div>
         {unlocked ? (
           <p className={styles.meta}>

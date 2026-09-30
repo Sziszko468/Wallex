@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import type { Achievement } from "../../types/achievement";
 import { describeProgress, nextUp, recentlyUnlocked } from "../../utils/achievements";
 import { formatDate } from "../../utils/format";
+import { Badge } from "../Badge";
 import { ProgressBar } from "../ProgressBar";
 import styles from "./AchievementsOverview.module.scss";
 
@@ -28,7 +29,7 @@ export function AchievementsOverview({ achievements }: AchievementsOverviewProps
               </span>
               <span className={styles.title}>{achievement.title}</span>
               {achievement.is_new ? (
-                <span className={styles.newBadge}>New</span>
+                <Badge tone="primary">New</Badge>
               ) : (
                 <span className={styles.meta}>{achievement.unlocked_at && formatDate(achievement.unlocked_at)}</span>
               )}
@@ -54,7 +55,7 @@ export function AchievementsOverview({ achievements }: AchievementsOverviewProps
           {unlockedCount} of {achievements.length} unlocked
         </span>
         <Link to="/achievements" className={styles.link}>
-          All achievements →
+          All achievements
         </Link>
       </div>
     </div>

@@ -1,0 +1,74 @@
+@use "../../styles/mixins" as m;
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.overall {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  color: var(--color-primary-ink);
+  background-color: var(--color-primary-soft);
+  border-radius: var(--radius-md);
+}
+
+.title {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.name {
+  @include m.truncate;
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+}
+
+.amounts {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  @include m.tabular-numbers;
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+  font-size: var(--text-xs);
+  @include m.tabular-numbers;
+}
+
+.remaining {
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+}
+
+.over {
+  color: var(--color-danger);
+}
+
+.usage {
+  color: var(--color-text-secondary);
+}
+
+.card {
+  padding: var(--space-5);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}

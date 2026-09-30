@@ -1,6 +1,7 @@
 import type { Comparison, ComparisonAgainst } from "../../types/dashboard";
 import { useBaseCurrency } from "../../hooks/useBaseCurrency";
 import { formatCurrency, formatMonthYear } from "../../utils/format";
+import { SegmentedControl, type SegmentedOption } from "../SegmentedControl";
 import { ChangeBadge } from "./ChangeBadge";
 import styles from "./MonthComparison.module.scss";
 import tableStyles from "./AnalysisTable.module.scss";
@@ -12,7 +13,7 @@ interface MonthComparisonProps {
   categoryLimit?: number;
 }
 
-const OPTIONS: { value: ComparisonAgainst; label: string }[] = [
+const OPTIONS: readonly SegmentedOption<ComparisonAgainst>[] = [
   { value: "previous_month", label: "vs last month" },
   { value: "previous_year", label: "vs last year" },
 ];
@@ -31,23 +32,19 @@ export function MonthComparison({ comparison, against, onAgainstChange, category
 
   return (
     <div className={styles.comparison}>
-      <div className={styles.toggle} role="group" aria-label="Compare with">
-        {OPTIONS.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            className={option.value === against ? `${styles.option} ${styles.active}` : styles.option}
-            aria-pressed={option.value === against}
-            onClick={() => onAgainstChange(option.value)}
-          >
-            {option.label}
-          </button>
-        ))}
+      <div className={styles.controls}>
+        <SegmentedControl
+          options={OPTIONS}
+          value={against}
+          onChange={onAgainstChange}
+          label="Compare with"
+          semantics="pressed"
+          size="sm"
+        />
+        <p className={styles.period}>
+          {formatMonthYear(current.year, current.month)} compared with {formatMonthYear(previous.year, previous.month)}
+        </p>
       </div>
-
-      <p className={styles.period}>
-        {formatMonthYear(current.year, current.month)} compared with {formatMonthYear(previous.year, previous.month)}
-      </p>
 
       <dl className={styles.totals}>
         {TOTALS.map(({ key, label, goodWhen }) => (

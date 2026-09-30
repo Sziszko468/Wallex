@@ -1,47 +1,28 @@
-@use "../styles/variables" as vars;
-
-.page {
-  display: flex;
-  flex-direction: column;
-  gap: vars.$space-lg;
-}
-
-.heading {
-  margin: 0;
-  font-size: vars.$font-size-xl;
-}
-
-.subtitle {
-  margin: vars.$space-xs 0 0;
-  font-size: vars.$font-size-sm;
-  color: vars.$color-text-muted;
-}
+@use "../styles/mixins" as m;
 
 .section {
   display: flex;
   flex-direction: column;
-  gap: vars.$space-sm;
+  gap: var(--space-3);
 }
 
+// A quiet overline, like the sidebar's group labels.
 .sectionHeading {
-  margin: 0;
-  font-size: vars.$font-size-sm;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: vars.$color-text-muted;
+  @include m.overline;
+  letter-spacing: var(--tracking-wide);
+  font-size: var(--text-xs);
 }
 
 .grid {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: vars.$space-sm;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
 
-  @media (min-width: vars.$breakpoint-tablet) {
+  @include m.tablet-up {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  @media (min-width: vars.$breakpoint-desktop) {
+  @include m.desktop-up {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }

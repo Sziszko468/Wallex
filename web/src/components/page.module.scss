@@ -1,0 +1,12 @@
+@use "../styles/mixins" as m;
+
+// The vertical rhythm shared by every page: sections one under another with room to breathe.
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+
+  @include m.tablet-up {
+    gap: var(--space-6);
+  }
+}

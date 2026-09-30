@@ -1,10 +1,8 @@
-@use "../../styles/variables" as vars;
-
 .markdown {
   display: flex;
   flex-direction: column;
-  gap: vars.$space-sm;
-  line-height: 1.5;
+  gap: var(--space-2);
+  line-height: var(--leading-normal);
   overflow-wrap: anywhere;
 
   p,
@@ -19,6 +17,10 @@
   }
 
   li + li {
-    margin-top: 0.15rem;
+    margin-top: 0.25rem;
+  }
+
+  strong {
+    font-weight: var(--weight-semibold);
   }
 }

@@ -69,3 +69,23 @@ export function formatMonthYear(year: number, month: number): string {
     year: "numeric",
   });
 }
+
+/**
+ * The heading above a day's transactions: "Today", "Yesterday", then the weekday and date
+ * ("Tuesday, September 23" — with the year when it isn't this year). Built from local date
+ * parts, so a "2026-09-23" transaction never slides to the day before in any time zone.
+ */
+export function formatDayHeading(isoDate: string, now: Date = new Date()): string {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  const date = new Date(year ?? 0, (month ?? 1) - 1, day ?? 1);
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const daysAgo = Math.round((startOfToday.getTime() - date.getTime()) / 86_400_000);
+  if (daysAgo === 0) return "Today";
+  if (daysAgo === 1) return "Yesterday";
+  return date.toLocaleDateString(undefined, {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    ...(date.getFullYear() !== now.getFullYear() ? { year: "numeric" } : {}),
+  });
+}

@@ -1,38 +1,55 @@
-@use "../../styles/variables" as vars;
+@use "../../styles/mixins" as m;
 
 .overview {
   display: flex;
   flex-direction: column;
-  gap: vars.$space-md;
+  gap: var(--space-5);
 }
 
 .figures {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: vars.$space-md;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
   margin: 0;
-
-  @media (min-width: vars.$breakpoint-tablet) {
-    grid-template-columns: repeat(3, 1fr);
-  }
 }
 
 .figure {
   display: flex;
-  flex-direction: column;
-  gap: vars.$space-xs;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-divider);
+
+  &:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
 }
 
 .label {
-  font-size: vars.$font-size-sm;
-  color: vars.$color-text-muted;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
 }
 
 .value {
   margin: 0;
-  font-size: vars.$font-size-lg;
-  font-weight: 700;
-  color: vars.$color-text;
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+  @include m.tabular-numbers;
+}
+
+// The headline figure: what subscriptions cost every month.
+.primary {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+
+  .value {
+    font-size: var(--text-2xl);
+    letter-spacing: var(--tracking-tight);
+  }
 }
 
 .footer {
@@ -40,28 +57,15 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: vars.$space-sm;
+  gap: var(--space-2);
 }
 
 .meta {
-  font-size: vars.$font-size-sm;
-  color: vars.$color-text-muted;
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
 }
 
 .link {
-  font-size: vars.$font-size-sm;
-  font-weight: 600;
-  color: vars.$color-primary-dark;
-  text-decoration: none;
-
-  &:hover {
-    text-decoration: underline;
-  }
-}
-
-.empty {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: vars.$space-sm;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
 }

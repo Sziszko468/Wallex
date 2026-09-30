@@ -11,7 +11,10 @@
 ![Expo](https://img.shields.io/badge/Expo-SDK_57-000020?logo=expo&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
 
-![Spendly web dashboard](docs/screenshots/web-dashboard.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/web-dashboard-dark.png" />
+  <img src="docs/screenshots/web-dashboard.png" alt="Spendly web dashboard" />
+</picture>
 
 Spendly is a full-stack personal finance app built as a production-style portfolio project.
 
@@ -160,10 +163,17 @@ Design goals:
 
 ## Screenshots
 
+**Web: dashboard in the light and dark theme** (it follows your system setting, or pick a theme in the account menu)
+
+<p>
+  <img src="docs/screenshots/web-dashboard.png" width="49%" alt="Dashboard in the light theme: balance, income and expenses, insights and charts" />
+  <img src="docs/screenshots/web-dashboard-dark.png" width="49%" alt="The same dashboard in the dark theme" />
+</p>
+
 **Web: transactions and budgets**
 
-![Transactions page with filters, sorting and pagination](docs/screenshots/web-transactions.png)
-![Budgets page with live usage bars](docs/screenshots/web-budgets.png)
+![Transactions grouped by day, with search, filters and sorting](docs/screenshots/web-transactions.png)
+![Budgets with usage bars and status badges](docs/screenshots/web-budgets.png)
 
 **Mobile: dashboard, transactions, budgets, quick add**
 
@@ -229,19 +239,19 @@ flowchart TB
 
 ## Web application
 
-A desktop-oriented single-page app (it also works on phones). Main parts:
+A responsive single-page app: sidebar on desktop, bottom navigation on phones and tablets, with light and dark themes (see [docs/design-system.md](docs/design-system.md)). Main parts:
 
 | Page | What it does |
 |---|---|
 | **Dashboard** | Income / expenses / balance, insights, monthly trend chart, category donut, budget overview, top categories, recent transactions. Each section loads and fails independently with its own retry. |
-| **Transactions** | Table with search, type/category/date filters, sortable columns, pagination, add/edit modal, delete confirmation. |
-| **Budgets** | Month navigator, usage bars with warning / over-budget states, create/edit/delete. |
+| **Transactions** | Lightweight list grouped by day, with search, type/category/date filters, sorting, pagination, a details drawer, an amount-first add/edit dialog and delete confirmation. **New transaction** is also available from anywhere (sidebar button; floating button on phones). |
+| **Budgets** | Month navigator and one card per budget: spent of limit, what's left, and on-track / near-limit / over-budget states. (Budgets are created through the API; there is no form for it yet.) |
 | **Recurring** | Manage recurring templates; pause and resume them. |
 | **Subscriptions** | Monthly total and yearly projection, table with each subscription's price, monthly cost and next payment, add/edit/delete, next 30 days' payments, cost by category, and a details page per subscription. The dashboard has a card with the month's subscription costs. |
 | **Achievements** | Unlocked, in-progress and not-started milestones with progress and unlock date; new ones are marked "New" once. The dashboard shows the latest unlocks and the next milestone. |
 | **Goals** | Savings goals as cards with progress bars and target dates; total saved and overall progress; create/edit/delete, add and remove money, archive/restore; a details page with the amount still to save and the monthly plan. The dashboard shows *Savings progress*. |
 | **Import** | Upload a bank CSV and review the per-row import report. |
-| **Settings** | Profile and logout. |
+| **Settings** | Profile, **appearance (System / Light / Dark)**, base currency, security and logout. |
 
 A few implementation details:
 
@@ -584,6 +594,7 @@ spendly/
 | [docs/mobile-release.md](docs/mobile-release.md) | Build variants, EAS builds, iOS and Android deployment, push credentials |
 | [docs/security-audit.md](docs/security-audit.md) | Security review, findings and accepted risks |
 | [docs/testing-strategy.md](docs/testing-strategy.md) | What is tested, where and why |
+| [docs/design-system.md](docs/design-system.md) | The web app's design tokens, light/dark/system theming, components, patterns and accessibility rules |
 | [docs/code-review.md](docs/code-review.md) | Senior code review: findings by severity, fixes, production & portfolio readiness checklists |
 | [docs/api-contract.md](docs/api-contract.md) | How the web and mobile clients consume the API |
 | [backend/openapi.yaml](backend/openapi.yaml) | Complete OpenAPI 3 reference (also served at `/api/docs/`) |

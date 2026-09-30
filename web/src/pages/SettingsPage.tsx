@@ -1,15 +1,25 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { usePageTitle } from "../hooks/usePageTitle";
+import { Avatar } from "../components/Avatar";
 import { Button } from "../components/Button";
+import { ButtonLink } from "../components/ButtonLink";
+import { Card } from "../components/Card";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { CurrencySelect } from "../components/CurrencySelect";
+import { DetailList } from "../components/DetailList";
 import { ErrorBanner } from "../components/ErrorBanner";
+import { Notice } from "../components/Notice";
+import { PageHeader } from "../components/PageHeader";
+import { ThemeSelector } from "../components/ThemeSelector";
 import type { CurrencyCode } from "../types/currency";
 import { extractErrorMessage } from "../utils/errors";
+import pageStyles from "../components/page.module.scss";
 import styles from "./SettingsPage.module.scss";
 
 export function SettingsPage() {
+  usePageTitle("Settings");
   const { user, logout, changeBaseCurrency } = useAuth();
   const navigate = useNavigate();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -50,57 +60,79 @@ export function SettingsPage() {
     }
   }
 
+  const fullName = [user?.first_name, user?.last_name].filter(Boolean).join(" ");
+
   return (
-    <section>
-      <h1>Settings</h1>
+    <div className={pageStyles.page}>
+      <PageHeader title="Settings" description="Your profile, how Spendly looks, and how your money is shown." />
 
-      <div className={styles.card}>
-        <h2>Profile</h2>
-        <dl className={styles.profile}>
-          <dt>Email</dt>
-          <dd>{user?.email}</dd>
-          <dt>First name</dt>
-          <dd>{user?.first_name || "—"}</dd>
-          <dt>Last name</dt>
-          <dd>{user?.last_name || "—"}</dd>
-          <dt>Member since</dt>
-          <dd>{user ? new Date(user.date_joined).toLocaleDateString() : "—"}</dd>
-        </dl>
-      </div>
+      <div className={styles.sections}>
+        <Card padding="lg" className={styles.card}>
+          <div className={styles.cardHeader}>
+            <Avatar name={fullName || user?.email || "?"} size="lg" />
+            <div>
+              <h2 className={styles.title}>Profile</h2>
+              <p className={styles.hint}>{fullName || "Your account"}</p>
+            </div>
+          </div>
+          <DetailList
+            items={[
+              { label: "Email", value: user?.email ?? "—" },
+              { label: "First name", value: user?.first_name || "—" },
+              { label: "Last name", value: user?.last_name || "—" },
+              { label: "Member since", value: user ? new Date(user.date_joined).toLocaleDateString() : "—" },
+            ]}
+          />
+        </Card>
 
-      <div className={styles.card}>
-        <h2>Currency</h2>
-        <p className={styles.hint}>
-          Totals, budgets and recurring amounts are shown in your base currency. Every transaction keeps the
-          currency it was paid in.
-        </p>
-        <ErrorBanner message={currencyError} />
-        {currencyNotice && (
-          <p className={styles.notice} role="status">
-            {currencyNotice}
-          </p>
-        )}
-        <CurrencySelect label="Base currency" value={selectedCurrency} onChange={handleCurrencySelect} />
-        <Button onClick={() => setIsConfirmOpen(true)} disabled={selectedCurrency === baseCurrency}>
-          Change base currency
-        </Button>
-      </div>
+        <Card padding="lg" className={styles.card}>
+          <div>
+            <h2 className={styles.title}>Appearance</h2>
+            <p className={styles.hint}>
+              System follows your device&apos;s light or dark setting, including when it changes at sunset.
+            </p>
+          </div>
+          <ThemeSelector fullWidth />
+        </Card>
 
-      <div className={styles.card}>
-        <h2>Security</h2>
-        <p className={styles.hint}>
-          Signed-in devices, logging out everywhere, your password, two-factor authentication and recent
-          sign-ins.
-        </p>
-        <Link to="/settings/security">Manage security</Link>
-      </div>
+        <Card padding="lg" className={styles.card}>
+          <div>
+            <h2 className={styles.title}>Currency</h2>
+            <p className={styles.hint}>
+              Totals, budgets and recurring amounts are shown in your base currency. Every transaction keeps the
+              currency it was paid in.
+            </p>
+          </div>
+          <ErrorBanner message={currencyError} />
+          {currencyNotice && <Notice tone="success">{currencyNotice}</Notice>}
+          <CurrencySelect label="Base currency" value={selectedCurrency} onChange={handleCurrencySelect} />
+          <Button className={styles.action} onClick={() => setIsConfirmOpen(true)} disabled={selectedCurrency === baseCurrency}>
+            Change base currency
+          </Button>
+        </Card>
 
-      <div className={styles.card}>
-        <h2>Session</h2>
-        <p>Log out of Spendly on this device.</p>
-        <Button variant="danger" onClick={handleLogout} isLoading={isLoggingOut}>
-          Log out
-        </Button>
+        <Card padding="lg" className={styles.card}>
+          <div>
+            <h2 className={styles.title}>Security</h2>
+            <p className={styles.hint}>
+              Signed-in devices, logging out everywhere, your password, two-factor authentication and recent
+              sign-ins.
+            </p>
+          </div>
+          <ButtonLink to="/settings/security" variant="secondary" leadingIcon="security" className={styles.action}>
+            Manage security
+          </ButtonLink>
+        </Card>
+
+        <Card padding="lg" className={styles.card}>
+          <div>
+            <h2 className={styles.title}>Session</h2>
+            <p className={styles.hint}>Log out of Spendly on this device.</p>
+          </div>
+          <Button variant="secondary" leadingIcon="log-out" className={styles.action} onClick={handleLogout} isLoading={isLoggingOut}>
+            Log out
+          </Button>
+        </Card>
       </div>
 
       <ConfirmDialog
@@ -116,6 +148,6 @@ export function SettingsPage() {
         onConfirm={handleConfirmCurrencyChange}
         onClose={() => setIsConfirmOpen(false)}
       />
-    </section>
+    </div>
   );
 }

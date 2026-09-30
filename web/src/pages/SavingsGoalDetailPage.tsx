@@ -1,15 +1,20 @@
 import { useCallback, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { deleteSavingsGoal, getSavingsGoal, updateSavingsGoal } from "../services/savingsGoalsService";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { useBaseCurrency } from "../hooks/useBaseCurrency";
+import { usePageTitle } from "../hooks/usePageTitle";
 import type { SavingsGoal } from "../types/savingsGoal";
 import { Button } from "../components/Button";
+import { Card } from "../components/Card";
+import { DetailList } from "../components/DetailList";
 import { Skeleton } from "../components/Skeleton";
 import { ErrorState } from "../components/ErrorState";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { ConfirmDialog } from "../components/ConfirmDialog";
-import { StatCard } from "../components/dashboard/StatCard";
+import { PageHeader } from "../components/PageHeader";
+import { SummaryStrip } from "../components/SummaryStrip";
+import { useToast } from "../components/Toast";
 import { DashboardCard } from "../components/dashboard/DashboardCard";
 import { GoalStatusBadge } from "../components/goals/GoalStatusBadge";
 import { ProgressBar } from "../components/ProgressBar";
@@ -18,15 +23,20 @@ import { MoneyModal, type MoneyDirection } from "../components/goals/MoneyModal"
 import { extractErrorMessage } from "../utils/errors";
 import { formatCurrency, formatDate, formatPercentage } from "../utils/format";
 import { describeDaysLeft, goalTone } from "../utils/savingsGoals";
+import pageStyles from "../components/page.module.scss";
 import styles from "./SavingsGoalDetailPage.module.scss";
+
+const BACK_LINK = { to: "/goals", label: "All goals" };
 
 export function SavingsGoalDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const toast = useToast();
   const goalId = Number(id);
 
   const fetchGoal = useCallback(() => getSavingsGoal(goalId), [goalId]);
   const goal = useAsyncData(fetchGoal);
+  usePageTitle(goal.data?.name ?? "Goal");
 
   // Snapshot taken when Edit is pressed: a background reload must not re-seed the open form.
   const [editing, setEditing] = useState<SavingsGoal | null>(null);
@@ -36,6 +46,7 @@ export function SavingsGoalDetailPage() {
   const [actionError, setActionError] = useState<string | null>(null);
 
   function handleSaved() {
+    toast.success(editing ? "Goal updated" : "Savings updated");
     setEditing(null);
     setMoneyDirection(null);
     goal.refetch();
@@ -58,6 +69,7 @@ export function SavingsGoalDetailPage() {
     setIsBusy(true);
     try {
       await deleteSavingsGoal(goalId);
+      toast.success("Goal deleted");
       navigate("/goals", { replace: true });
     } catch (error) {
       setActionError(extractErrorMessage(error));
@@ -69,51 +81,57 @@ export function SavingsGoalDetailPage() {
   const data = goal.data;
   const isArchived = data?.status === "archived";
 
+  function renderBody() {
+    if (goal.isLoading) return <Skeleton height={320} borderRadius={16} />;
+    if (goal.error || !data) return <ErrorState error={goal.error} onRetry={goal.refetch} />;
+    return <GoalDetails goal={data} />;
+  }
+
   return (
-    <div className={styles.page}>
-      <Link to="/goals" className={styles.backLink}>
-        ← All goals
-      </Link>
-
-      <ErrorBanner message={actionError} />
-
-      {goal.isLoading ? (
-        <Skeleton height={320} borderRadius={8} />
-      ) : goal.error || !data ? (
-        <ErrorState error={goal.error} onRetry={goal.refetch} />
-      ) : (
-        <>
-          <div className={styles.headerRow}>
-            <h1 className={styles.heading}>
+    <div className={pageStyles.page}>
+      <PageHeader
+        backTo={BACK_LINK}
+        title={
+          data ? (
+            <span className={styles.title}>
               {data.name} <GoalStatusBadge status={data.status} />
-            </h1>
-            <div className={styles.actions}>
-              <Button type="button" onClick={() => setMoneyDirection("deposit")} disabled={isArchived}>
+            </span>
+          ) : (
+            "Goal"
+          )
+        }
+        actions={
+          data && (
+            <>
+              <Button type="button" leadingIcon="plus" onClick={() => setMoneyDirection("deposit")} disabled={isArchived}>
                 Add money
               </Button>
               <Button
                 type="button"
                 variant="secondary"
+                leadingIcon="minus"
                 onClick={() => setMoneyDirection("withdraw")}
                 disabled={isArchived}
               >
                 Remove money
               </Button>
-              <Button type="button" variant="secondary" onClick={() => setEditing(data)}>
+              <Button type="button" variant="secondary" leadingIcon="pencil" onClick={() => setEditing(data)}>
                 Edit
               </Button>
-              <Button type="button" variant="secondary" onClick={() => toggleArchived(data)} disabled={isBusy}>
+              <Button type="button" variant="ghost" onClick={() => toggleArchived(data)} disabled={isBusy}>
                 {isArchived ? "Restore" : "Archive"}
               </Button>
-              <Button type="button" variant="danger" onClick={() => setIsConfirmingDelete(true)}>
+              <Button type="button" variant="danger-quiet" leadingIcon="trash" onClick={() => setIsConfirmingDelete(true)}>
                 Delete
               </Button>
-            </div>
-          </div>
+            </>
+          )
+        }
+      />
 
-          <GoalDetails goal={data} />
-        </>
-      )}
+      <ErrorBanner message={actionError} />
+
+      {renderBody()}
 
       <GoalFormModal isOpen={editing !== null} goal={editing} onClose={() => setEditing(null)} onSaved={handleSaved} />
 
@@ -148,45 +166,54 @@ function GoalDetails({ goal }: { goal: SavingsGoal }) {
     return `${own} ≈ ${formatCurrency(baseValue, baseCurrency)}`;
   }
 
+  const timeline =
+    goal.target_date && goal.days_left !== null
+      ? [
+          { label: "Target date", value: formatDate(goal.target_date) },
+          {
+            label: "Time left",
+            value: (
+              <span className={goal.days_left < 0 && goal.status === "active" ? styles.overdue : undefined}>
+                {describeDaysLeft(goal.days_left)}
+              </span>
+            ),
+          },
+          ...(goal.monthly_needed !== null
+            ? [{ label: "To reach it", value: `save ${formatCurrency(goal.monthly_needed, goal.currency)} a month` }]
+            : []),
+        ]
+      : null;
+
   return (
     <>
-      <section className={styles.progressCard} aria-label="Progress">
-        <div className={styles.progressHeader}>
-          <span className={styles.progressValue}>{formatPercentage(goal.progress_percentage)}</span>
-          <span className={styles.muted}>
-            {formatCurrency(goal.current_amount, goal.currency)} of {formatCurrency(goal.target_amount, goal.currency)}
-          </span>
+      <Card as="section" tone="tinted" padding="lg" aria-label="Progress">
+        <div className={styles.progress}>
+          <div className={styles.progressHeader}>
+            <span className={styles.progressValue}>{formatPercentage(goal.progress_percentage)}</span>
+            <span className={styles.muted}>
+              {formatCurrency(goal.current_amount, goal.currency)} of {formatCurrency(goal.target_amount, goal.currency)}
+            </span>
+          </div>
+          <ProgressBar
+            percentage={goal.progress_percentage}
+            label={`${goal.name} progress`}
+            tone={goalTone(goal.status)}
+            size="large"
+          />
         </div>
-        <ProgressBar
-          percentage={goal.progress_percentage}
-          label={`${goal.name} progress`}
-          tone={goalTone(goal.status)}
-          size="large"
-        />
-      </section>
+      </Card>
 
-      <div className={styles.statsRow}>
-        <StatCard label="Saved" value={amount(goal.current_amount, goal.base_current_amount)} tone="positive" />
-        <StatCard label="Target" value={amount(goal.target_amount, goal.base_target_amount)} />
-        <StatCard label="Still to save" value={formatCurrency(goal.remaining_amount, goal.currency)} />
-      </div>
+      <SummaryStrip
+        items={[
+          { label: "Saved", value: amount(goal.current_amount, goal.base_current_amount), tone: "positive" },
+          { label: "Target", value: amount(goal.target_amount, goal.base_target_amount) },
+          { label: "Still to save", value: formatCurrency(goal.remaining_amount, goal.currency) },
+        ]}
+      />
 
       <DashboardCard title="Target date">
-        {goal.target_date && goal.days_left !== null ? (
-          <dl className={styles.details}>
-            <dt>Target date</dt>
-            <dd>{formatDate(goal.target_date)}</dd>
-            <dt>Time left</dt>
-            <dd className={goal.days_left < 0 && goal.status === "active" ? styles.overdue : undefined}>
-              {describeDaysLeft(goal.days_left)}
-            </dd>
-            {goal.monthly_needed !== null && (
-              <>
-                <dt>To reach it</dt>
-                <dd>save {formatCurrency(goal.monthly_needed, goal.currency)} a month</dd>
-              </>
-            )}
-          </dl>
+        {timeline ? (
+          <DetailList items={timeline} />
         ) : (
           <p className={styles.muted}>No target date. Add one to see how much to save each month.</p>
         )}

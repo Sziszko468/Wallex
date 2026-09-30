@@ -1,3 +1,4 @@
+import { Icon } from "../icons/Icon";
 import styles from "./SuggestedQuestions.module.scss";
 
 interface SuggestedQuestionsProps {
@@ -15,7 +16,8 @@ export function SuggestedQuestions({ questions, onPick, disabled = false }: Sugg
         {questions.map((question) => (
           <li key={question}>
             <button type="button" className={styles.chip} onClick={() => onPick(question)} disabled={disabled}>
-              {question}
+              <Icon name="assistant" size={18} />
+              <span>{question}</span>
             </button>
           </li>
         ))}

@@ -19,8 +19,9 @@ import { TextField } from "../TextField";
 import { Select } from "../Select";
 import { ErrorBanner } from "../ErrorBanner";
 import { TypeToggle } from "../TypeToggle";
+import { Checkbox } from "../Checkbox";
+import formStyles from "../form.module.scss";
 import { CurrencySelect } from "../CurrencySelect";
-import styles from "./RecurringTransactionFormModal.module.scss";
 
 const FREQUENCY_OPTIONS: { value: RecurringFrequency; label: string }[] = [
   { value: "weekly", label: "Weekly" },
@@ -161,8 +162,10 @@ export function RecurringTransactionFormModal({
       onClose={onClose}
       title={item ? "Edit recurring transaction" : "Add recurring transaction"}
     >
-      <form onSubmit={handleSubmit} className={styles.form} noValidate>
+      <form onSubmit={handleSubmit} className={formStyles.stack} noValidate>
         <ErrorBanner message={errorMessage} />
+
+        <TypeToggle value={type} onChange={handleTypeChange} />
 
         <TextField
           label="Name"
@@ -172,12 +175,11 @@ export function RecurringTransactionFormModal({
           error={fieldErrors.name}
         />
 
-        <TypeToggle value={type} onChange={handleTypeChange} />
-
-        <div className={styles.amountRow}>
+        <div className={formStyles.amountRow}>
           <TextField
             label="Amount"
             type="number"
+            inputMode="decimal"
             step={amountStep(currency)}
             min={amountStep(currency)}
             placeholder={amountStep(currency) === "1" ? "0" : "0.00"}
@@ -188,26 +190,28 @@ export function RecurringTransactionFormModal({
           <CurrencySelect value={currency} onChange={setCurrency} error={fieldErrors.currency} />
         </div>
 
-        <Select
-          label="Category"
-          placeholder="Select a category"
-          value={categoryId}
-          onChange={(event) => setCategoryId(event.target.value)}
-          options={availableCategories.map((category) => ({
-            value: String(category.id),
-            label: category.name,
-          }))}
-          error={fieldErrors.category}
-        />
+        <div className={formStyles.row}>
+          <Select
+            label="Category"
+            placeholder="Select a category"
+            value={categoryId}
+            onChange={(event) => setCategoryId(event.target.value)}
+            options={availableCategories.map((category) => ({
+              value: String(category.id),
+              label: category.name,
+            }))}
+            error={fieldErrors.category}
+          />
 
-        <Select
-          label="Frequency"
-          value={frequency}
-          onChange={(event) => setFrequency(event.target.value as RecurringFrequency)}
-          options={FREQUENCY_OPTIONS}
-        />
+          <Select
+            label="Frequency"
+            value={frequency}
+            onChange={(event) => setFrequency(event.target.value as RecurringFrequency)}
+            options={FREQUENCY_OPTIONS}
+          />
+        </div>
 
-        <div className={styles.dateRow}>
+        <div className={formStyles.row}>
           <TextField
             label="Start date"
             type="date"
@@ -231,16 +235,14 @@ export function RecurringTransactionFormModal({
           onChange={(event) => setDescription(event.target.value)}
         />
 
-        <label className={styles.checkboxRow}>
-          <input
-            type="checkbox"
-            checked={isActive}
-            onChange={(event) => setIsActive(event.target.checked)}
-          />
-          Active (paused items get no payment reminders)
-        </label>
+        <Checkbox
+          label="Active"
+          hint="Paused items get no payment reminders."
+          checked={isActive}
+          onChange={(event) => setIsActive(event.target.checked)}
+        />
 
-        <div className={styles.actions}>
+        <div className={formStyles.actions}>
           <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>

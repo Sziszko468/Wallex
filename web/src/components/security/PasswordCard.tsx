@@ -2,6 +2,9 @@ import { useState, type FormEvent } from "react";
 import { changePassword } from "../../services/securityService";
 import { extractErrorMessage, extractFieldErrors, type FieldErrors } from "../../utils/errors";
 import { Button } from "../Button";
+import { Card } from "../Card";
+import { Notice } from "../Notice";
+import formStyles from "../form.module.scss";
 import { ErrorBanner } from "../ErrorBanner";
 import { TextField } from "../TextField";
 import styles from "./SecurityCards.module.scss";
@@ -46,19 +49,15 @@ export function PasswordCard() {
   }
 
   return (
-    <div className={styles.card}>
-      <h2>Password</h2>
+    <Card padding="lg" className={styles.card}>
+      <h2 className={styles.title}>Password</h2>
       <p className={styles.hint}>
         At least 12 characters — a few unrelated words make a strong, memorable passphrase. Changing it signs
         out your other devices.
       </p>
       <ErrorBanner message={error} />
-      {notice && (
-        <p className={styles.notice} role="status">
-          {notice}
-        </p>
-      )}
-      <form onSubmit={handleSubmit} noValidate>
+      {notice && <Notice tone="success">{notice}</Notice>}
+      <form onSubmit={handleSubmit} noValidate className={formStyles.stack}>
         <TextField
           label="Current password"
           type="password"
@@ -86,10 +85,10 @@ export function PasswordCard() {
           error={fieldErrors.confirmation}
           required
         />
-        <Button type="submit" isLoading={isSaving}>
+        <Button type="submit" isLoading={isSaving} className={styles.submit}>
           Change password
         </Button>
       </form>
-    </div>
+    </Card>
   );
 }

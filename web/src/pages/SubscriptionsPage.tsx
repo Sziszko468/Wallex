@@ -3,24 +3,29 @@ import { deleteSubscription, getSubscriptionSummary, listSubscriptions } from ".
 import { listCategories } from "../services/categoriesService";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { useBaseCurrency } from "../hooks/useBaseCurrency";
+import { usePageTitle } from "../hooks/usePageTitle";
 import type { Category } from "../types/category";
 import type { Subscription } from "../types/subscription";
+import { FALLBACK_CATEGORY_COLOR } from "../utils/categoryStyle";
 import { Button } from "../components/Button";
-import { Skeleton } from "../components/Skeleton";
+import { EmptyState } from "../components/EmptyState";
 import { ErrorState } from "../components/ErrorState";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { ConfirmDialog } from "../components/ConfirmDialog";
-import { StatCard } from "../components/dashboard/StatCard";
+import { Notice } from "../components/Notice";
+import { PageHeader } from "../components/PageHeader";
+import { SkeletonRows } from "../components/Skeleton";
+import { SummaryStrip } from "../components/SummaryStrip";
+import { useToast } from "../components/Toast";
 import { DashboardCard } from "../components/dashboard/DashboardCard";
-import { SubscriptionsTable } from "../components/subscriptions/SubscriptionsTable";
+import { SubscriptionsList } from "../components/subscriptions/SubscriptionsList";
 import { SubscriptionFormModal } from "../components/subscriptions/SubscriptionFormModal";
 import { UpcomingPaymentsList } from "../components/subscriptions/UpcomingPaymentsList";
 import { SubscriptionCategoryList } from "../components/subscriptions/SubscriptionCategoryList";
 import { extractErrorMessage } from "../utils/errors";
 import { formatCurrency } from "../utils/format";
+import pageStyles from "../components/page.module.scss";
 import styles from "./SubscriptionsPage.module.scss";
-
-const FALLBACK_CATEGORY_COLOR = "#9ca3af";
 
 interface FormModalState {
   isOpen: boolean;
@@ -28,7 +33,9 @@ interface FormModalState {
 }
 
 export function SubscriptionsPage() {
+  usePageTitle("Subscriptions");
   const baseCurrency = useBaseCurrency();
+  const toast = useToast();
 
   const fetchSubscriptions = useCallback(() => listSubscriptions(), []);
   const subscriptions = useAsyncData(fetchSubscriptions);
@@ -68,6 +75,7 @@ export function SubscriptionsPage() {
   }
 
   function handleSaved() {
+    toast.success(formModal.subscription ? "Changes saved" : "Subscription added");
     closeFormModal();
     reload();
   }
@@ -83,6 +91,7 @@ export function SubscriptionsPage() {
     try {
       await deleteSubscription(deleteTarget.id);
       setDeleteTarget(null);
+      toast.success("Subscription deleted");
       reload();
     } catch (error) {
       setActionError(extractErrorMessage(error));
@@ -94,63 +103,83 @@ export function SubscriptionsPage() {
   const listIsLoading = subscriptions.isLoading || categories.isLoading;
   const listError = subscriptions.error ?? categories.error;
   const unconverted = summary.data?.unconverted_currencies ?? [];
+  const openCreate = () => setFormModal({ isOpen: true, subscription: null });
+
+  function renderList() {
+    if (listIsLoading) return <SkeletonRows count={4} rowHeight={72} />;
+    if (listError) return <ErrorState error={listError} onRetry={subscriptions.refetch} />;
+    if ((subscriptions.data ?? []).length === 0) {
+      return (
+        <EmptyState
+          icon="subscriptions"
+          title="No subscriptions yet"
+          message="Add Netflix, Spotify, your gym or phone plan to see what they really cost over a year."
+          action={
+            <Button leadingIcon="plus" onClick={openCreate}>
+              Add subscription
+            </Button>
+          }
+        />
+      );
+    }
+    return (
+      <SubscriptionsList
+        subscriptions={subscriptions.data ?? []}
+        categoriesById={categoriesById}
+        onEdit={(subscription) => setFormModal({ isOpen: true, subscription })}
+        onDelete={requestDelete}
+      />
+    );
+  }
 
   return (
-    <div className={styles.page}>
-      <div className={styles.headerRow}>
-        <h1 className={styles.heading}>Subscriptions</h1>
-        <Button type="button" onClick={() => setFormModal({ isOpen: true, subscription: null })}>
-          Add subscription
-        </Button>
-      </div>
+    <div className={pageStyles.page}>
+      <PageHeader
+        title="Subscriptions"
+        description="What you pay for regularly, and what it adds up to."
+        actions={
+          <Button type="button" leadingIcon="plus" onClick={openCreate}>
+            Add subscription
+          </Button>
+        }
+      />
 
       <ErrorBanner message={actionError} />
 
       {summary.error ? (
         <ErrorState error={summary.error} onRetry={summary.refetch} />
       ) : (
-        <div className={styles.statsRow}>
-          <StatCard
-            label="Monthly subscriptions"
-            value={summary.data ? formatCurrency(summary.data.monthly_total, baseCurrency) : undefined}
-            isLoading={summary.isLoading}
-          />
-          <StatCard
-            label="Yearly projection"
-            value={summary.data ? formatCurrency(summary.data.yearly_total, baseCurrency) : undefined}
-            isLoading={summary.isLoading}
-          />
-          <StatCard
-            label="Active subscriptions"
-            value={
-              summary.data
+        <SummaryStrip
+          items={[
+            {
+              label: "Monthly subscriptions",
+              value: summary.data ? formatCurrency(summary.data.monthly_total, baseCurrency) : undefined,
+              isLoading: summary.isLoading,
+            },
+            {
+              label: "Yearly projection",
+              value: summary.data ? formatCurrency(summary.data.yearly_total, baseCurrency) : undefined,
+              isLoading: summary.isLoading,
+            },
+            {
+              label: "Active subscriptions",
+              value: summary.data
                 ? `${summary.data.active_count}${summary.data.paused_count ? ` · ${summary.data.paused_count} paused` : ""}`
-                : undefined
-            }
-            isLoading={summary.isLoading}
-          />
-        </div>
+                : undefined,
+              isLoading: summary.isLoading,
+            },
+          ]}
+        />
       )}
 
       {unconverted.length > 0 && (
-        <p className={styles.notice} role="status">
+        <Notice tone="warning">
           Not included in the totals: subscriptions billed in {unconverted.join(", ")} — no exchange rate from the
           last 7 days.
-        </p>
+        </Notice>
       )}
 
-      {listIsLoading ? (
-        <Skeleton height={220} borderRadius={8} />
-      ) : listError ? (
-        <ErrorState error={listError} onRetry={subscriptions.refetch} />
-      ) : (
-        <SubscriptionsTable
-          subscriptions={subscriptions.data ?? []}
-          categoriesById={categoriesById}
-          onEdit={(subscription) => setFormModal({ isOpen: true, subscription })}
-          onDelete={requestDelete}
-        />
-      )}
+      {renderList()}
 
       {summary.data && (
         <div className={styles.cardsRow}>

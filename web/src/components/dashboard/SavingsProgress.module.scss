@@ -1,22 +1,15 @@
-@use "../../styles/variables" as vars;
+@use "../../styles/mixins" as m;
 
 .overview {
   display: flex;
   flex-direction: column;
-  gap: vars.$space-md;
+  gap: var(--space-5);
 }
 
 .total {
   display: flex;
   flex-direction: column;
-  gap: vars.$space-sm;
-  font-size: vars.$font-size-sm;
-  color: vars.$color-text-muted;
-
-  strong {
-    font-size: vars.$font-size-lg;
-    color: vars.$color-text;
-  }
+  gap: var(--space-2);
 }
 
 .totalHeader,
@@ -25,44 +18,60 @@
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: vars.$space-xs vars.$space-sm;
+  gap: var(--space-1) var(--space-3);
+}
+
+.saved {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  @include m.tabular-numbers;
+
+  strong {
+    font-size: var(--text-lg);
+    font-weight: var(--weight-semibold);
+    color: var(--color-text);
+  }
 }
 
 .percentage {
-  font-size: vars.$font-size-lg;
-  font-weight: 700;
-  color: vars.$color-text;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+  @include m.tabular-numbers;
 }
 
 .list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: vars.$space-md;
+  gap: var(--space-4);
+  margin: 0;
+  padding: var(--space-4) 0 0;
+  list-style: none;
+  border-top: 1px solid var(--color-divider);
 }
 
 .item {
   display: flex;
   flex-direction: column;
-  gap: vars.$space-xs;
+  gap: var(--space-2);
 }
 
 .name {
-  font-weight: 600;
-  color: vars.$color-text;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
   text-decoration: none;
 
   &:hover {
-    color: vars.$color-primary-dark;
+    color: var(--color-primary-ink);
     text-decoration: underline;
   }
 }
 
 .meta {
-  font-size: 0.8rem;
-  color: vars.$color-text-muted;
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  @include m.tabular-numbers;
 }
 
 .footer {
@@ -70,23 +79,15 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: vars.$space-sm;
+  gap: var(--space-2);
+}
+
+.note {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
 }
 
 .link {
-  font-size: vars.$font-size-sm;
-  font-weight: 600;
-  color: vars.$color-primary-dark;
-  text-decoration: none;
-
-  &:hover {
-    text-decoration: underline;
-  }
-}
-
-.empty {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: vars.$space-sm;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
 }

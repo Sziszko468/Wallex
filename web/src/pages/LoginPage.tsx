@@ -1,10 +1,12 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { usePageTitle } from "../hooks/usePageTitle";
 import { extractErrorMessage } from "../utils/errors";
 import { Button } from "../components/Button";
 import { TextField } from "../components/TextField";
 import { ErrorBanner } from "../components/ErrorBanner";
+import styles from "./AuthPages.module.scss";
 
 export function LoginPage() {
   const { login, verifyMfa } = useAuth();
@@ -17,6 +19,8 @@ export function LoginPage() {
   const [code, setCode] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  usePageTitle(mfaToken ? "Two-factor authentication" : "Log in");
 
   async function run(step: () => Promise<void>) {
     setErrorMessage(null);
@@ -61,10 +65,14 @@ export function LoginPage() {
   if (mfaToken) {
     return (
       <>
-        <h2>Two-factor authentication</h2>
-        <p>Enter the 6-digit code from your authenticator app, or one of your recovery codes.</p>
+        <div className={styles.header}>
+          <h1 className={styles.title}>Two-factor authentication</h1>
+          <p className={styles.subtitle}>
+            Enter the 6-digit code from your authenticator app, or one of your recovery codes.
+          </p>
+        </div>
         <ErrorBanner message={errorMessage} />
-        <form onSubmit={handleCode} noValidate>
+        <form onSubmit={handleCode} noValidate className={styles.stack}>
           <TextField
             label="Authentication code"
             name="code"
@@ -75,22 +83,25 @@ export function LoginPage() {
             onChange={(event) => setCode(event.target.value)}
             required
           />
-          <Button type="submit" isLoading={isSubmitting}>
+          <Button type="submit" size="lg" fullWidth isLoading={isSubmitting}>
             Verify
           </Button>
+          <Button type="button" variant="ghost" fullWidth onClick={startOver}>
+            Use a different account
+          </Button>
         </form>
-        <Button type="button" variant="secondary" onClick={startOver}>
-          Use a different account
-        </Button>
       </>
     );
   }
 
   return (
     <>
-      <h2>Log in</h2>
+      <div className={styles.header}>
+        <h1 className={styles.title}>Log in</h1>
+        <p className={styles.subtitle}>Welcome back. Pick up where you left off.</p>
+      </div>
       <ErrorBanner message={errorMessage} />
-      <form onSubmit={handlePassword} noValidate>
+      <form onSubmit={handlePassword} noValidate className={styles.stack}>
         <TextField
           label="Email"
           type="email"
@@ -109,11 +120,11 @@ export function LoginPage() {
           onChange={(event) => setPassword(event.target.value)}
           required
         />
-        <Button type="submit" isLoading={isSubmitting}>
+        <Button type="submit" size="lg" fullWidth isLoading={isSubmitting}>
           Log in
         </Button>
       </form>
-      <p>
+      <p className={styles.switch}>
         Don&apos;t have an account? <Link to="/register">Register</Link>
       </p>
     </>

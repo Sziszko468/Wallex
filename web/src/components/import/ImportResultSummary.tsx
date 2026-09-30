@@ -1,4 +1,6 @@
 import type { ImportSummary } from "../../types/csvImport";
+import { Badge } from "../Badge";
+import { SummaryStrip } from "../SummaryStrip";
 import styles from "./ImportResultSummary.module.scss";
 
 interface ImportResultSummaryProps {
@@ -7,21 +9,14 @@ interface ImportResultSummaryProps {
 
 export function ImportResultSummary({ summary }: ImportResultSummaryProps) {
   return (
-    <div>
-      <div className={styles.statsRow}>
-        <div className={styles.stat}>
-          <span className={styles.label}>Imported</span>
-          <span className={`${styles.value} ${styles.success}`}>{summary.imported}</span>
-        </div>
-        <div className={styles.stat}>
-          <span className={styles.label}>Skipped</span>
-          <span className={`${styles.value} ${styles.warning}`}>{summary.skipped}</span>
-        </div>
-        <div className={styles.stat}>
-          <span className={styles.label}>Failed</span>
-          <span className={`${styles.value} ${styles.danger}`}>{summary.failed}</span>
-        </div>
-      </div>
+    <div className={styles.result}>
+      <SummaryStrip
+        items={[
+          { label: "Imported", value: String(summary.imported), tone: "positive" },
+          { label: "Skipped", value: String(summary.skipped), tone: summary.skipped > 0 ? "warning" : undefined },
+          { label: "Failed", value: String(summary.failed), tone: summary.failed > 0 ? "negative" : undefined },
+        ]}
+      />
 
       {summary.details.length > 0 && (
         <div className={styles.detailsWrapper}>
@@ -38,13 +33,9 @@ export function ImportResultSummary({ summary }: ImportResultSummaryProps) {
                 <tr key={detail.row}>
                   <td>{detail.row}</td>
                   <td>
-                    <span
-                      className={
-                        detail.status === "failed" ? styles.statusFailed : styles.statusSkipped
-                      }
-                    >
+                    <Badge tone={detail.status === "failed" ? "danger" : "warning"} icon={detail.status === "failed" ? "alert-circle" : "alert-triangle"}>
                       {detail.status === "failed" ? "Failed" : "Skipped"}
-                    </span>
+                    </Badge>
                   </td>
                   <td>{detail.reason}</td>
                 </tr>

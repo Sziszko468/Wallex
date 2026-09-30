@@ -1,0 +1,66 @@
+@use "../styles/mixins" as m;
+
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.label {
+  position: relative;
+  display: inline-flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-height: 1.75rem;
+  font-size: var(--text-base);
+  line-height: var(--leading-snug);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+// The native input stays in the tab order and accessibility tree; only its look is replaced.
+.input {
+  @include m.visually-hidden;
+}
+
+.box {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 1.375rem;
+  height: 1.375rem;
+  margin-top: 1px;
+  color: transparent;
+  background-color: var(--color-surface-raised);
+  border: 1.5px solid var(--color-control-border);
+  border-radius: var(--radius-xs);
+  transition:
+    background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+
+.label:hover .box {
+  border-color: var(--color-text-tertiary);
+}
+
+.input:checked + .box {
+  color: var(--color-on-primary);
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.input:focus-visible + .box {
+  @include m.focus-ring;
+}
+
+.input:disabled + .box {
+  opacity: 0.5;
+}
+
+.hint {
+  margin-left: calc(1.375rem + var(--space-3));
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}

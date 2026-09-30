@@ -4,16 +4,23 @@ import { deleteConversation, getAssistantStatus } from "../services/assistantSer
 import { useAsyncData } from "../hooks/useAsyncData";
 import { useAssistantChat } from "../hooks/useAssistantChat";
 import { useConversationHistory } from "../hooks/useConversationHistory";
+import { usePageTitle } from "../hooks/usePageTitle";
 import type { AssistantConversationSummary, AssistantExchange } from "../types/assistant";
 import { extractErrorMessage, isNotFound } from "../utils/errors";
 import { ChatComposer } from "../components/assistant/ChatComposer";
 import { ChatMessages } from "../components/assistant/ChatMessages";
 import { ConversationList } from "../components/assistant/ConversationList";
 import { SuggestedQuestions } from "../components/assistant/SuggestedQuestions";
+import { Button } from "../components/Button";
+import { ButtonLink } from "../components/ButtonLink";
+import { Card } from "../components/Card";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { PageHeader } from "../components/PageHeader";
+import { Notice } from "../components/Notice";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { ErrorState } from "../components/ErrorState";
 import { Skeleton } from "../components/Skeleton";
+import pageStyles from "../components/page.module.scss";
 import styles from "./AssistantPage.module.scss";
 
 const DEFAULT_MAX_LENGTH = 1000;
@@ -25,6 +32,7 @@ function parseConversationId(param: string | undefined): number | null {
 
 /** /assistant — a new chat; /assistant/:conversationId — a conversation from the history. */
 export function AssistantPage() {
+  usePageTitle("Assistant");
   const { conversationId } = useParams();
   const activeId = parseConversationId(conversationId);
   const navigate = useNavigate();
@@ -122,33 +130,31 @@ export function AssistantPage() {
   }
 
   return (
-    <div className={styles.page}>
-      <div className={styles.header}>
-        <div>
-          <h1 className={styles.heading}>AI Assistant</h1>
-          <p className={styles.subtitle}>
-            Ask about your spending, budgets, subscriptions and savings goals. Answers are based only on your
-            Spendly data.
-          </p>
-        </div>
-        <div className={styles.headerActions}>
-          <button
-            type="button"
-            className={styles.historyToggle}
-            onClick={() => setIsHistoryOpen((open) => !open)}
-            aria-expanded={isHistoryOpen}
-            aria-controls="assistant-history"
-          >
-            {isHistoryOpen ? "Hide history" : "History"}
-          </button>
-          <Link to="/assistant" className={styles.newChat} onClick={() => setIsHistoryOpen(false)}>
-            New chat
-          </Link>
-        </div>
-      </div>
+    <div className={pageStyles.page}>
+      <PageHeader
+        title="AI Assistant"
+        description="Ask about your spending, budgets, subscriptions and savings goals. Answers are based only on your Spendly data."
+        actions={
+          <>
+            <Button
+              variant="secondary"
+              leadingIcon="clock"
+              className={styles.historyToggle}
+              onClick={() => setIsHistoryOpen((open) => !open)}
+              aria-expanded={isHistoryOpen}
+              aria-controls="assistant-history"
+            >
+              {isHistoryOpen ? "Hide history" : "History"}
+            </Button>
+            <ButtonLink to="/assistant" leadingIcon="plus" onClick={() => setIsHistoryOpen(false)}>
+              New chat
+            </ButtonLink>
+          </>
+        }
+      />
 
       <div className={styles.layout}>
-        <aside id="assistant-history" className={`${styles.sidebar} ${isHistoryOpen ? styles.sidebarOpen : ""}`}>
+        <Card as="aside" id="assistant-history" className={`${styles.sidebar} ${isHistoryOpen ? styles.sidebarOpen : ""}`}>
           <ConversationList
             conversations={history.conversations}
             isLoading={history.isLoading}
@@ -163,13 +169,13 @@ export function AssistantPage() {
             }}
             onOpen={() => setIsHistoryOpen(false)}
           />
-        </aside>
+        </Card>
 
         <section className={styles.chat} aria-label="Chat">
           {status.data && !status.data.available && (
-            <p className={styles.notice} role="note">
+            <Notice tone="warning" role="note">
               The AI assistant isn&apos;t set up on this server yet: it needs a model API key (ANTHROPIC_API_KEY).
-            </p>
+            </Notice>
           )}
           {status.error !== null && (
             <ErrorState error={status.error} onRetry={status.refetch} />

@@ -11,7 +11,7 @@ import { Button } from "../Button";
 import { TextField } from "../TextField";
 import { ErrorBanner } from "../ErrorBanner";
 import { CurrencySelect } from "../CurrencySelect";
-import styles from "./GoalForms.module.scss";
+import formStyles from "../form.module.scss";
 
 interface GoalFormModalProps {
   isOpen: boolean;
@@ -98,7 +98,7 @@ export function GoalFormModal({ isOpen, goal, onClose, onSaved }: GoalFormModalP
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={goal ? "Edit goal" : "New savings goal"}>
-      <form onSubmit={handleSubmit} className={styles.form} noValidate>
+      <form onSubmit={handleSubmit} className={formStyles.stack} noValidate>
         <ErrorBanner message={errorMessage} />
 
         <TextField
@@ -110,10 +110,11 @@ export function GoalFormModal({ isOpen, goal, onClose, onSaved }: GoalFormModalP
           maxLength={100}
         />
 
-        <div className={styles.amountRow}>
+        <div className={formStyles.amountRow}>
           <TextField
             label="Target amount"
             type="number"
+            inputMode="decimal"
             step={amountStep(currency)}
             min={amountStep(currency)}
             placeholder={amountStep(currency) === "1" ? "0" : "0.00"}
@@ -128,13 +129,12 @@ export function GoalFormModal({ isOpen, goal, onClose, onSaved }: GoalFormModalP
             error={fieldErrors.currency}
           />
         </div>
-        {currencyLocked && (
-          <p className={styles.hint}>The currency can't change once money is saved in the goal.</p>
-        )}
+        {currencyLocked && <p className={formStyles.note}>The currency can't change once money is saved in the goal.</p>}
 
         <TextField
           label={goal ? "Saved so far" : "Already saved (optional)"}
           type="number"
+          inputMode="decimal"
           step={amountStep(currency)}
           min="0"
           placeholder={amountStep(currency) === "1" ? "0" : "0.00"}
@@ -152,7 +152,7 @@ export function GoalFormModal({ isOpen, goal, onClose, onSaved }: GoalFormModalP
           error={fieldErrors.target_date}
         />
 
-        <div className={styles.actions}>
+        <div className={formStyles.actions}>
           <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>

@@ -1,0 +1,29 @@
+.notice {
+  --tone: var(--color-info);
+  --tone-soft: var(--color-info-soft);
+
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+  color: var(--color-text);
+  background-color: var(--tone-soft);
+  border-radius: var(--radius-md);
+}
+
+.success {
+  --tone: var(--color-success);
+  --tone-soft: var(--color-success-soft);
+}
+
+.warning {
+  --tone: var(--color-warning);
+  --tone-soft: var(--color-warning-soft);
+}
+
+.icon {
+  margin-top: 1px;
+  color: var(--tone);
+}

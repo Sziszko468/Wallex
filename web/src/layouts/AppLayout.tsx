@@ -1,76 +1,68 @@
-import { useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
-import { useAuth } from "../hooks/useAuth";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Outlet, useLocation } from "react-router-dom";
+import { QuickAddTransaction } from "../components/transactions/QuickAddTransaction";
+import { ToastProvider } from "../components/Toast";
+import { useMediaQuery } from "../hooks/useMediaQuery";
 import { SyncProvider } from "../hooks/useSync";
+import { BottomNav } from "./BottomNav";
+import { Sidebar } from "./Sidebar";
+import { TopBar } from "./TopBar";
 import styles from "./AppLayout.module.scss";
 
-const NAV_ITEMS = [
-  { to: "/dashboard", label: "Dashboard" },
-  { to: "/assistant", label: "Assistant" },
-  { to: "/transactions", label: "Transactions" },
-  { to: "/recurring", label: "Recurring" },
-  { to: "/subscriptions", label: "Subscriptions" },
-  { to: "/budgets", label: "Budgets" },
-  { to: "/goals", label: "Goals" },
-  { to: "/achievements", label: "Achievements" },
-  { to: "/categories", label: "Categories" },
-  { to: "/import", label: "Import" },
-  { to: "/settings", label: "Settings" },
-];
+// Mirrors $breakpoint-desktop in styles/_mixins.scss.
+const DESKTOP_QUERY = "(min-width: 1024px)";
 
+/**
+ * The signed-in shell. Wide screens get a sidebar; phones and tablets get a slim top bar and a
+ * bottom tab bar. Only one of them exists in the page at a time, so assistive technology never
+ * meets two copies of the navigation.
+ */
 export function AppLayout() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { user, logout } = useAuth();
+  const isDesktop = useMediaQuery(DESKTOP_QUERY, true);
+  const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
+  const openQuickAdd = useCallback(() => setIsQuickAddOpen(true), []);
+  const closeQuickAdd = useCallback(() => setIsQuickAddOpen(false), []);
 
-  async function handleLogout() {
-    setIsMenuOpen(false);
-    await logout();
-  }
+  // A client-side navigation keeps the scroll position; a new page should start at the top.
+  // It also makes no sound for screen-reader users, so the new page's title is announced.
+  const { pathname } = useLocation();
+  const [announcement, setAnnouncement] = useState("");
+  const announcedPath = useRef(pathname);
+  useEffect(() => {
+    window.scrollTo?.(0, 0);
+    if (announcedPath.current === pathname) return; // the page that was already there on load
+    announcedPath.current = pathname;
+    // The page sets its title in its own effect, which runs just after this one.
+    const timer = window.setTimeout(() => setAnnouncement(document.title), 120);
+    return () => window.clearTimeout(timer);
+  }, [pathname]);
 
   return (
-    <div className={styles.layout}>
-      <header className={styles.header}>
-        <div className={styles.headerBar}>
-          <span className={styles.brand}>Spendly</span>
-          <button
-            type="button"
-            className={styles.menuToggle}
-            onClick={() => setIsMenuOpen((open) => !open)}
-            aria-expanded={isMenuOpen}
-            aria-controls="app-nav"
-          >
-            {isMenuOpen ? "Close" : "Menu"}
-          </button>
-        </div>
+    <ToastProvider>
+      <div className={styles.shell}>
+        <a className={styles.skipLink} href="#main-content">
+          Skip to main content
+        </a>
 
-        <nav id="app-nav" className={`${styles.nav} ${isMenuOpen ? styles.navOpen : ""}`}>
-          {NAV_ITEMS.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) =>
-                `${styles.navLink} ${isActive ? styles.navLinkActive : ""}`
-              }
-              onClick={() => setIsMenuOpen(false)}
-            >
-              {item.label}
-            </NavLink>
-          ))}
-          <div className={styles.navFooter}>
-            {user && <span className={styles.userEmail}>{user.email}</span>}
-            <button type="button" className={styles.logoutButton} onClick={handleLogout}>
-              Log out
-            </button>
+        {isDesktop ? <Sidebar onAddTransaction={openQuickAdd} /> : <TopBar />}
+
+        <main id="main-content" className={styles.main} tabIndex={-1}>
+          <div className={styles.content}>
+            {/* Signed-in pages only: keeps them in step with the account's other devices. */}
+            <SyncProvider>
+              <Outlet />
+            </SyncProvider>
           </div>
-        </nav>
-      </header>
+        </main>
 
-      <main className={styles.main}>
-        {/* Signed-in pages only: keeps them in step with the account's other devices. */}
-        <SyncProvider>
-          <Outlet />
-        </SyncProvider>
-      </main>
-    </div>
+        {!isDesktop && <BottomNav onAddTransaction={openQuickAdd} />}
+
+        <div className={styles.announcer} aria-live="polite" aria-atomic="true">
+          {announcement}
+        </div>
+      </div>
+
+      <QuickAddTransaction isOpen={isQuickAddOpen} onClose={closeQuickAdd} />
+    </ToastProvider>
   );
 }

@@ -1,0 +1,247 @@
+// Spendly design tokens — the single source of truth for every colour, size, radius,
+// shadow and duration in the web app. Components reference these CSS custom properties
+// (var(--color-surface)) and never hard-code a value.
+//
+// Themes: light is the default. Dark applies when
+//   • <html data-theme="dark"> (the user picked Dark), or
+//   • no data-theme is set (the user picked System) AND the OS prefers dark.
+// <html data-theme="light"> always wins over the OS preference. See hooks/useTheme.tsx.
+//
+// Palette idea — "Sage & Linen": warm off-whites instead of pure white, a muted sage green
+// as the one accent, and quiet semantic colours (muted coral for spending, teal for saving).
+// Every text/background pair below is checked against WCAG AA (see docs/design-system.md).
+
+// ---------------------------------------------------------------------------------------
+// Colours that change with the theme
+// ---------------------------------------------------------------------------------------
+
+@mixin light-tokens {
+  // Surfaces: page → card → raised (menus, dialogs). Tonal steps, not heavy borders.
+  --color-bg: #f4f2ea;
+  --color-bg-subtle: #ebe8dc; // sunken areas: progress tracks, segmented controls
+  --color-surface: #fbfaf6;
+  --color-surface-subtle: #f5f3ec; // nested panels, table headers
+  --color-surface-raised: #fffefb;
+  --color-overlay: rgb(30 37 33 / 0.46);
+
+  --color-border: #e2ded0;
+  --color-border-strong: #c9c4b3;
+  --color-control-border: #7f8983; // form controls: 3:1 against the surface (WCAG 1.4.11)
+  --color-divider: #e9e5d9;
+
+  --color-text: #1e2521;
+  --color-text-secondary: #4f5a54;
+  --color-text-tertiary: #5f6a64;
+
+  // Brand: muted sage
+  --color-primary: #3a6a52;
+  --color-primary-hover: #2e5843;
+  --color-primary-pressed: #264a38;
+  --color-primary-soft: #e0eadf;
+  --color-primary-soft-hover: #d2e0d1;
+  --color-primary-ink: #2b5640; // text/icons on the surface or on primary-soft
+  --color-on-primary: #fbfaf6;
+
+  // Money semantics (always paired with a sign, icon or label — never colour alone)
+  --color-success: #2f7048; // income
+  --color-success-soft: #dcebde;
+  --color-danger: #a4453a; // spending, errors
+  --color-danger-soft: #f3dfda;
+  --color-danger-hover: #8f3a30;
+  --color-on-danger: #fffaf8;
+  --color-warning: #85590f;
+  --color-warning-soft: #f2e6c8;
+  --color-info: #3d638e;
+  --color-info-soft: #dde7f1;
+  --color-savings: #2d6d7e; // savings, goals
+  --color-savings-soft: #daeaed;
+
+  --color-focus: #2e5843;
+  --color-sand: #c4a55a; // decorative only (the brand ring)
+
+  // Charts & categories
+  --chart-grid: #e9e5d9;
+  --chart-axis: #5f6a64;
+  --chart-income: #5a9474; // bar/line fills: 3:1 against the surface (WCAG 1.4.11)
+  --chart-expense: #cc6d5d;
+  --chart-savings: #4a8fa0;
+  --chart-warning: #b07a1e;
+  --chart-neutral: #818a85;
+  --chart-cursor: rgb(30 37 33 / 0.05);
+  --category-mix: #77736a; // category colours are blended toward this to calm saturated hexes
+
+  // Loading placeholders
+  --skeleton-base: #ebe8dc;
+  --skeleton-shine: #f6f4ed;
+
+  // Decorative washes (hero panel, auth page). Tonal, low contrast, never behind small text.
+  --wash-sage: #e3ecdf;
+  --wash-sand: #f1ebd9;
+
+  // Elevation: very soft. Most separation comes from tone and 1px borders instead.
+  --shadow-xs: 0 1px 1px rgb(40 50 44 / 0.04);
+  --shadow-sm: 0 1px 2px rgb(40 50 44 / 0.06), 0 0 0 1px rgb(40 50 44 / 0.02);
+  --shadow-md: 0 8px 20px -8px rgb(40 50 44 / 0.14), 0 1px 3px rgb(40 50 44 / 0.05);
+  --shadow-lg: 0 20px 50px -16px rgb(40 50 44 / 0.28), 0 3px 8px rgb(40 50 44 / 0.06);
+}
+
+@mixin dark-tokens {
+  // A deliberately designed dark theme, not an inversion: deep warm graphite, cards one
+  // step lighter than the page, softer text hierarchy, muted (never neon) accents.
+  --color-bg: #111412;
+  --color-bg-subtle: #0c0f0d;
+  --color-surface: #181c19;
+  --color-surface-subtle: #1d221f;
+  --color-surface-raised: #232925;
+  --color-overlay: rgb(3 5 4 / 0.66);
+
+  --color-border: #2a302c;
+  --color-border-strong: #3a423d;
+  --color-control-border: #6c766f;
+  --color-divider: #242a26;
+
+  --color-text: #ebe8de;
+  --color-text-secondary: #b2b8af;
+  --color-text-tertiary: #8b9289;
+
+  --color-primary: #86bb9b;
+  --color-primary-hover: #9bcaaf;
+  --color-primary-pressed: #73ab89;
+  --color-primary-soft: #20302a;
+  --color-primary-soft-hover: #283a31;
+  --color-primary-ink: #9bcaaf;
+  --color-on-primary: #0d1a13;
+
+  --color-success: #7dbe98;
+  --color-success-soft: #1d3226;
+  --color-danger: #e58e7f;
+  --color-danger-soft: #3a2420;
+  --color-danger-hover: #f0a295;
+  --color-on-danger: #2b100b;
+  --color-warning: #ddb566;
+  --color-warning-soft: #372f1b;
+  --color-info: #8daed7;
+  --color-info-soft: #222e3d;
+  --color-savings: #7cb8c8;
+  --color-savings-soft: #1d3238;
+
+  --color-focus: #9bcaaf;
+  --color-sand: #d8bd7b;
+
+  --chart-grid: #242a26;
+  --chart-axis: #8b9289;
+  --chart-income: #7dbe98;
+  --chart-expense: #e58e7f;
+  --chart-savings: #7cb8c8;
+  --chart-warning: #ddb566;
+  --chart-neutral: #6c766f;
+  --chart-cursor: rgb(235 232 222 / 0.06);
+  --category-mix: #aaa598;
+
+  --skeleton-base: #1d221f;
+  --skeleton-shine: #272e29;
+
+  --wash-sage: #1c2a23;
+  --wash-sand: #26241b;
+
+  --shadow-xs: 0 1px 1px rgb(0 0 0 / 0.28);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.38);
+  --shadow-md: 0 10px 24px -10px rgb(0 0 0 / 0.6);
+  --shadow-lg: 0 24px 56px -16px rgb(0 0 0 / 0.7), 0 0 0 1px rgb(255 255 255 / 0.04);
+}
+
+// ---------------------------------------------------------------------------------------
+// Tokens shared by both themes
+// ---------------------------------------------------------------------------------------
+
+:root {
+  @include light-tokens;
+  color-scheme: light;
+
+  // Aliases, so code reads in the domain's language.
+  --color-income: var(--color-success);
+  --color-expense: var(--color-danger);
+
+  // Typography — Plus Jakarta Sans (variable, self-hosted) with a system fallback.
+  --font-sans: "Plus Jakarta Sans Variable", "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, "Liberation Mono", monospace;
+
+  --text-2xs: 0.6875rem; // 11px — overlines
+  --text-xs: 0.75rem; // 12px — meta, badges
+  --text-sm: 0.8125rem; // 13px — secondary text, table cells
+  --text-base: 0.9375rem; // 15px — body
+  --text-md: 1rem; // 16px — inputs (never smaller: iOS zooms into smaller fields)
+  --text-lg: 1.125rem; // 18px
+  --text-xl: 1.25rem; // 20px — card titles
+  --text-2xl: 1.5rem; // 24px
+  --text-3xl: clamp(1.625rem, 1.4rem + 0.8vw, 1.875rem); // page titles
+  --text-4xl: 2.25rem;
+  --text-display: clamp(2.375rem, 1.7rem + 2.8vw, 3.5rem); // the dashboard balance
+
+  --leading-tight: 1.15;
+  --leading-snug: 1.3;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.65;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  --tracking-tight: -0.022em; // large headings and figures
+  --tracking-wide: 0.07em; // overlines
+
+  // Spacing — a 4px scale.
+  --space-1: 0.25rem; // 4
+  --space-2: 0.5rem; // 8
+  --space-3: 0.75rem; // 12
+  --space-4: 1rem; // 16
+  --space-5: 1.25rem; // 20
+  --space-6: 1.5rem; // 24
+  --space-8: 2rem; // 32
+  --space-10: 2.5rem; // 40
+  --space-12: 3rem; // 48
+  --space-16: 4rem; // 64
+
+  // Radius — restrained: small things 6–10, controls 10, cards 16, major surfaces 22.
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 10px; // buttons, inputs
+  --radius-lg: 16px; // cards
+  --radius-xl: 22px; // hero, dialogs
+  --radius-full: 999px;
+
+  // Motion — short and purposeful; all of it is switched off by prefers-reduced-motion.
+  --duration-fast: 120ms;
+  --duration-base: 180ms;
+  --duration-slow: 300ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-decelerate: cubic-bezier(0, 0, 0.2, 1);
+
+  // Layout
+  --sidebar-width: 15.5rem;
+  --topbar-height: 3.5rem;
+  --bottom-nav-height: 4rem;
+  --content-max: 72rem;
+  --control-height: 2.75rem; // 44px: the comfortable touch target
+  --control-height-sm: 2.25rem;
+
+  // Stacking
+  --z-sticky: 10;
+  --z-nav: 20;
+  --z-overlay: 100;
+  --z-toast: 120;
+}
+
+:root[data-theme="dark"] {
+  @include dark-tokens;
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    @include dark-tokens;
+    color-scheme: dark;
+  }
+}

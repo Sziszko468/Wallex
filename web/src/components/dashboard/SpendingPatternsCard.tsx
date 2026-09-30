@@ -1,7 +1,11 @@
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { SpendingPatterns } from "../../types/dashboard";
 import { useBaseCurrency } from "../../hooks/useBaseCurrency";
+import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { formatCurrency, formatPercentage } from "../../utils/format";
+import { AXIS_TICK, CHART_COLORS, compactNumber } from "../charts/chartTheme";
+import { ChartContainer } from "../charts/ChartContainer";
+import { ChartTooltip } from "../charts/ChartTooltip";
 import { EmptyState } from "../EmptyState";
 import styles from "./SpendingPatternsCard.module.scss";
 
@@ -12,18 +16,21 @@ interface SpendingPatternsCardProps {
 /** Average daily spending, spending by weekday and fixed vs variable — every figure from the API. */
 export function SpendingPatternsCard({ patterns }: SpendingPatternsCardProps) {
   const baseCurrency = useBaseCurrency();
+  const reduceMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
   if (patterns.days_counted === 0) {
-    return <EmptyState message="This month hasn't started yet." />;
+    return <EmptyState icon="calendar" message="This month hasn't started yet." />;
   }
   if (patterns.total_expenses === "0.00") {
-    return <EmptyState message="No expenses this month yet." />;
+    return <EmptyState icon="calendar" message="No expenses this month yet." />;
   }
 
   // Numbers only for plotting the bars.
   const weekdayData = patterns.weekdays.map((weekday) => ({
     name: weekday.name.slice(0, 3),
+    fullName: weekday.name,
     "Average per day": Number(weekday.average_per_day ?? 0),
   }));
+  const fullNames = new Map(weekdayData.map((weekday) => [weekday.name, weekday.fullName]));
 
   return (
     <div className={styles.patterns}>
@@ -66,15 +73,25 @@ export function SpendingPatternsCard({ patterns }: SpendingPatternsCardProps) {
 
       <div>
         <h3 className={styles.subheading}>Average spending by weekday</h3>
-        <ResponsiveContainer width="100%" height={180}>
-          <BarChart data={weekdayData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-            <XAxis dataKey="name" stroke="#6b7280" fontSize={12} tickLine={false} axisLine={false} />
-            <YAxis stroke="#6b7280" fontSize={12} tickLine={false} axisLine={false} width={48} />
-            <Tooltip formatter={(value) => formatCurrency(Number(value), baseCurrency)} />
-            <Bar dataKey="Average per day" fill="#6366f1" radius={[4, 4, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
+        <ChartContainer label="Average spending for each weekday">
+          <ResponsiveContainer width="100%" height={170}>
+            <BarChart data={weekdayData} margin={{ top: 8, right: 4, left: -8, bottom: 0 }} barCategoryGap="30%">
+              <CartesianGrid vertical={false} stroke={CHART_COLORS.grid} />
+              <XAxis dataKey="name" tick={AXIS_TICK} tickLine={false} axisLine={false} tickMargin={8} />
+              <YAxis tick={AXIS_TICK} tickLine={false} axisLine={false} width={48} tickFormatter={compactNumber} tickCount={4} />
+              <Tooltip
+                cursor={{ fill: CHART_COLORS.cursor, radius: 8 }}
+                content={
+                  <ChartTooltip
+                    formatValue={(value) => formatCurrency(value, baseCurrency)}
+                    formatLabel={(label) => fullNames.get(String(label)) ?? String(label)}
+                  />
+                }
+              />
+              <Bar dataKey="Average per day" fill="var(--color-primary)" radius={[6, 6, 2, 2]} maxBarSize={28} isAnimationActive={!reduceMotion} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartContainer>
       </div>
     </div>
   );

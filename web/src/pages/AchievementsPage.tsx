@@ -1,10 +1,14 @@
 import { useCallback, useEffect } from "react";
 import { listAchievements, markAchievementsSeen } from "../services/achievementsService";
 import { useAsyncData } from "../hooks/useAsyncData";
+import { usePageTitle } from "../hooks/usePageTitle";
 import type { Achievement } from "../types/achievement";
-import { Skeleton } from "../components/Skeleton";
+import { EmptyState } from "../components/EmptyState";
 import { ErrorState } from "../components/ErrorState";
+import { PageHeader } from "../components/PageHeader";
+import { SkeletonRows } from "../components/Skeleton";
 import { AchievementCard } from "../components/achievements/AchievementCard";
+import pageStyles from "../components/page.module.scss";
 import styles from "./AchievementsPage.module.scss";
 
 interface Section {
@@ -13,6 +17,7 @@ interface Section {
 }
 
 export function AchievementsPage() {
+  usePageTitle("Achievements");
   const fetchAchievements = useCallback(() => listAchievements(), []);
   const achievements = useAsyncData(fetchAchievements);
   const data = achievements.data;
@@ -38,35 +43,43 @@ export function AchievementsPage() {
     : [];
   const unlockedCount = sections[0]?.items.length ?? 0;
 
-  return (
-    <div className={styles.page}>
-      <div>
-        <h1 className={styles.heading}>Achievements</h1>
-        {data && (
-          <p className={styles.subtitle}>
-            {unlockedCount} of {data.length} unlocked · milestones earned by tracking, saving and staying on budget.
-          </p>
-        )}
-      </div>
+  function renderBody() {
+    if (achievements.isLoading) return <SkeletonRows count={4} rowHeight={84} />;
+    if (achievements.error) return <ErrorState error={achievements.error} onRetry={achievements.refetch} />;
+    if (sections.every((section) => section.items.length === 0)) {
+      return (
+        <EmptyState
+          icon="achievements"
+          title="No achievements yet"
+          message="Milestones appear here as you track spending, save and stay on budget."
+        />
+      );
+    }
+    return sections
+      .filter((section) => section.items.length > 0)
+      .map((section) => (
+        <section key={section.title} className={styles.section} aria-label={section.title}>
+          <h2 className={styles.sectionHeading}>{section.title}</h2>
+          <div className={styles.grid}>
+            {section.items.map((achievement) => (
+              <AchievementCard key={achievement.code} achievement={achievement} />
+            ))}
+          </div>
+        </section>
+      ));
+  }
 
-      {achievements.isLoading ? (
-        <Skeleton height={260} borderRadius={8} />
-      ) : achievements.error ? (
-        <ErrorState error={achievements.error} onRetry={achievements.refetch} />
-      ) : (
-        sections
-          .filter((section) => section.items.length > 0)
-          .map((section) => (
-            <section key={section.title} className={styles.section} aria-label={section.title}>
-              <h2 className={styles.sectionHeading}>{section.title}</h2>
-              <div className={styles.grid}>
-                {section.items.map((achievement) => (
-                  <AchievementCard key={achievement.code} achievement={achievement} />
-                ))}
-              </div>
-            </section>
-          ))
-      )}
+  return (
+    <div className={pageStyles.page}>
+      <PageHeader
+        title="Achievements"
+        description={
+          data
+            ? `${unlockedCount} of ${data.length} unlocked · milestones earned by tracking, saving and staying on budget.`
+            : "Milestones earned by tracking, saving and staying on budget."
+        }
+      />
+      {renderBody()}
     </div>
   );
 }

@@ -1,70 +1,64 @@
-@use "../../styles/variables" as vars;
-
 .overview {
   display: flex;
   flex-direction: column;
-  gap: vars.$space-md;
+  gap: var(--space-4);
 }
 
 .list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: vars.$space-sm;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .item {
   display: flex;
   align-items: center;
-  gap: vars.$space-sm;
-  font-size: vars.$font-size-sm;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
 }
 
 .icon {
+  display: inline-flex;
   flex-shrink: 0;
-  width: 1.75rem;
-  text-align: center;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  font-size: 1.0625rem;
+  background-color: var(--color-primary-soft);
+  border-radius: var(--radius-full);
 }
 
 .title {
   flex: 1;
   min-width: 0;
   overflow: hidden;
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-weight: 600;
-  color: vars.$color-text;
-}
-
-.newBadge {
-  padding: 0.05rem 0.4rem;
-  border-radius: 999px;
-  font-size: 0.7rem;
-  font-weight: 700;
-  color: vars.$color-primary-dark;
-  background-color: rgba(99, 102, 241, 0.12);
 }
 
 .meta {
-  margin: 0;
-  font-size: 0.8rem;
-  color: vars.$color-text-muted;
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
 }
 
 .next {
   display: flex;
   flex-direction: column;
-  gap: vars.$space-xs;
-  padding-top: vars.$space-sm;
-  border-top: 1px solid vars.$color-border;
+  gap: var(--space-2);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-divider);
 }
 
 .nextLabel {
-  font-size: vars.$font-size-sm;
-  font-weight: 600;
-  color: vars.$color-text;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
 }
 
 .footer {
@@ -72,16 +66,10 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: vars.$space-sm;
+  gap: var(--space-2);
 }
 
 .link {
-  font-size: vars.$font-size-sm;
-  font-weight: 600;
-  color: vars.$color-primary-dark;
-  text-decoration: none;
-
-  &:hover {
-    text-decoration: underline;
-  }
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
 }

@@ -1,7 +1,19 @@
 import type { SubscriptionStatus } from "../../types/subscription";
 import { STATUS_LABELS } from "../../utils/subscriptions";
-import styles from "./SubscriptionStatusBadge.module.scss";
+import { Badge, type BadgeTone } from "../Badge";
+import type { IconName } from "../icons/iconPaths";
+
+const STATUS_STYLE: Record<SubscriptionStatus, { tone: BadgeTone; icon: IconName; outline: boolean }> = {
+  active: { tone: "success", icon: "check", outline: false },
+  paused: { tone: "neutral", icon: "pause", outline: true },
+  ended: { tone: "warning", icon: "clock", outline: false },
+};
 
 export function SubscriptionStatusBadge({ status }: { status: SubscriptionStatus }) {
-  return <span className={`${styles.badge} ${styles[status]}`}>{STATUS_LABELS[status]}</span>;
+  const style = STATUS_STYLE[status];
+  return (
+    <Badge tone={style.tone} icon={style.icon} variant={style.outline ? "outline" : "soft"}>
+      {STATUS_LABELS[status]}
+    </Badge>
+  );
 }

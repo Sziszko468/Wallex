@@ -8,7 +8,7 @@ import { Modal } from "../Modal";
 import { Button } from "../Button";
 import { TextField } from "../TextField";
 import { ErrorBanner } from "../ErrorBanner";
-import styles from "./GoalForms.module.scss";
+import formStyles from "../form.module.scss";
 
 export type MoneyDirection = "deposit" | "withdraw";
 
@@ -77,15 +77,16 @@ function MoneyForm({ goal, direction, onClose, onSaved }: MoneyFormProps) {
       onClose={onClose}
       title={isDeposit ? `Add money to ${goal.name}` : `Remove money from ${goal.name}`}
     >
-      <form onSubmit={handleSubmit} className={styles.form} noValidate>
+      <form onSubmit={handleSubmit} className={formStyles.stack} noValidate>
         <ErrorBanner message={errorMessage} />
-        <p className={styles.summary}>
+        <p className={formStyles.note}>
           Saved so far: <strong>{formatCurrency(goal.current_amount, goal.currency)}</strong> of{" "}
           {formatCurrency(goal.target_amount, goal.currency)}
         </p>
         <TextField
           label={`Amount (${goal.currency})`}
           type="number"
+          inputMode="decimal"
           step={amountStep(goal.currency)}
           min={amountStep(goal.currency)}
           placeholder={amountStep(goal.currency) === "1" ? "0" : "0.00"}
@@ -94,7 +95,7 @@ function MoneyForm({ goal, direction, onClose, onSaved }: MoneyFormProps) {
           error={amountError}
           autoFocus
         />
-        <div className={styles.actions}>
+        <div className={formStyles.actions}>
           <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>

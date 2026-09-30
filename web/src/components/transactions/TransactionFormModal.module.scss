@@ -1,36 +1,22 @@
-@use "../../styles/variables" as vars;
-
-.form {
+// The converted amount sits right under the amount field it belongs to.
+.amountBlock {
   display: flex;
   flex-direction: column;
-}
-
-.amountRow {
-  display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
-  gap: vars.$space-sm;
+  gap: var(--space-2);
 }
 
 .conversion {
-  margin: calc(-1 * vars.$space-sm) 0 vars.$space-md;
-  font-size: vars.$font-size-sm;
-  font-weight: 600;
-  color: vars.$color-text;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
 }
 
 .rateSource {
-  font-weight: 400;
-  color: vars.$color-text-muted;
+  font-weight: var(--weight-regular);
+  color: var(--color-text-secondary);
 }
 
 .conversionError {
-  font-weight: 400;
-  color: vars.$color-danger;
-}
-
-.actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
+  font-weight: var(--weight-regular);
+  color: var(--color-danger);
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatCurrency } from "./format";
+import { formatCurrency, formatDayHeading } from "./format";
 import { hasValidPrecision } from "./currency";
 
 // Intl output depends on the locale; these tests pin the parts that don't: digits and decimals.
@@ -33,5 +33,25 @@ describe("hasValidPrecision", () => {
 
   it("leaves two-decimal currencies to the input and the backend", () => {
     expect(hasValidPrecision("12.34", "EUR")).toBe(true);
+  });
+});
+
+describe("formatDayHeading", () => {
+  const now = new Date(2026, 8, 30, 15, 30); // 30 September 2026, mid-afternoon
+
+  it("names today and yesterday", () => {
+    expect(formatDayHeading("2026-09-30", now)).toBe("Today");
+    expect(formatDayHeading("2026-09-29", now)).toBe("Yesterday");
+  });
+
+  it("spells out other days, adding the year only for other years", () => {
+    expect(formatDayHeading("2026-09-12", now)).toMatch(/12/);
+    expect(formatDayHeading("2026-09-12", now)).not.toMatch(/2026/);
+    expect(formatDayHeading("2025-12-24", now)).toMatch(/2025/);
+  });
+
+  it("does not depend on the time of day", () => {
+    expect(formatDayHeading("2026-09-30", new Date(2026, 8, 30, 0, 5))).toBe("Today");
+    expect(formatDayHeading("2026-09-29", new Date(2026, 8, 30, 23, 59))).toBe("Yesterday");
   });
 });

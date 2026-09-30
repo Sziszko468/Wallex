@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { useAsyncData } from "../../hooks/useAsyncData";
 import { listSecurityEvents } from "../../services/securityService";
 import { formatDateTime } from "../../utils/format";
+import { Card } from "../Card";
 import { ErrorState } from "../ErrorState";
 import { Skeleton } from "../Skeleton";
 import styles from "./SecurityCards.module.scss";
@@ -13,8 +14,8 @@ export function LoginHistoryCard() {
   const history = useAsyncData(useCallback(() => listSecurityEvents("login"), []));
 
   return (
-    <div className={styles.card}>
-      <h2>Recent sign-ins</h2>
+    <Card padding="lg" className={styles.card}>
+      <h2 className={styles.title}>Recent sign-ins</h2>
       <p className={styles.hint}>
         Attempts you don&apos;t recognise? Change your password and turn on two-factor authentication.
       </p>
@@ -26,7 +27,7 @@ export function LoginHistoryCard() {
         <ul className={styles.list}>
           {history.data.results.map((event) => (
             <li key={event.id} className={styles.row}>
-              <div>
+              <div className={styles.rowText}>
                 <strong className={FAILED.has(event.action) ? styles.failed : undefined}>{event.description}</strong>
                 <div className={styles.meta}>
                   {formatDateTime(event.created_at)}
@@ -40,6 +41,6 @@ export function LoginHistoryCard() {
       ) : (
         <p className={styles.meta}>No sign-ins recorded yet.</p>
       )}
-    </div>
+    </Card>
   );
 }

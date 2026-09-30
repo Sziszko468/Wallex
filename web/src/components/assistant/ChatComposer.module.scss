@@ -1,42 +1,53 @@
-@use "../../styles/variables" as vars;
+@use "../../styles/mixins" as m;
 
 .composer {
   display: flex;
   flex-direction: column;
-  gap: vars.$space-xs;
-  padding: vars.$space-sm;
-  background-color: vars.$color-surface;
-  border: 1px solid vars.$color-border;
-  border-radius: vars.$radius-md;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background-color: var(--color-surface-raised);
+  border: 1px solid var(--color-control-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  transition:
+    border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
 
   &:focus-within {
-    border-color: vars.$color-primary;
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 24%, transparent);
   }
 }
 
 .label {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
+  @include m.visually-hidden;
 }
 
 .input {
   width: 100%;
   min-height: 3rem;
   max-height: 10rem;
-  padding: vars.$space-xs;
-  font: inherit;
-  color: vars.$color-text;
+  padding: var(--space-1);
+  font-size: var(--text-md);
+  line-height: var(--leading-normal);
+  color: var(--color-text);
   background: transparent;
   border: none;
+  border-radius: var(--radius-sm);
   resize: vertical;
 
-  &:focus {
+  &:focus,
+  &:focus-visible {
     outline: none;
+  }
+
+  &::placeholder {
+    color: var(--color-text-tertiary);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
   }
 }
 
@@ -44,15 +55,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: vars.$space-sm;
+  gap: var(--space-3);
 }
 
 .counter {
-  font-size: 0.75rem;
-  color: vars.$color-text-muted;
-}
-
-.send {
-  width: auto;
-  padding: 0.5rem vars.$space-lg;
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  @include m.tabular-numbers;
 }

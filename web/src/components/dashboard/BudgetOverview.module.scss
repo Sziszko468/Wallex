@@ -1,85 +1,8 @@
-@use "../../styles/variables" as vars;
-
 .list {
-  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: vars.$space-md;
-}
-
-.item {
-  display: flex;
-  flex-direction: column;
-  gap: vars.$space-xs;
-}
-
-.header {
-  display: flex;
-  justify-content: space-between;
-  gap: vars.$space-sm;
-  font-size: vars.$font-size-sm;
-}
-
-.name {
-  font-weight: 600;
-  color: vars.$color-text;
-}
-
-.status {
-  padding: 0.05rem 0.45rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-
-.on_track {
-  background-color: rgba(22, 163, 74, 0.12);
-  color: vars.$color-success;
-}
-
-.ahead_of_pace {
-  background-color: rgba(217, 119, 6, 0.14);
-  color: vars.$color-warning;
-}
-
-.over_budget {
-  background-color: rgba(220, 38, 38, 0.12);
-  color: vars.$color-danger;
-}
-
-.footer {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: vars.$space-xs vars.$space-sm;
-}
-
-.track {
-  height: 8px;
-  border-radius: 999px;
-  background-color: vars.$color-background;
-  overflow: hidden;
-}
-
-.fill {
-  height: 100%;
-  border-radius: 999px;
-  background-color: vars.$color-primary;
-  transition: width 0.2s ease;
-}
-
-.fill.over {
-  background-color: vars.$color-danger;
-}
-
-.percentage {
-  font-size: 0.75rem;
-  color: vars.$color-text-muted;
-}
-
-.overText {
-  color: vars.$color-danger;
-  font-weight: 600;
+  list-style: none;
 }

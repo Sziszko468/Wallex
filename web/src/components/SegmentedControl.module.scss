@@ -1,0 +1,87 @@
+@use "../styles/mixins" as m;
+
+.group {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  background-color: var(--color-bg-subtle);
+  border-radius: calc(var(--radius-md) + 3px);
+}
+
+.fullWidth {
+  display: flex;
+  width: 100%;
+
+  .segment {
+    flex: 1;
+  }
+}
+
+.segment {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 2.25rem;
+  padding: 0 var(--space-4);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition:
+    color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+
+  &:hover:not(.selected) {
+    color: var(--color-text);
+  }
+}
+
+.md .segment {
+  min-height: 2.5rem;
+  font-size: var(--text-base);
+}
+
+.sm .segment {
+  min-height: 2rem;
+  padding: 0 var(--space-3);
+  font-size: var(--text-xs);
+}
+
+.selected {
+  color: var(--color-text);
+  background-color: var(--color-surface-raised);
+  box-shadow: var(--shadow-sm);
+}
+
+// Income / expense: the selected segment takes the money colour *and* keeps its icon and label.
+.income.selected {
+  color: var(--color-success);
+  background-color: var(--color-success-soft);
+  box-shadow: none;
+}
+
+.expense.selected {
+  color: var(--color-danger);
+  background-color: var(--color-danger-soft);
+  box-shadow: none;
+}
+
+// Phones: less padding so three options fit a narrow card; the narrowest drop the icons (the labels stay).
+@include m.below-tablet {
+  .segment {
+    gap: var(--space-1);
+    padding: 0 var(--space-2);
+  }
+}
+
+@media (max-width: 359px) {
+  .segment svg {
+    display: none;
+  }
+}

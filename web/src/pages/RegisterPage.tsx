@@ -1,14 +1,18 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { usePageTitle } from "../hooks/usePageTitle";
 import { extractErrorMessage, extractFieldErrors, type FieldErrors } from "../utils/errors";
 import { Button } from "../components/Button";
 import { TextField } from "../components/TextField";
 import { ErrorBanner } from "../components/ErrorBanner";
+import formStyles from "../components/form.module.scss";
+import styles from "./AuthPages.module.scss";
 
 export function RegisterPage() {
   const { register } = useAuth();
   const navigate = useNavigate();
+  usePageTitle("Create your account");
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -43,25 +47,30 @@ export function RegisterPage() {
 
   return (
     <>
-      <h2>Create your account</h2>
+      <div className={styles.header}>
+        <h1 className={styles.title}>Create your account</h1>
+        <p className={styles.subtitle}>It takes a minute, and your data stays yours.</p>
+      </div>
       <ErrorBanner message={errorMessage} />
-      <form onSubmit={handleSubmit} noValidate>
-        <TextField
-          label="First name"
-          name="first_name"
-          autoComplete="given-name"
-          value={firstName}
-          onChange={(event) => setFirstName(event.target.value)}
-          error={fieldErrors.first_name}
-        />
-        <TextField
-          label="Last name"
-          name="last_name"
-          autoComplete="family-name"
-          value={lastName}
-          onChange={(event) => setLastName(event.target.value)}
-          error={fieldErrors.last_name}
-        />
+      <form onSubmit={handleSubmit} noValidate className={styles.stack}>
+        <div className={formStyles.row}>
+          <TextField
+            label="First name"
+            name="first_name"
+            autoComplete="given-name"
+            value={firstName}
+            onChange={(event) => setFirstName(event.target.value)}
+            error={fieldErrors.first_name}
+          />
+          <TextField
+            label="Last name"
+            name="last_name"
+            autoComplete="family-name"
+            value={lastName}
+            onChange={(event) => setLastName(event.target.value)}
+            error={fieldErrors.last_name}
+          />
+        </div>
         <TextField
           label="Email"
           type="email"
@@ -92,11 +101,11 @@ export function RegisterPage() {
           error={fieldErrors.password_confirm}
           required
         />
-        <Button type="submit" isLoading={isSubmitting}>
+        <Button type="submit" size="lg" fullWidth isLoading={isSubmitting}>
           Register
         </Button>
       </form>
-      <p>
+      <p className={styles.switch}>
         Already have an account? <Link to="/login">Log in</Link>
       </p>
     </>

@@ -1,9 +1,61 @@
-@use "../styles/variables" as vars;
+@use "../styles/mixins" as m;
 
-.emptyState {
-  margin: 0;
-  padding: vars.$space-lg vars.$space-md;
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-5) var(--space-3);
   text-align: center;
-  color: vars.$color-text-muted;
-  font-size: vars.$font-size-sm;
+}
+
+.iconTile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  margin-bottom: var(--space-1);
+  color: var(--color-primary-ink);
+  background-color: var(--color-primary-soft);
+  border-radius: var(--radius-full);
+}
+
+.message {
+  max-width: 36ch;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  color: var(--color-text-secondary);
+}
+
+.action {
+  margin-top: var(--space-3);
+}
+
+// The full-page version: a tonal panel with room to breathe.
+.panel {
+  gap: var(--space-2);
+  padding: var(--space-12) var(--space-6);
+  background-color: var(--color-surface);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-xl);
+
+  .iconTile {
+    width: 3.5rem;
+    height: 3.5rem;
+    margin-bottom: var(--space-2);
+  }
+
+  .title {
+    font-size: var(--text-xl);
+  }
+
+  .message {
+    max-width: 42ch;
+    font-size: var(--text-base);
+  }
+
+  @include m.tablet-up {
+    padding: var(--space-16) var(--space-8);
+  }
 }

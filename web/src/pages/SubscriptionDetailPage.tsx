@@ -1,31 +1,40 @@
 import { useCallback, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { deleteSubscription, getSubscription } from "../services/subscriptionsService";
 import { listCategories } from "../services/categoriesService";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { useBaseCurrency } from "../hooks/useBaseCurrency";
+import { usePageTitle } from "../hooks/usePageTitle";
 import type { Subscription } from "../types/subscription";
 import { Button } from "../components/Button";
 import { Skeleton } from "../components/Skeleton";
+import { DetailList } from "../components/DetailList";
 import { ErrorState } from "../components/ErrorState";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { ConfirmDialog } from "../components/ConfirmDialog";
-import { StatCard } from "../components/dashboard/StatCard";
+import { PageHeader } from "../components/PageHeader";
+import { SummaryStrip } from "../components/SummaryStrip";
+import { useToast } from "../components/Toast";
 import { DashboardCard } from "../components/dashboard/DashboardCard";
 import { SubscriptionFormModal } from "../components/subscriptions/SubscriptionFormModal";
 import { SubscriptionStatusBadge } from "../components/subscriptions/SubscriptionStatusBadge";
 import { extractErrorMessage } from "../utils/errors";
 import { formatCurrency, formatDate } from "../utils/format";
 import { FREQUENCY_LABELS, PERIOD_LABELS } from "../utils/subscriptions";
+import pageStyles from "../components/page.module.scss";
 import styles from "./SubscriptionDetailPage.module.scss";
+
+const BACK_LINK = { to: "/subscriptions", label: "All subscriptions" };
 
 export function SubscriptionDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const toast = useToast();
   const subscriptionId = Number(id);
 
   const fetchSubscription = useCallback(() => getSubscription(subscriptionId), [subscriptionId]);
   const subscription = useAsyncData(fetchSubscription);
+  usePageTitle(subscription.data?.name ?? "Subscription");
 
   const fetchCategories = useCallback(() => listCategories(), []);
   const categories = useAsyncData(fetchCategories);
@@ -40,6 +49,7 @@ export function SubscriptionDetailPage() {
     setIsDeleting(true);
     try {
       await deleteSubscription(subscriptionId);
+      toast.success("Subscription deleted");
       navigate("/subscriptions", { replace: true });
     } catch (error) {
       setActionError(extractErrorMessage(error));
@@ -49,6 +59,7 @@ export function SubscriptionDetailPage() {
   }
 
   function handleSaved() {
+    toast.success("Changes saved");
     setEditing(null);
     subscription.refetch();
   }
@@ -58,40 +69,45 @@ export function SubscriptionDetailPage() {
     [categories.data, subscription.data]
   );
 
+  const data = subscription.data;
+
+  function renderBody() {
+    if (subscription.isLoading) return <Skeleton height={320} borderRadius={16} />;
+    if (subscription.error || !data) return <ErrorState error={subscription.error} onRetry={subscription.refetch} />;
+    return <SubscriptionDetails subscription={data} categoryName={category?.name} />;
+  }
+
   return (
-    <div className={styles.page}>
-      <Link to="/subscriptions" className={styles.backLink}>
-        ← All subscriptions
-      </Link>
+    <div className={pageStyles.page}>
+      <PageHeader
+        backTo={BACK_LINK}
+        title={
+          data ? (
+            <span className={styles.title}>
+              {data.name} <SubscriptionStatusBadge status={data.status} />
+            </span>
+          ) : (
+            "Subscription"
+          )
+        }
+        description={data?.merchant || undefined}
+        actions={
+          data && (
+            <>
+              <Button type="button" variant="secondary" leadingIcon="pencil" onClick={() => setEditing(data)}>
+                Edit
+              </Button>
+              <Button type="button" variant="danger-quiet" leadingIcon="trash" onClick={() => setIsConfirmingDelete(true)}>
+                Delete
+              </Button>
+            </>
+          )
+        }
+      />
 
       <ErrorBanner message={actionError} />
 
-      {subscription.isLoading ? (
-        <Skeleton height={320} borderRadius={8} />
-      ) : subscription.error || !subscription.data ? (
-        <ErrorState error={subscription.error} onRetry={subscription.refetch} />
-      ) : (
-        <>
-          <div className={styles.headerRow}>
-            <div>
-              <h1 className={styles.heading}>
-                {subscription.data.name} <SubscriptionStatusBadge status={subscription.data.status} />
-              </h1>
-              {subscription.data.merchant && <p className={styles.merchant}>{subscription.data.merchant}</p>}
-            </div>
-            <div className={styles.actions}>
-              <Button type="button" variant="secondary" onClick={() => setEditing(subscription.data)}>
-                Edit
-              </Button>
-              <Button type="button" variant="danger" onClick={() => setIsConfirmingDelete(true)}>
-                Delete
-              </Button>
-            </div>
-          </div>
-
-          <SubscriptionDetails subscription={subscription.data} categoryName={category?.name} />
-        </>
-      )}
+      {renderBody()}
 
       <SubscriptionFormModal
         isOpen={editing !== null}
@@ -104,7 +120,7 @@ export function SubscriptionDetailPage() {
       <ConfirmDialog
         isOpen={isConfirmingDelete}
         title="Delete subscription"
-        message={`Delete "${subscription.data?.name ?? ""}"? Payments you already recorded stay in your transactions.`}
+        message={`Delete "${data?.name ?? ""}"? Payments you already recorded stay in your transactions.`}
         confirmLabel="Delete"
         isConfirming={isDeleting}
         onConfirm={confirmDelete}
@@ -130,39 +146,32 @@ function SubscriptionDetails({ subscription, categoryName }: SubscriptionDetails
     return baseValue === null ? `${own} (no exchange rate)` : `${own} ≈ ${formatCurrency(baseValue, baseCurrency)}`;
   }
 
+  const details = [
+    { label: "Category", value: categoryName ?? "—" },
+    { label: "Billing", value: FREQUENCY_LABELS[subscription.frequency] },
+    { label: "Currency", value: subscription.currency },
+    { label: "First payment", value: formatDate(subscription.start_date) },
+    { label: "Last payment", value: subscription.end_date ? formatDate(subscription.end_date) : "Open-ended" },
+    { label: "Next payment", value: subscription.next_payment_date ? formatDate(subscription.next_payment_date) : "—" },
+    ...(subscription.description ? [{ label: "Notes", value: subscription.description }] : []),
+  ];
+
   return (
     <>
-      <div className={styles.statsRow}>
-        <StatCard
-          label="Price"
-          value={`${formatCurrency(subscription.amount, subscription.currency)} / ${PERIOD_LABELS[subscription.frequency]}`}
-        />
-        <StatCard label="Monthly cost" value={cost(subscription.monthly_cost, subscription.base_monthly_cost)} />
-        <StatCard label="Yearly cost" value={cost(subscription.yearly_cost, subscription.base_yearly_cost)} />
-      </div>
+      <SummaryStrip
+        items={[
+          {
+            label: "Price",
+            value: `${formatCurrency(subscription.amount, subscription.currency)} / ${PERIOD_LABELS[subscription.frequency]}`,
+          },
+          { label: "Monthly cost", value: cost(subscription.monthly_cost, subscription.base_monthly_cost) },
+          { label: "Yearly cost", value: cost(subscription.yearly_cost, subscription.base_yearly_cost) },
+        ]}
+      />
 
       <div className={styles.cardsRow}>
         <DashboardCard title="Details">
-          <dl className={styles.details}>
-            <dt>Category</dt>
-            <dd>{categoryName ?? "—"}</dd>
-            <dt>Billing</dt>
-            <dd>{FREQUENCY_LABELS[subscription.frequency]}</dd>
-            <dt>Currency</dt>
-            <dd>{subscription.currency}</dd>
-            <dt>First payment</dt>
-            <dd>{formatDate(subscription.start_date)}</dd>
-            <dt>Last payment</dt>
-            <dd>{subscription.end_date ? formatDate(subscription.end_date) : "Open-ended"}</dd>
-            <dt>Next payment</dt>
-            <dd>{subscription.next_payment_date ? formatDate(subscription.next_payment_date) : "—"}</dd>
-            {subscription.description && (
-              <>
-                <dt>Notes</dt>
-                <dd>{subscription.description}</dd>
-              </>
-            )}
-          </dl>
+          <DetailList items={details} />
         </DashboardCard>
 
         <DashboardCard title="Upcoming payments">

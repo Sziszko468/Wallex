@@ -1,5 +1,7 @@
 import { NavLink } from "react-router-dom";
 import type { AssistantConversationSummary } from "../../types/assistant";
+import { Button } from "../Button";
+import { IconButton } from "../IconButton";
 import { Skeleton } from "../Skeleton";
 import { ErrorState } from "../ErrorState";
 import styles from "./ConversationList.module.scss";
@@ -62,22 +64,21 @@ export function ConversationList({
                   <span className={styles.title}>{conversation.title}</span>
                   <span className={styles.date}>{lastActive(conversation.updated_at)}</span>
                 </NavLink>
-                <button
-                  type="button"
+                <IconButton
+                  icon="trash"
+                  label={`Delete conversation: ${conversation.title}`}
+                  variant="danger"
+                  size="sm"
                   className={styles.delete}
                   onClick={() => onDelete(conversation)}
-                  aria-label={`Delete conversation: ${conversation.title}`}
-                  title="Delete conversation"
-                >
-                  ×
-                </button>
+                />
               </li>
             ))}
           </ul>
           {hasMore && (
-            <button type="button" className={styles.more} onClick={onLoadMore} disabled={isLoadingMore}>
+            <Button variant="ghost" size="sm" onClick={onLoadMore} disabled={isLoadingMore}>
               {isLoadingMore ? "Loading…" : "Show older"}
-            </button>
+            </Button>
           )}
         </>
       )}

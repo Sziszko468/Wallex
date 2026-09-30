@@ -1,4 +1,5 @@
 import { formatMonthYear } from "../utils/format";
+import { IconButton } from "./IconButton";
 import styles from "./MonthNavigator.module.scss";
 
 interface MonthNavigatorProps {
@@ -20,23 +21,11 @@ export function MonthNavigator({ year, month, onChange }: MonthNavigatorProps) {
 
   return (
     <div className={styles.navigator}>
-      <button
-        type="button"
-        className={styles.navButton}
-        onClick={goToPreviousMonth}
-        aria-label="Previous month"
-      >
-        ‹
-      </button>
-      <span className={styles.label}>{formatMonthYear(year, month)}</span>
-      <button
-        type="button"
-        className={styles.navButton}
-        onClick={goToNextMonth}
-        aria-label="Next month"
-      >
-        ›
-      </button>
+      <IconButton icon="chevron-left" label="Previous month" variant="outline" onClick={goToPreviousMonth} />
+      <span className={styles.label} aria-live="polite">
+        {formatMonthYear(year, month)}
+      </span>
+      <IconButton icon="chevron-right" label="Next month" variant="outline" onClick={goToNextMonth} />
     </div>
   );
 }

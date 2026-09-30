@@ -52,10 +52,10 @@ function fakeSubscriptionsBackend(initial: Subscription[], summary: Subscription
   return { requests, summaryCalls: () => summaryCalls };
 }
 
-/** The subscription's row in the table (its name also appears in the upcoming-payments card). */
+/** The subscription's row in the list (its name also appears in the upcoming-payments card). */
 async function findRow(name: string) {
-  const table = await screen.findByRole("table");
-  return (await within(table).findByRole("link", { name })).closest("tr")!;
+  const list = await screen.findByRole("list", { name: "Subscriptions" });
+  return (await within(list).findByRole("link", { name })).closest("li")!;
 }
 
 function statValue(label: string) {

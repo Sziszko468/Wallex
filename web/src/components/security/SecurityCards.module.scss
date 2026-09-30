@@ -1,86 +1,122 @@
-@use "../../styles/variables" as vars;
+@use "../../styles/mixins" as m;
 
+// Each card is a Card; its h2 must stay a direct child (the tests and the eye both find sections that way).
 .card {
-  background-color: vars.$color-surface;
-  border: 1px solid vars.$color-border;
-  border-radius: vars.$radius-md;
-  padding: vars.$space-lg;
-  margin-bottom: vars.$space-md;
-  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 44rem;
+}
+
+.title {
+  font-size: var(--text-xl);
+}
+
+// Actions that sit directly in a card keep their natural width instead of stretching across it.
+.card > button,
+.card > a {
+  align-self: flex-start;
 }
 
 .hint {
-  margin-top: 0;
-  font-size: vars.$font-size-sm;
-  color: vars.$color-text-muted;
+  margin-top: calc(-1 * var(--space-2));
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  color: var(--color-text-secondary);
 }
 
-.notice {
-  padding: vars.$space-sm vars.$space-md;
-  border-radius: vars.$radius-sm;
-  background-color: rgba(22, 163, 74, 0.1);
-  color: vars.$color-success;
-  font-size: vars.$font-size-sm;
+.stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+.submit {
+  align-self: flex-start;
 }
 
 .list {
-  list-style: none;
-  margin: 0 0 vars.$space-md;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
   padding: 0;
+  list-style: none;
 }
 
 .row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: vars.$space-md;
-  padding: vars.$space-sm 0;
-  border-bottom: 1px solid vars.$color-border;
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--color-divider);
+
+  &:first-child {
+    padding-top: 0;
+  }
 
   &:last-child {
-    border-bottom: none;
+    border-bottom: 0;
   }
 }
 
+.rowText {
+  flex: 1;
+  min-width: 0;
+}
+
+.deviceIcon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  color: var(--color-text-secondary);
+  background-color: var(--color-bg-subtle);
+  border-radius: var(--radius-md);
+}
+
 .meta {
-  font-size: vars.$font-size-sm;
-  color: vars.$color-text-muted;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
   overflow-wrap: anywhere;
 }
 
 .badge {
-  margin-left: vars.$space-sm;
-  padding: 2px vars.$space-sm;
-  border-radius: 999px;
-  background-color: rgba(79, 70, 229, 0.1);
-  color: vars.$color-primary;
-  font-size: vars.$font-size-sm;
-  font-weight: 600;
+  margin-left: var(--space-2);
+  vertical-align: 1px;
 }
 
 .failed {
-  color: vars.$color-danger;
+  color: var(--color-danger);
 }
 
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: vars.$space-sm;
-}
-
+// Shown once, never again: set apart and easy to copy.
 .secret code,
 .codes code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 1rem;
-  letter-spacing: 0.05em;
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+  letter-spacing: 0.06em;
+  color: var(--color-text);
+}
+
+.secret {
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--color-bg-subtle);
+  border-radius: var(--radius-md);
+  overflow-wrap: anywhere;
 }
 
 .codes {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: vars.$space-xs vars.$space-md;
+  gap: var(--space-2) var(--space-4);
+  width: 100%;
+  margin: 0;
+  padding: var(--space-4);
   list-style: none;
-  padding: vars.$space-md;
-  border: 1px dashed vars.$color-border;
-  border-radius: vars.$radius-sm;
+  background-color: var(--color-surface-subtle);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
 }

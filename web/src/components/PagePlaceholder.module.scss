@@ -1,9 +1,0 @@
-@use "../styles/variables" as vars;
-
-.placeholder {
-  background-color: vars.$color-surface;
-  border: 1px dashed vars.$color-border;
-  border-radius: vars.$radius-md;
-  padding: vars.$space-lg;
-  color: vars.$color-text-muted;
-}

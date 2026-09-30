@@ -1,0 +1,45 @@
+// --cat is set inline from the category's own colour. Everything below derives from it, so
+// a category looks identical wherever it appears, in both themes.
+
+.mark {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  font-weight: var(--weight-bold);
+  line-height: 1;
+  // Ink: the colour pulled toward the theme's text colour — always legible on its own tint.
+  color: color-mix(in oklch, var(--cat) 58%, var(--color-text));
+  background-color: color-mix(in oklch, var(--cat) 17%, var(--color-surface));
+  border-radius: var(--radius-md);
+  user-select: none;
+}
+
+.sm {
+  width: 1.75rem;
+  height: 1.75rem;
+  font-size: var(--text-xs);
+  border-radius: var(--radius-sm);
+}
+
+.md {
+  width: 2.5rem;
+  height: 2.5rem;
+  font-size: var(--text-md);
+}
+
+.lg {
+  width: 3.25rem;
+  height: 3.25rem;
+  font-size: var(--text-xl);
+  border-radius: var(--radius-lg);
+}
+
+.dot {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 0.625rem;
+  height: 0.625rem;
+  background-color: color-mix(in oklch, var(--cat) 76%, var(--category-mix));
+  border-radius: 50%;
+}

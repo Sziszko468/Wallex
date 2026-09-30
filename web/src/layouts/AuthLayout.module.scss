@@ -1,26 +1,137 @@
-@use "../styles/variables" as vars;
+@use "../styles/mixins" as m;
 
 .page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background-color: var(--color-bg);
+
+  @include m.desktop-up {
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  }
+}
+
+// --- Brand panel (desktop only) ------------------------------------------------------------
+
+.brandPanel {
+  position: relative;
+  display: none;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: var(--space-12);
+  overflow: hidden;
+  background:
+    radial-gradient(80% 70% at 0% 0%, var(--wash-sage) 0%, transparent 65%),
+    radial-gradient(70% 70% at 100% 100%, var(--wash-sand) 0%, transparent 60%),
+    var(--color-surface-subtle);
+  border-right: 1px solid var(--color-divider);
+
+  @include m.desktop-up {
+    display: flex;
+  }
+}
+
+.brand,
+.mobileBrand {
   display: flex;
   align-items: center;
+  gap: var(--space-3);
+}
+
+.wordmark {
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-tight);
+}
+
+.pitch {
+  position: relative;
+  z-index: 1;
+  max-width: 28rem;
+}
+
+.headline {
+  font-size: var(--text-4xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  text-wrap: balance;
+}
+
+.subline {
+  margin-top: var(--space-4);
+  font-size: var(--text-lg);
+  line-height: var(--leading-normal);
+  color: var(--color-text-secondary);
+}
+
+// The brand ring, enlarged into a quiet illustration that bleeds off the top-right corner —
+// well away from the copy at the bottom of the panel.
+.art {
+  position: absolute;
+  top: -8rem;
+  right: -8rem;
+  width: 30rem;
+  max-width: none;
+  opacity: 0.92;
+  pointer-events: none;
+}
+
+.artRing {
+  stroke: var(--color-border-strong);
+  stroke-width: 1.5;
+  opacity: 0.6;
+}
+
+// --- Form panel ---------------------------------------------------------------------------------
+
+.formPanel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
+  gap: var(--space-6);
   min-height: 100vh;
-  padding: vars.$space-lg vars.$space-md;
-  background-color: vars.$color-background;
+  min-height: 100dvh;
+  padding: var(--space-8) var(--space-4);
+
+  @include m.desktop-up {
+    padding: var(--space-12);
+  }
+}
+
+.mobileBrand {
+  @include m.desktop-up {
+    display: none;
+  }
 }
 
 .card {
   width: 100%;
-  max-width: 400px;
-  padding: vars.$space-xl vars.$space-lg;
-  background-color: vars.$color-surface;
-  border-radius: vars.$radius-md;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  max-width: 26rem;
+  padding: var(--space-6);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+
+  @include m.tablet-up {
+    padding: var(--space-8);
+  }
+
+  // The layout has a card of its own on phones/tablets; on desktop the form sits directly on the page.
+  @include m.desktop-up {
+    padding: 0;
+    background: transparent;
+    border: 0;
+  }
 }
 
-.brand {
-  text-align: center;
-  color: vars.$color-primary;
-  font-size: vars.$font-size-xl;
-  margin-bottom: vars.$space-lg;
+// Under the card on phones and tablets; pinned to the corner on desktop.
+.theme {
+  @include m.desktop-up {
+    position: absolute;
+    right: var(--space-6);
+    bottom: var(--space-6);
+  }
 }

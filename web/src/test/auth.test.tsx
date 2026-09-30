@@ -33,7 +33,7 @@ describe("authentication & route protection", () => {
 
     await submitPassword(user);
 
-    expect(await screen.findByRole("heading", { name: /Anna's Dashboard/ })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /Good (morning|afternoon|evening), Anna/ })).toBeInTheDocument();
     expect(headers).toEqual([{ transport: "cookie", platform: "web" }]);
     expect(getAccessToken()).toBe("a1"); // in memory only
     expect(Object.keys(localStorage)).toEqual([]);
@@ -87,7 +87,7 @@ describe("authentication & route protection", () => {
     await user.type(await screen.findByLabelText("Authentication code"), "492039");
     await user.click(screen.getByRole("button", { name: "Verify" }));
 
-    expect(await screen.findByRole("heading", { name: /Anna's Dashboard/ })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /Good (morning|afternoon|evening), Anna/ })).toBeInTheDocument();
     expect(verified).toEqual({ mfa_token: "challenge-1", code: "492039" });
     expect(getAccessToken()).toBe("a2");
   });
@@ -114,7 +114,7 @@ describe("authentication & route protection", () => {
     signIn();
     renderApp("/dashboard");
 
-    expect(await screen.findByRole("heading", { name: /Anna's Dashboard/ })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /Good (morning|afternoon|evening), Anna/ })).toBeInTheDocument();
     expect(getAccessToken()).toBe("access-token");
   });
 
@@ -144,7 +144,7 @@ describe("authentication & route protection", () => {
     signIn();
     renderApp("/login");
 
-    expect(await screen.findByRole("heading", { name: /Anna's Dashboard/ })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /Good (morning|afternoon|evening), Anna/ })).toBeInTheDocument();
   });
 
   it("logs out: ends the session on the server and forgets the access token", async () => {

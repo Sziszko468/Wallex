@@ -1,6 +1,7 @@
 import type { Trends } from "../../types/dashboard";
 import { useBaseCurrency } from "../../hooks/useBaseCurrency";
 import { formatCurrency, formatShortMonth } from "../../utils/format";
+import { CategoryDot } from "../CategoryMark";
 import { EmptyState } from "../EmptyState";
 import { ChangeBadge } from "./ChangeBadge";
 import styles from "./AnalysisTable.module.scss";
@@ -17,7 +18,7 @@ export function CategoryTrendsTable({ trends, colorFor, limit = 6 }: CategoryTre
   const previous = trends.months[trends.months.length - 2];
   const latest = trends.months[trends.months.length - 1];
   if (trends.categories.length === 0 || !previous || !latest) {
-    return <EmptyState message="No spending in these months yet." />;
+    return <EmptyState icon="categories" message="No spending in these months yet." />;
   }
 
   return (
@@ -36,8 +37,10 @@ export function CategoryTrendsTable({ trends, colorFor, limit = 6 }: CategoryTre
           {trends.categories.slice(0, limit).map((category) => (
             <tr key={category.category_id}>
               <th scope="row">
-                <span className={styles.dot} style={{ backgroundColor: colorFor(category.category_id) }} />
-                {category.category_name}
+                <span className={styles.category}>
+                  <CategoryDot color={colorFor(category.category_id)} />
+                  {category.category_name}
+                </span>
               </th>
               <td className={styles.number}>
                 {formatCurrency(category.amounts[category.amounts.length - 2] ?? "0", baseCurrency)}

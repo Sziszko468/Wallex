@@ -25,6 +25,11 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd())
   return {
     plugins: [react(), contentSecurityPolicy(env.VITE_API_BASE_URL || DEFAULT_API_BASE_URL)],
+    build: {
+      // Small files are normally inlined as data: URIs, which the production CSP (font-src 'self')
+      // blocks. Fonts are always emitted as real files instead.
+      assetsInlineLimit: (filePath: string) => (filePath.endsWith(".woff2") ? false : undefined),
+    },
     test: {
       environment: 'jsdom',
       setupFiles: ['./src/test/setup.ts'],

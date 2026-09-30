@@ -48,7 +48,7 @@ describe("Transactions page", () => {
     fakeTransactionsBackend([makeTransaction({ id: 1, description: "Groceries", amount: "12.50" })]);
     renderApp("/transactions");
 
-    const row = (await screen.findByText("Groceries")).closest("tr")!;
+    const row = (await screen.findByText("Groceries")).closest("li")!;
     expect(within(row).getByText("Food")).toBeInTheDocument();
     expect(within(row).getByText(/12[.,]50/)).toBeInTheDocument();
   });
@@ -139,7 +139,7 @@ describe("Transactions page", () => {
     ]);
     renderApp("/transactions");
 
-    const row = (await screen.findByText("Lunch in Budapest")).closest("tr")!;
+    const row = (await screen.findByText("Lunch in Budapest")).closest("li")!;
     const paid = within(row).getByText(/15[\s.,]?000/);
     expect(paid).toHaveTextContent(/HUF|Ft/);
     expect(paid).not.toHaveTextContent(/000[.,]\d/); // whole forints
@@ -217,9 +217,11 @@ describe("Transactions page", () => {
     );
     const { user } = renderApp("/transactions");
 
-    await user.click(await screen.findByRole("button", { name: /^Amount/ }));
-
+    await user.selectOptions(await screen.findByLabelText("Sort by"), "Lowest amount");
     await waitFor(() => expect(orderings).toContain("base_amount"));
+
+    await user.selectOptions(screen.getByLabelText("Sort by"), "Highest amount");
+    await waitFor(() => expect(orderings).toContain("-base_amount"));
   });
 
   it("deletes only after confirmation", async () => {

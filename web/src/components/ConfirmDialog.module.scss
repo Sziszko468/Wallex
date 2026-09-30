@@ -1,12 +1,5 @@
-@use "../styles/variables" as vars;
-
 .message {
-  margin: 0 0 vars.$space-lg 0;
-  color: vars.$color-text;
-}
-
-.actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: vars.$space-sm;
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
+  color: var(--color-text-secondary);
 }

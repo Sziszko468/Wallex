@@ -68,3 +68,23 @@ describe("Settings page — base currency", () => {
     expect(screen.queryByText(/Your base currency is now/)).not.toBeInTheDocument();
   });
 });
+
+describe("Settings page — appearance", () => {
+  beforeEach(() => signIn());
+
+  it("switches between System, Light and Dark and remembers the choice", async () => {
+    const { user } = renderApp("/settings");
+
+    const theme = await screen.findByRole("radiogroup", { name: "Theme" });
+    expect(within(theme).getByRole("radio", { name: "System" })).toBeChecked();
+    expect(document.documentElement).not.toHaveAttribute("data-theme");
+
+    await user.click(within(theme).getByRole("radio", { name: "Dark" }));
+    expect(within(theme).getByRole("radio", { name: "Dark" })).toBeChecked();
+    expect(document.documentElement).toHaveAttribute("data-theme", "dark");
+    expect(localStorage.getItem("spendly-theme")).toBe("dark");
+
+    await user.click(within(theme).getByRole("radio", { name: "System" }));
+    expect(document.documentElement).not.toHaveAttribute("data-theme");
+  });
+});

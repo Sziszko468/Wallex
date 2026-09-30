@@ -1,41 +1,37 @@
-@use "../styles/variables" as vars;
+@use "../styles/mixins" as m;
+
+// A calm single column: each setting in its own card, no wider than is comfortable to read.
+.sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 44rem;
+}
 
 .card {
-  background-color: vars.$color-surface;
-  border: 1px solid vars.$color-border;
-  border-radius: vars.$radius-md;
-  padding: vars.$space-lg;
-  margin-bottom: vars.$space-md;
-  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.title {
+  font-size: var(--text-xl);
 }
 
 .hint {
-  margin-top: 0;
-  font-size: vars.$font-size-sm;
-  color: vars.$color-text-muted;
+  margin-top: var(--space-1);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  color: var(--color-text-secondary);
 }
 
-.notice {
-  padding: vars.$space-sm vars.$space-md;
-  border-radius: vars.$radius-sm;
-  background-color: rgba(22, 163, 74, 0.1);
-  color: vars.$color-success;
-  font-size: vars.$font-size-sm;
-}
-
-.profile {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: vars.$space-xs vars.$space-md;
-  margin: 0;
-
-  dt {
-    color: vars.$color-text-muted;
-    font-size: vars.$font-size-sm;
-  }
-
-  dd {
-    margin: 0;
-    font-weight: 500;
-  }
+// Standalone actions keep their natural width instead of stretching across the card.
+.action {
+  align-self: flex-start;
 }

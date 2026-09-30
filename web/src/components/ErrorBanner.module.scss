@@ -1,11 +1,17 @@
-@use "../styles/variables" as vars;
-
 .banner {
-  padding: vars.$space-sm vars.$space-md;
-  margin-bottom: vars.$space-md;
-  background-color: rgba(220, 38, 38, 0.08);
-  border: 1px solid rgba(220, 38, 38, 0.3);
-  border-radius: vars.$radius-sm;
-  color: vars.$color-danger;
-  font-size: vars.$font-size-sm;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-snug);
+  color: var(--color-danger);
+  background-color: var(--color-danger-soft);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 28%, transparent);
+  border-radius: var(--radius-md);
+}
+
+.icon {
+  margin-top: 1px;
 }

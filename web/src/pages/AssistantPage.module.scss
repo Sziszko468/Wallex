@@ -1,104 +1,40 @@
-@use "../styles/variables" as vars;
+@use "../styles/mixins" as m;
 
-.page {
-  display: flex;
-  flex-direction: column;
-  gap: vars.$space-lg;
-}
-
-.header {
-  display: flex;
-  flex-direction: column;
-  gap: vars.$space-md;
-
-  @media (min-width: vars.$breakpoint-tablet) {
-    flex-direction: row;
-    align-items: flex-start;
-    justify-content: space-between;
-  }
-}
-
-.heading {
-  margin: 0;
-  font-size: vars.$font-size-xl;
-}
-
-.subtitle {
-  max-width: 40rem;
-  margin: vars.$space-xs 0 0;
-  font-size: vars.$font-size-sm;
-  color: vars.$color-text-muted;
-}
-
-.headerActions {
-  display: flex;
-  flex-shrink: 0;
-  gap: vars.$space-sm;
-}
-
-.historyToggle,
-.newChat {
-  padding: vars.$space-sm vars.$space-md;
-  font: inherit;
-  font-size: vars.$font-size-sm;
-  font-weight: 600;
-  border-radius: vars.$radius-md;
-  cursor: pointer;
-  text-decoration: none;
-}
-
+// History is a toggled panel on phones; a permanent column from tablet up.
 .historyToggle {
-  color: vars.$color-text;
-  background: vars.$color-surface;
-  border: 1px solid vars.$color-border;
-
-  @media (min-width: vars.$breakpoint-tablet) {
+  @include m.tablet-up {
     display: none;
-  }
-}
-
-.newChat {
-  color: white;
-  background-color: vars.$color-primary;
-  border: 1px solid vars.$color-primary;
-
-  &:hover {
-    background-color: vars.$color-primary-dark;
   }
 }
 
 .layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: vars.$space-lg;
+  gap: var(--space-5);
 
-  @media (min-width: vars.$breakpoint-tablet) {
+  @include m.tablet-up {
     grid-template-columns: 15rem minmax(0, 1fr);
     align-items: start;
   }
 
-  @media (min-width: vars.$breakpoint-desktop) {
+  @include m.desktop-up {
     grid-template-columns: 17rem minmax(0, 1fr);
+    gap: var(--space-6);
   }
 }
 
-// Below tablet width the history is a panel opened with the "History" button.
 .sidebar {
   display: none;
-  padding: vars.$space-md;
-  background-color: vars.$color-surface;
-  border: 1px solid vars.$color-border;
-  border-radius: vars.$radius-md;
 
   &.sidebarOpen {
     display: block;
   }
 
-  @media (min-width: vars.$breakpoint-tablet) {
+  @include m.tablet-up {
     position: sticky;
-    top: 6rem;
+    top: var(--space-6);
     display: block;
-    max-height: calc(100vh - 8rem);
+    max-height: calc(100vh - var(--space-12));
     overflow-y: auto;
   }
 }
@@ -106,18 +42,8 @@
 .chat {
   display: flex;
   flex-direction: column;
-  gap: vars.$space-md;
+  gap: var(--space-4);
   min-width: 0;
-}
-
-.notice {
-  margin: 0;
-  padding: vars.$space-sm vars.$space-md;
-  font-size: vars.$font-size-sm;
-  color: vars.$color-warning;
-  background-color: rgba(217, 119, 6, 0.08);
-  border: 1px solid rgba(217, 119, 6, 0.3);
-  border-radius: vars.$radius-sm;
 }
 
 .thread {
@@ -127,7 +53,7 @@
 .loading {
   display: flex;
   flex-direction: column;
-  gap: vars.$space-md;
+  gap: var(--space-4);
 
   > :first-child {
     align-self: flex-end;
@@ -135,43 +61,46 @@
 }
 
 .gone {
-  font-size: vars.$font-size-sm;
-  color: vars.$color-text-muted;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
 
   p {
-    margin: 0 0 vars.$space-sm;
+    margin-bottom: var(--space-2);
   }
 }
 
 .welcome {
   display: flex;
   flex-direction: column;
-  gap: vars.$space-lg;
-  padding-top: vars.$space-md;
+  gap: var(--space-6);
+  padding-top: var(--space-4);
 }
 
 .welcomeTitle {
-  margin: 0;
-  font-size: vars.$font-size-lg;
-  font-weight: 600;
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-tight);
 }
 
-// The question box stays reachable at the bottom while a long conversation scrolls.
+// The question box stays reachable at the bottom while a long conversation scrolls —
+// and above the bottom tab bar on phones and tablets.
 .composerArea {
   position: sticky;
   bottom: 0;
+  z-index: var(--z-sticky);
   display: flex;
   flex-direction: column;
-  padding: vars.$space-sm 0 vars.$space-md;
-  background-color: vars.$color-background;
+  gap: var(--space-2);
+  padding: var(--space-2) 0 var(--space-4);
+  background-color: var(--color-bg);
 
-  > [role="alert"] {
-    margin-bottom: vars.$space-sm;
+  @include m.below-desktop {
+    bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom));
   }
 }
 
 .disclaimer {
-  margin: vars.$space-xs 0 0;
-  font-size: 0.75rem;
-  color: vars.$color-text-muted;
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
 }

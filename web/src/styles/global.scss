@@ -1,4 +1,5 @@
-@use "variables" as vars;
+@use "tokens";
+@use "mixins" as m;
 
 *,
 *::before,
@@ -6,36 +7,176 @@
   box-sizing: border-box;
 }
 
-html,
-body,
-#root {
-  height: 100%;
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scroll-behavior: smooth;
+  // Anchors (skip link, in-page jumps) land below the sticky top bar instead of under it.
+  scroll-padding-top: calc(var(--topbar-height) + var(--space-4));
+  // Native scrollbars follow the theme (see color-scheme in _tokens.scss), just thinner.
+  scrollbar-color: var(--color-border-strong) transparent;
 }
 
 body {
   margin: 0;
-  font-family: vars.$font-family-base;
-  font-size: vars.$font-size-base;
-  color: vars.$color-text;
-  background-color: vars.$color-background;
+  min-height: 100vh;
+  min-height: 100dvh;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  font-weight: var(--weight-regular);
+  line-height: var(--leading-normal);
+  color: var(--color-text);
+  background-color: var(--color-bg);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "kern" 1, "calt" 1;
+  overflow-wrap: break-word;
+}
+
+#root {
+  min-height: inherit;
 }
 
 h1,
 h2,
 h3,
+h4,
+p,
+figure,
+blockquote,
+dl,
+dd {
+  margin: 0;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-tight);
+  text-wrap: balance;
+}
+
 p {
-  margin: 0 0 vars.$space-md 0;
+  text-wrap: pretty;
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
 }
 
 a {
-  color: vars.$color-primary;
+  color: var(--color-primary-ink);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.22em;
+
+  &:hover {
+    text-decoration-thickness: 2px;
+  }
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
 }
 
 button {
-  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
-input {
-  font-family: inherit;
+svg {
+  flex-shrink: 0;
+}
+
+img,
+svg {
+  max-width: 100%;
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+table {
+  border-collapse: collapse;
+}
+
+summary {
+  cursor: pointer;
+}
+
+// One focus style everywhere. Mouse clicks don't trigger it, keyboard navigation always does.
+:focus-visible {
+  @include m.focus-ring;
+  border-radius: var(--radius-xs);
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+::selection {
+  background-color: var(--color-primary-soft-hover);
+  color: var(--color-text);
+}
+
+// Amounts are entered in large type; the tiny spin buttons only get in the way (arrow keys still step).
+input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button {
+    appearance: none;
+    margin: 0;
+  }
+}
+
+// Browser autofill paints its own yellow/blue; keep it on the theme.
+input:-webkit-autofill,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-text-fill-color: var(--color-text);
+  caret-color: var(--color-text);
+  box-shadow: 0 0 0 100px var(--color-surface-raised) inset;
+  transition: background-color 9999s ease-out 0s;
+}
+
+// Set by ThemeProvider for ~300ms when the user switches theme, so the change cross-fades
+// instead of snapping. Never present on load or while scrolling — no permanent cost.
+html.theme-transition,
+html.theme-transition *,
+html.theme-transition *::before,
+html.theme-transition *::after {
+  transition:
+    background-color var(--duration-slow) var(--ease-standard),
+    border-color var(--duration-slow) var(--ease-standard),
+    color var(--duration-slow) var(--ease-standard),
+    fill var(--duration-slow) var(--ease-standard),
+    stroke var(--duration-slow) var(--ease-standard),
+    box-shadow var(--duration-slow) var(--ease-standard) !important;
+}
+
+@include m.reduced-motion {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

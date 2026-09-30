@@ -1,0 +1,30 @@
+.avatar {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.02em;
+  color: var(--color-primary-ink);
+  background-color: var(--color-primary-soft);
+  border-radius: 50%;
+  user-select: none;
+}
+
+.sm {
+  width: 1.75rem;
+  height: 1.75rem;
+  font-size: var(--text-2xs);
+}
+
+.md {
+  width: 2.25rem;
+  height: 2.25rem;
+  font-size: var(--text-sm);
+}
+
+.lg {
+  width: 3.5rem;
+  height: 3.5rem;
+  font-size: var(--text-xl);
+}

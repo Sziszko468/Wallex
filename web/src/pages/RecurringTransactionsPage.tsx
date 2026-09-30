@@ -6,17 +6,21 @@ import {
 } from "../services/recurringTransactionsService";
 import { listCategories } from "../services/categoriesService";
 import { useAsyncData } from "../hooks/useAsyncData";
+import { usePageTitle } from "../hooks/usePageTitle";
 import type { Category } from "../types/category";
 import type { RecurringTransaction } from "../types/recurringTransaction";
 import { Button } from "../components/Button";
-import { Skeleton } from "../components/Skeleton";
+import { EmptyState } from "../components/EmptyState";
 import { ErrorState } from "../components/ErrorState";
 import { ErrorBanner } from "../components/ErrorBanner";
+import { PageHeader } from "../components/PageHeader";
+import { SkeletonRows } from "../components/Skeleton";
 import { ConfirmDialog } from "../components/ConfirmDialog";
-import { RecurringTransactionsTable } from "../components/recurring/RecurringTransactionsTable";
+import { useToast } from "../components/Toast";
+import { RecurringList } from "../components/recurring/RecurringList";
 import { RecurringTransactionFormModal } from "../components/recurring/RecurringTransactionFormModal";
 import { extractErrorMessage } from "../utils/errors";
-import styles from "./RecurringTransactionsPage.module.scss";
+import styles from "../components/page.module.scss";
 
 interface FormModalState {
   isOpen: boolean;
@@ -24,6 +28,8 @@ interface FormModalState {
 }
 
 export function RecurringTransactionsPage() {
+  usePageTitle("Recurring");
+  const toast = useToast();
   const fetchItems = useCallback(() => listRecurringTransactions(), []);
   const items = useAsyncData(fetchItems);
 
@@ -55,6 +61,7 @@ export function RecurringTransactionsPage() {
   }
 
   function handleSaved() {
+    toast.success(formModal.item ? "Changes saved" : "Recurring transaction added");
     closeFormModal();
     items.refetch();
   }
@@ -70,6 +77,7 @@ export function RecurringTransactionsPage() {
     try {
       await deleteRecurringTransaction(deleteTarget.id);
       setDeleteTarget(null);
+      toast.success("Recurring transaction deleted");
       items.refetch();
     } catch (error) {
       setActionError(extractErrorMessage(error));
@@ -94,31 +102,50 @@ export function RecurringTransactionsPage() {
   const isLoading = items.isLoading || categories.isLoading;
   const error = items.error ?? categories.error;
 
+  function renderContent() {
+    if (isLoading) return <SkeletonRows count={5} rowHeight={68} />;
+    if (error) return <ErrorState error={error} onRetry={items.refetch} />;
+    if ((items.data ?? []).length === 0) {
+      return (
+        <EmptyState
+          icon="recurring"
+          title="No recurring transactions yet"
+          message="Add rent, your salary or regular bills to keep track of everything that repeats."
+          action={
+            <Button leadingIcon="plus" onClick={openCreateModal}>
+              Add recurring transaction
+            </Button>
+          }
+        />
+      );
+    }
+    return (
+      <RecurringList
+        items={items.data ?? []}
+        categoriesById={categoriesById}
+        onEdit={openEditModal}
+        onDelete={requestDelete}
+        onToggleActive={handleToggleActive}
+        togglingId={togglingId}
+      />
+    );
+  }
+
   return (
     <div className={styles.page}>
-      <div className={styles.headerRow}>
-        <h1 className={styles.heading}>Recurring Transactions</h1>
-        <Button type="button" onClick={openCreateModal}>
-          Add recurring transaction
-        </Button>
-      </div>
+      <PageHeader
+        title="Recurring transactions"
+        description="Income and payments that repeat on a schedule."
+        actions={
+          <Button type="button" leadingIcon="plus" onClick={openCreateModal}>
+            Add recurring transaction
+          </Button>
+        }
+      />
 
       <ErrorBanner message={actionError} />
 
-      {isLoading ? (
-        <Skeleton height={220} borderRadius={8} />
-      ) : error ? (
-        <ErrorState error={error} onRetry={items.refetch} />
-      ) : (
-        <RecurringTransactionsTable
-          items={items.data ?? []}
-          categoriesById={categoriesById}
-          onEdit={openEditModal}
-          onDelete={requestDelete}
-          onToggleActive={handleToggleActive}
-          togglingId={togglingId}
-        />
-      )}
+      {renderContent()}
 
       <RecurringTransactionFormModal
         isOpen={formModal.isOpen}

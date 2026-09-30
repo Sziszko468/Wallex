@@ -1,34 +1,26 @@
-@use "../styles/variables" as vars;
+@use "../styles/mixins" as m;
 
 .pagination {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: vars.$space-md;
   flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+
+  // The status line sits between the two buttons on wider screens, below them on phones.
+  @include m.below-tablet {
+    justify-content: center;
+
+    .status {
+      order: 3;
+      width: 100%;
+      text-align: center;
+    }
+  }
 }
 
 .status {
-  font-size: vars.$font-size-sm;
-  color: vars.$color-text-muted;
-}
-
-.button {
-  padding: 0.5rem vars.$space-md;
-  font-size: vars.$font-size-sm;
-  font-weight: 600;
-  border: 1px solid vars.$color-border;
-  border-radius: vars.$radius-sm;
-  background-color: vars.$color-surface;
-  color: vars.$color-text;
-  cursor: pointer;
-
-  &:hover:not(:disabled) {
-    background-color: vars.$color-background;
-  }
-
-  &:disabled {
-    cursor: not-allowed;
-    opacity: 0.5;
-  }
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
 }

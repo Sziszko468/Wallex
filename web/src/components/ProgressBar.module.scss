@@ -1,35 +1,54 @@
-@use "../styles/variables" as vars;
-
 .track {
+  position: relative;
   width: 100%;
-  border-radius: 999px;
-  background-color: vars.$color-background;
-  border: 1px solid vars.$color-border;
   overflow: hidden;
+  background-color: var(--color-bg-subtle);
+  border-radius: var(--radius-full);
 }
 
 .small {
-  height: 8px;
+  height: 0.5rem;
 }
 
 .large {
-  height: 14px;
+  height: 0.75rem;
 }
 
 .fill {
   height: 100%;
-  border-radius: 999px;
-  transition: width 0.25s ease;
+  min-width: 0;
+  border-radius: var(--radius-full);
+  transition: width var(--duration-slow) var(--ease-standard);
 }
 
 .default {
-  background-color: vars.$color-primary;
+  background-color: var(--color-primary);
 }
 
 .complete {
-  background-color: vars.$color-success;
+  background-color: var(--chart-income);
 }
 
 .muted {
-  background-color: vars.$color-text-muted;
+  background-color: var(--color-control-border);
+}
+
+.warning {
+  background-color: var(--chart-warning);
+}
+
+.danger {
+  background-color: var(--chart-expense);
+}
+
+// A thin notch in the track — readable against both the fill and the empty part.
+.marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background-color: var(--color-surface);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-text) 35%, transparent);
+  border-radius: 1px;
 }

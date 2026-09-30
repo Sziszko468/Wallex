@@ -51,7 +51,7 @@ export function ChatComposer({ value, onChange, onSubmit, maxLength, disabled }:
         <span id={counterId} className={styles.counter} aria-live="polite">
           {nearLimit ? `${value.length} / ${maxLength}` : ""}
         </span>
-        <Button type="submit" disabled={!canSend} className={styles.send}>
+        <Button type="submit" size="sm" leadingIcon="arrow-up" disabled={!canSend}>
           Send
         </Button>
       </div>

@@ -1,25 +1,37 @@
-@use "../styles/variables" as vars;
-
 .errorState {
-  padding: vars.$space-md;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-5) var(--space-3);
   text-align: center;
+
+  button {
+    margin-top: var(--space-3);
+  }
+}
+
+.iconTile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  margin-bottom: var(--space-1);
+  color: var(--color-danger);
+  background-color: var(--color-danger-soft);
+  border-radius: var(--radius-full);
+}
+
+.title {
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
 }
 
 .message {
-  margin: 0 0 vars.$space-sm 0;
-  color: vars.$color-danger;
-  font-size: vars.$font-size-sm;
-}
-
-.retryButton {
-  padding: vars.$space-xs vars.$space-md;
-  background: none;
-  border: 1px solid vars.$color-border;
-  border-radius: vars.$radius-sm;
-  cursor: pointer;
-  font-size: vars.$font-size-sm;
-
-  &:hover {
-    background-color: vars.$color-background;
-  }
+  max-width: 40ch;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  color: var(--color-text-secondary);
 }

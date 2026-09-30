@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import type { DashboardSubscriptions } from "../../types/dashboard";
 import { useBaseCurrency } from "../../hooks/useBaseCurrency";
 import { formatCurrency } from "../../utils/format";
+import { ButtonLink } from "../ButtonLink";
 import { EmptyState } from "../EmptyState";
 import styles from "./SubscriptionsOverview.module.scss";
 
@@ -14,26 +15,29 @@ export function SubscriptionsOverview({ subscriptions }: SubscriptionsOverviewPr
   const baseCurrency = useBaseCurrency();
   if (subscriptions.active_count === 0) {
     return (
-      <div className={styles.empty}>
-        <EmptyState message="No subscriptions this month." />
-        <Link to="/subscriptions" className={styles.link}>
-          Add your subscriptions →
-        </Link>
-      </div>
+      <EmptyState
+        icon="subscriptions"
+        message="No subscriptions this month. Add them to see what they cost over a year."
+        action={
+          <ButtonLink to="/subscriptions" variant="secondary" size="sm" leadingIcon="plus">
+            Add your subscriptions
+          </ButtonLink>
+        }
+      />
     );
   }
 
   const figures = [
-    { label: "Per month", value: subscriptions.monthly_total },
-    { label: "Yearly projection", value: subscriptions.yearly_total },
-    { label: "Billed this month", value: subscriptions.due_this_month },
+    { label: "Per month", value: subscriptions.monthly_total, primary: true },
+    { label: "Yearly projection", value: subscriptions.yearly_total, primary: false },
+    { label: "Billed this month", value: subscriptions.due_this_month, primary: false },
   ];
 
   return (
     <div className={styles.overview}>
       <dl className={styles.figures}>
         {figures.map((figure) => (
-          <div key={figure.label} className={styles.figure}>
+          <div key={figure.label} className={figure.primary ? `${styles.figure} ${styles.primary}` : styles.figure}>
             <dt className={styles.label}>{figure.label}</dt>
             <dd className={styles.value}>{formatCurrency(figure.value, baseCurrency)}</dd>
           </div>
@@ -46,7 +50,7 @@ export function SubscriptionsOverview({ subscriptions }: SubscriptionsOverviewPr
             ` · ${subscriptions.unconverted_currencies.join(", ")} not included (no exchange rate)`}
         </span>
         <Link to="/subscriptions" className={styles.link}>
-          Manage subscriptions →
+          Manage subscriptions
         </Link>
       </div>
     </div>

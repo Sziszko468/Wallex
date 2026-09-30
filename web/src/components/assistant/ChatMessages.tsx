@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { AssistantMessage } from "../../types/assistant";
+import { Icon } from "../icons/Icon";
 import { MarkdownText } from "./MarkdownText";
 import styles from "./ChatMessages.module.scss";
 
@@ -7,6 +8,14 @@ interface ChatMessagesProps {
   messages: AssistantMessage[];
   /** Asked, answer not here yet. */
   pendingQuestion: string | null;
+}
+
+function AssistantAvatar() {
+  return (
+    <span className={styles.avatar} aria-hidden="true">
+      <Icon name="assistant" size={16} />
+    </span>
+  );
 }
 
 function Sources({ message }: { message: AssistantMessage }) {
@@ -39,12 +48,15 @@ export function ChatMessages({ messages, pendingQuestion }: ChatMessagesProps) {
             className={message.role === "user" ? styles.fromUser : styles.fromAssistant}
             aria-label={message.role === "user" ? "You" : "Assistant"}
           >
-            <div className={styles.bubble}>
-              {message.role === "user" ? (
-                <p className={styles.question}>{message.content}</p>
-              ) : (
-                <MarkdownText text={message.content} />
-              )}
+            <div className={styles.bubbleRow}>
+              {message.role === "assistant" && <AssistantAvatar />}
+              <div className={styles.bubble}>
+                {message.role === "user" ? (
+                  <p className={styles.question}>{message.content}</p>
+                ) : (
+                  <MarkdownText text={message.content} />
+                )}
+              </div>
             </div>
             {message.role === "assistant" && <Sources message={message} />}
           </li>
@@ -57,13 +69,16 @@ export function ChatMessages({ messages, pendingQuestion }: ChatMessagesProps) {
               </div>
             </li>
             <li className={styles.fromAssistant} aria-label="Assistant">
-              <div className={`${styles.bubble} ${styles.thinking}`} role="status">
-                Checking your data
-                <span className={styles.dots} aria-hidden="true">
-                  <span />
-                  <span />
-                  <span />
-                </span>
+              <div className={styles.bubbleRow}>
+                <AssistantAvatar />
+                <div className={`${styles.bubble} ${styles.thinking}`} role="status">
+                  Checking your data
+                  <span className={styles.dots} aria-hidden="true">
+                    <span />
+                    <span />
+                    <span />
+                  </span>
+                </div>
               </div>
             </li>
           </>

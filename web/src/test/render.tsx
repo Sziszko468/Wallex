@@ -3,6 +3,7 @@ import { render } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import userEvent from "@testing-library/user-event";
 import { AuthProvider } from "../hooks/useAuth";
+import { ThemeProvider } from "../hooks/useTheme";
 import { AppRoutes } from "../App";
 import { http, HttpResponse } from "msw";
 import { API, server } from "./server";
@@ -20,11 +21,13 @@ export function renderApp(path: string) {
   return {
     user: userEvent.setup(),
     ...render(
-      <MemoryRouter initialEntries={[path]}>
-        <AuthProvider>
-          <AppRoutes />
-        </AuthProvider>
-      </MemoryRouter>
+      <ThemeProvider>
+        <MemoryRouter initialEntries={[path]}>
+          <AuthProvider>
+            <AppRoutes />
+          </AuthProvider>
+        </MemoryRouter>
+      </ThemeProvider>
     ),
   };
 }

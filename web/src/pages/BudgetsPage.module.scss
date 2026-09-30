@@ -1,12 +1,15 @@
-@use "../styles/variables" as vars;
+@use "../styles/mixins" as m;
 
-.page {
-  display: flex;
-  flex-direction: column;
-  gap: vars.$space-lg;
-}
-
-.heading {
+// One card per budget, two across from tablet up.
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
   margin: 0;
-  font-size: vars.$font-size-xl;
+  padding: 0;
+  list-style: none;
+
+  @include m.tablet-up {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }

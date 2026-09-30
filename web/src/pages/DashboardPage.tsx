@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { Link } from "react-router-dom";
 import {
   getCategoryAnalytics,
   getComparison,
@@ -15,14 +16,17 @@ import { listAchievements } from "../services/achievementsService";
 import { listTransactions } from "../services/transactionsService";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { useAuth } from "../hooks/useAuth";
-import { useBaseCurrency } from "../hooks/useBaseCurrency";
+import { useMediaQuery } from "../hooks/useMediaQuery";
+import { usePageTitle } from "../hooks/usePageTitle";
 import type { Category } from "../types/category";
 import type { ComparisonAgainst } from "../types/dashboard";
+import { FALLBACK_CATEGORY_COLOR } from "../utils/categoryStyle";
+import { greetingFor } from "../utils/greeting";
 import { DashboardCard } from "../components/dashboard/DashboardCard";
-import { StatCard } from "../components/dashboard/StatCard";
+import { DashboardHero } from "../components/dashboard/DashboardHero";
 import { MonthNavigator } from "../components/MonthNavigator";
 import { MonthlySpendingChart } from "../components/dashboard/MonthlySpendingChart";
-import { CategoryPieChart } from "../components/dashboard/CategoryPieChart";
+import { CategoryDonutChart } from "../components/dashboard/CategoryDonutChart";
 import { BudgetOverview } from "../components/dashboard/BudgetOverview";
 import { TopCategoriesList } from "../components/dashboard/TopCategoriesList";
 import { RecentTransactionsList } from "../components/dashboard/RecentTransactionsList";
@@ -35,15 +39,16 @@ import { SpendingPatternsCard } from "../components/dashboard/SpendingPatternsCa
 import { SubscriptionsOverview } from "../components/dashboard/SubscriptionsOverview";
 import { SavingsProgress } from "../components/dashboard/SavingsProgress";
 import { AchievementsOverview } from "../components/dashboard/AchievementsOverview";
+import { Disclosure } from "../components/Disclosure";
+import { PageHeader } from "../components/PageHeader";
 import { Skeleton } from "../components/Skeleton";
 import { ErrorState } from "../components/ErrorState";
-import { formatCurrency } from "../utils/format";
+import pageStyles from "../components/page.module.scss";
 import styles from "./DashboardPage.module.scss";
 
-const RECENT_TRANSACTIONS_LIMIT = 5;
+const RECENT_TRANSACTIONS_LIMIT = 8;
 const TREND_MONTHS = 6;
 const TOP_MERCHANTS_LIMIT = 5;
-const FALLBACK_CATEGORY_COLOR = "#9ca3af";
 
 function currentPeriod() {
   const now = new Date();
@@ -52,8 +57,10 @@ function currentPeriod() {
 
 export function DashboardPage() {
   const { user } = useAuth();
-  const baseCurrency = useBaseCurrency();
+  usePageTitle("Dashboard");
   const [{ year, month }, setPeriod] = useState(currentPeriod);
+  // On a phone the deeper analysis starts folded away, so the page opens on what matters most.
+  const isTabletOrWider = useMediaQuery("(min-width: 768px)", true);
 
   const fetchStats = useCallback(() => getDashboard({ year, month }), [year, month]);
   const stats = useAsyncData(fetchStats);
@@ -123,54 +130,33 @@ export function DashboardPage() {
     setPeriod({ year: nextYear, month: nextMonth });
   }, []);
 
-  const balanceTone =
-    stats.data && Number(stats.data.balance) < 0 ? ("negative" as const) : ("positive" as const);
+  const greeting = user?.first_name ? `${greetingFor()}, ${user.first_name}` : greetingFor();
 
   return (
-    <div className={styles.page}>
-      <h1 className={styles.heading}>
-        {user?.first_name ? `${user.first_name}'s Dashboard` : "Dashboard"}
-      </h1>
-
-      <MonthNavigator year={year} month={month} onChange={handlePeriodChange} />
+    <div className={pageStyles.page}>
+      <PageHeader
+        title={greeting}
+        actions={<MonthNavigator year={year} month={month} onChange={handlePeriodChange} />}
+      />
 
       {stats.error ? (
         <DashboardCard title="Overview">
           <ErrorState error={stats.error} onRetry={stats.refetch} />
         </DashboardCard>
       ) : (
-        <div className={styles.statsRow}>
-          <StatCard
-            label="Income"
-            value={stats.data ? formatCurrency(stats.data.total_income, baseCurrency) : undefined}
-            tone="positive"
-            isLoading={stats.isLoading}
-          />
-          <StatCard
-            label="Expenses"
-            value={stats.data ? formatCurrency(stats.data.total_expenses, baseCurrency) : undefined}
-            tone="negative"
-            isLoading={stats.isLoading}
-          />
-          <StatCard
-            label="Balance"
-            value={stats.data ? formatCurrency(stats.data.balance, baseCurrency) : undefined}
-            tone={balanceTone}
-            isLoading={stats.isLoading}
-          />
-        </div>
+        <DashboardHero stats={stats.data} year={year} month={month} isLoading={stats.isLoading} />
       )}
 
-      <DashboardCard title="Insights">
-        <SectionBody isLoading={insights.isLoading} error={insights.error} onRetry={insights.refetch}>
+      <DashboardCard title="Insights" description="What deserves your attention this month">
+        <SectionBody isLoading={insights.isLoading} error={insights.error} onRetry={insights.refetch} height={150}>
           {insights.data && <InsightsList insights={insights.data.insights} />}
         </SectionBody>
       </DashboardCard>
 
-      <div className={styles.chartsRow}>
-        <DashboardCard title="Monthly spending" className={styles.spanTwo}>
-          <SectionBody isLoading={monthly.isLoading} error={monthly.error} onRetry={monthly.refetch}>
-            {monthly.data && <MonthlySpendingChart data={monthly.data.months} />}
+      <div className={styles.split}>
+        <DashboardCard title="Monthly spending" description={`Income and expenses in ${year}`}>
+          <SectionBody isLoading={monthly.isLoading} error={monthly.error} onRetry={monthly.refetch} height={300}>
+            {monthly.data && <MonthlySpendingChart data={monthly.data.months} highlightMonth={month} />}
           </SectionBody>
         </DashboardCard>
 
@@ -179,35 +165,43 @@ export function DashboardPage() {
             isLoading={categoryBreakdown.isLoading}
             error={categoryBreakdown.error}
             onRetry={categoryBreakdown.refetch}
+            height={300}
           >
             {categoryBreakdown.data && (
-              <CategoryPieChart data={categoryBreakdown.data.categories} colorFor={colorForCategory} />
+              <>
+                <CategoryDonutChart data={categoryBreakdown.data.categories} colorFor={colorForCategory} />
+                <TopCategoriesList categories={categoryBreakdown.data.categories} colorFor={colorForCategory} />
+              </>
             )}
           </SectionBody>
         </DashboardCard>
       </div>
 
-      <div className={styles.listsRow}>
-        <DashboardCard title="Budget overview">
-          <SectionBody isLoading={stats.isLoading} error={stats.error} onRetry={stats.refetch}>
-            {stats.data && <BudgetOverview budgets={stats.data.budget_usage} />}
+      <div className={styles.split}>
+        <DashboardCard title="Budget overview" description="How this month is tracking against your limits">
+          <SectionBody isLoading={stats.isLoading} error={stats.error} onRetry={stats.refetch} height={260}>
+            {stats.data && <BudgetOverview budgets={stats.data.budget_usage} categoriesById={categoriesById} />}
           </SectionBody>
         </DashboardCard>
 
-        <DashboardCard title="Top categories">
+        <DashboardCard title="Recent transactions" action={<Link to="/transactions">View all</Link>}>
           <SectionBody
-            isLoading={categoryBreakdown.isLoading}
-            error={categoryBreakdown.error}
-            onRetry={categoryBreakdown.refetch}
+            isLoading={recentTransactions.isLoading || categories.isLoading}
+            error={recentTransactions.error ?? categories.error}
+            onRetry={recentTransactions.refetch}
+            height={260}
           >
-            {categoryBreakdown.data && (
-              <TopCategoriesList categories={categoryBreakdown.data.categories} colorFor={colorForCategory} />
+            {recentTransactions.data && (
+              <RecentTransactionsList
+                transactions={recentTransactions.data.results}
+                categoriesById={categoriesById}
+              />
             )}
           </SectionBody>
         </DashboardCard>
       </div>
 
-      <div className={styles.listsRow}>
+      <div className={styles.plans}>
         <DashboardCard title="Savings progress">
           <SectionBody
             isLoading={savingsSummary.isLoading || savingsGoals.isLoading}
@@ -216,6 +210,7 @@ export function DashboardPage() {
               savingsSummary.refetch();
               savingsGoals.refetch();
             }}
+            height={220}
           >
             {savingsSummary.data && savingsGoals.data && (
               <SavingsProgress summary={savingsSummary.data} goals={savingsGoals.data} />
@@ -223,71 +218,60 @@ export function DashboardPage() {
           </SectionBody>
         </DashboardCard>
 
+        <DashboardCard title="Subscriptions">
+          <SectionBody isLoading={stats.isLoading} error={stats.error} onRetry={stats.refetch} height={220}>
+            {stats.data && <SubscriptionsOverview subscriptions={stats.data.subscriptions} />}
+          </SectionBody>
+        </DashboardCard>
+
         <DashboardCard title="Achievements">
-          <SectionBody isLoading={achievements.isLoading} error={achievements.error} onRetry={achievements.refetch}>
+          <SectionBody isLoading={achievements.isLoading} error={achievements.error} onRetry={achievements.refetch} height={220}>
             {achievements.data && <AchievementsOverview achievements={achievements.data} />}
           </SectionBody>
         </DashboardCard>
       </div>
 
-      <DashboardCard title="Subscriptions">
-        <SectionBody isLoading={stats.isLoading} error={stats.error} onRetry={stats.refetch}>
-          {stats.data && <SubscriptionsOverview subscriptions={stats.data.subscriptions} />}
-        </SectionBody>
-      </DashboardCard>
+      <Disclosure
+        title="Spending analysis"
+        description="Trends, comparisons and habits"
+        defaultOpen={isTabletOrWider}
+      >
+        <div className={styles.split}>
+          <DashboardCard title="Spending trend">
+            <SectionBody isLoading={trends.isLoading} error={trends.error} onRetry={trends.refetch} height={300}>
+              {trends.data && <SpendingTrend trends={trends.data} />}
+            </SectionBody>
+          </DashboardCard>
 
-      <h2 className={styles.sectionHeading}>Spending analysis</h2>
+          <DashboardCard title="Comparison">
+            <SectionBody isLoading={comparison.isLoading} error={comparison.error} onRetry={comparison.refetch} height={300}>
+              {comparison.data && (
+                <MonthComparison comparison={comparison.data} against={against} onAgainstChange={setAgainst} />
+              )}
+            </SectionBody>
+          </DashboardCard>
+        </div>
 
-      <div className={styles.chartsRow}>
-        <DashboardCard title="Spending trend">
-          <SectionBody isLoading={trends.isLoading} error={trends.error} onRetry={trends.refetch}>
-            {trends.data && <SpendingTrend trends={trends.data} />}
+        <div className={styles.even}>
+          <DashboardCard title="Category trends">
+            <SectionBody isLoading={trends.isLoading} error={trends.error} onRetry={trends.refetch} height={240}>
+              {trends.data && <CategoryTrendsTable trends={trends.data} colorFor={colorForCategory} />}
+            </SectionBody>
+          </DashboardCard>
+
+          <DashboardCard title="Top merchants">
+            <SectionBody isLoading={merchants.isLoading} error={merchants.error} onRetry={merchants.refetch} height={240}>
+              {merchants.data && <TopMerchantsList merchants={merchants.data.merchants} />}
+            </SectionBody>
+          </DashboardCard>
+        </div>
+
+        <DashboardCard title="Spending patterns">
+          <SectionBody isLoading={patterns.isLoading} error={patterns.error} onRetry={patterns.refetch} height={280}>
+            {patterns.data && <SpendingPatternsCard patterns={patterns.data} />}
           </SectionBody>
         </DashboardCard>
-
-        <DashboardCard title="Comparison">
-          <SectionBody isLoading={comparison.isLoading} error={comparison.error} onRetry={comparison.refetch}>
-            {comparison.data && (
-              <MonthComparison comparison={comparison.data} against={against} onAgainstChange={setAgainst} />
-            )}
-          </SectionBody>
-        </DashboardCard>
-      </div>
-
-      <div className={styles.listsRow}>
-        <DashboardCard title="Category trends">
-          <SectionBody isLoading={trends.isLoading} error={trends.error} onRetry={trends.refetch}>
-            {trends.data && <CategoryTrendsTable trends={trends.data} colorFor={colorForCategory} />}
-          </SectionBody>
-        </DashboardCard>
-
-        <DashboardCard title="Top merchants">
-          <SectionBody isLoading={merchants.isLoading} error={merchants.error} onRetry={merchants.refetch}>
-            {merchants.data && <TopMerchantsList merchants={merchants.data.merchants} />}
-          </SectionBody>
-        </DashboardCard>
-      </div>
-
-      <DashboardCard title="Spending patterns">
-        <SectionBody isLoading={patterns.isLoading} error={patterns.error} onRetry={patterns.refetch}>
-          {patterns.data && <SpendingPatternsCard patterns={patterns.data} />}
-        </SectionBody>
-      </DashboardCard>
-
-      <DashboardCard title="Recent transactions">
-        <SectionBody
-          isLoading={recentTransactions.isLoading || categories.isLoading}
-          error={recentTransactions.error ?? categories.error}
-          onRetry={recentTransactions.refetch}
-        >
-          {recentTransactions.data && (
-            <RecentTransactionsList
-              transactions={recentTransactions.data.results}
-              categoriesById={categoriesById}
-            />
-          )}
-        </SectionBody>
-      </DashboardCard>
+      </Disclosure>
     </div>
   );
 }
@@ -296,16 +280,14 @@ interface SectionBodyProps {
   isLoading: boolean;
   error: unknown;
   onRetry: () => void;
+  /** Roughly the height of the finished content, so the page doesn't jump when it arrives. */
+  height: number;
   children: ReactNode;
 }
 
-function SectionBody({ isLoading, error, onRetry, children }: SectionBodyProps) {
+function SectionBody({ isLoading, error, onRetry, height, children }: SectionBodyProps) {
   if (isLoading) {
-    return (
-      <div className={styles.skeletonStack}>
-        <Skeleton height={220} borderRadius={8} />
-      </div>
-    );
+    return <Skeleton height={height} borderRadius={12} />;
   }
   if (error) {
     return <ErrorState error={error} onRetry={onRetry} />;

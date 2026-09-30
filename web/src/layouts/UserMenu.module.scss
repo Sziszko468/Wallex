@@ -1,0 +1,156 @@
+@use "../styles/mixins" as m;
+
+.menu {
+  position: relative;
+}
+
+.trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-2);
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  transition: background-color var(--duration-fast) var(--ease-standard);
+
+  &:hover,
+  &[aria-expanded="true"] {
+    background-color: var(--color-bg-subtle);
+  }
+}
+
+// The compact variant is just the avatar — a 44px target.
+.compact .trigger {
+  width: var(--control-height);
+  height: var(--control-height);
+  justify-content: center;
+  padding: 0;
+  border-radius: var(--radius-full);
+}
+
+.identity {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  line-height: var(--leading-snug);
+}
+
+.name {
+  @include m.truncate;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+}
+
+.email {
+  @include m.truncate;
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}
+
+.chevron {
+  color: var(--color-text-tertiary);
+  transition: transform var(--duration-base) var(--ease-standard);
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+// --- The panel ---------------------------------------------------------------------------
+
+.panel {
+  position: absolute;
+  z-index: var(--z-nav);
+  width: min(18.5rem, calc(100vw - var(--space-8)));
+  padding: var(--space-2);
+  background-color: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  animation: panel-in var(--duration-base) var(--ease-decelerate);
+}
+
+// Sidebar: the row sits at the bottom of the screen, so the panel opens upward.
+.sidebar .panel {
+  bottom: calc(100% + var(--space-2));
+  left: 0;
+}
+
+// Top bar: the avatar is at the top right, so the panel opens downward and stays inside the screen.
+.compact .panel {
+  top: calc(100% + var(--space-2));
+  right: 0;
+}
+
+.profile {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+
+.profileText {
+  min-width: 0;
+}
+
+.profileName {
+  @include m.truncate;
+  font-weight: var(--weight-semibold);
+}
+
+.profileEmail {
+  @include m.truncate;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-1);
+  border-top: 1px solid var(--color-divider);
+}
+
+.sectionLabel {
+  @include m.overline;
+  padding: var(--space-1) var(--space-2);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: var(--control-height);
+  padding: 0 var(--space-3);
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  color: var(--color-text);
+  text-align: left;
+  text-decoration: none;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-md);
+
+  svg {
+    color: var(--color-text-secondary);
+  }
+
+  &:hover {
+    text-decoration: none;
+    background-color: var(--color-bg-subtle);
+  }
+}
+
+@keyframes panel-in {
+  from {
+    transform: translateY(0.25rem);
+    opacity: 0;
+  }
+}

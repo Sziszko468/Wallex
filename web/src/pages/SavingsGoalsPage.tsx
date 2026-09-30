@@ -2,19 +2,24 @@ import { useCallback, useState } from "react";
 import { deleteSavingsGoal, getSavingsSummary, listSavingsGoals } from "../services/savingsGoalsService";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { useBaseCurrency } from "../hooks/useBaseCurrency";
+import { usePageTitle } from "../hooks/usePageTitle";
 import type { SavingsGoal } from "../types/savingsGoal";
 import { Button } from "../components/Button";
-import { Skeleton } from "../components/Skeleton";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorState } from "../components/ErrorState";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { ConfirmDialog } from "../components/ConfirmDialog";
-import { StatCard } from "../components/dashboard/StatCard";
+import { Notice } from "../components/Notice";
+import { PageHeader } from "../components/PageHeader";
+import { Skeleton } from "../components/Skeleton";
+import { SummaryStrip } from "../components/SummaryStrip";
+import { useToast } from "../components/Toast";
 import { GoalCard } from "../components/goals/GoalCard";
 import { GoalFormModal } from "../components/goals/GoalFormModal";
 import { MoneyModal, type MoneyDirection } from "../components/goals/MoneyModal";
 import { extractErrorMessage } from "../utils/errors";
 import { formatCurrency, formatPercentage } from "../utils/format";
+import pageStyles from "../components/page.module.scss";
 import styles from "./SavingsGoalsPage.module.scss";
 
 interface FormState {
@@ -28,7 +33,9 @@ interface MoneyState {
 }
 
 export function SavingsGoalsPage() {
+  usePageTitle("Goals");
   const baseCurrency = useBaseCurrency();
+  const toast = useToast();
 
   const fetchGoals = useCallback(() => listSavingsGoals(), []);
   const goals = useAsyncData(fetchGoals);
@@ -51,6 +58,7 @@ export function SavingsGoalsPage() {
   }, [refetchGoals, refetchSummary]);
 
   function handleSaved() {
+    toast.success(form.isOpen ? (form.goal ? "Goal updated" : "Goal created") : "Savings updated");
     setForm({ isOpen: false, goal: null });
     setMoney((current) => ({ ...current, goal: null }));
     reload();
@@ -62,6 +70,7 @@ export function SavingsGoalsPage() {
     try {
       await deleteSavingsGoal(deleteTarget.id);
       setDeleteTarget(null);
+      toast.success("Goal deleted");
       reload();
     } catch (error) {
       setActionError(extractErrorMessage(error));
@@ -71,77 +80,103 @@ export function SavingsGoalsPage() {
   }
 
   const unconverted = summary.data?.unconverted_currencies ?? [];
+  const openCreate = () => setForm({ isOpen: true, goal: null });
+
+  function renderGoals() {
+    if (goals.isLoading) {
+      return (
+        <div className={styles.grid}>
+          <Skeleton height={200} borderRadius={16} />
+          <Skeleton height={200} borderRadius={16} />
+          <Skeleton height={200} borderRadius={16} />
+        </div>
+      );
+    }
+    if (goals.error) return <ErrorState error={goals.error} onRetry={goals.refetch} />;
+    if ((goals.data ?? []).length === 0) {
+      return (
+        <EmptyState
+          icon="goals"
+          title="No savings goals yet"
+          message="Create one for a trip, a new laptop or an emergency fund, and watch it fill up."
+          action={
+            <Button leadingIcon="plus" onClick={openCreate}>
+              New goal
+            </Button>
+          }
+        />
+      );
+    }
+    return (
+      <div className={styles.grid}>
+        {(goals.data ?? []).map((goal) => (
+          <GoalCard
+            key={goal.id}
+            goal={goal}
+            onAddMoney={(selected) => setMoney({ goal: selected, direction: "deposit" })}
+            onRemoveMoney={(selected) => setMoney({ goal: selected, direction: "withdraw" })}
+            onEdit={(selected) => setForm({ isOpen: true, goal: selected })}
+            onDelete={(selected) => {
+              setActionError(null);
+              setDeleteTarget(selected);
+            }}
+          />
+        ))}
+      </div>
+    );
+  }
 
   return (
-    <div className={styles.page}>
-      <div className={styles.headerRow}>
-        <h1 className={styles.heading}>Savings goals</h1>
-        <Button type="button" onClick={() => setForm({ isOpen: true, goal: null })}>
-          New goal
-        </Button>
-      </div>
+    <div className={pageStyles.page}>
+      <PageHeader
+        title="Savings goals"
+        description="Put money towards the things that matter."
+        actions={
+          <Button type="button" leadingIcon="plus" onClick={openCreate}>
+            New goal
+          </Button>
+        }
+      />
 
       <ErrorBanner message={actionError} />
 
       {summary.error ? (
         <ErrorState error={summary.error} onRetry={summary.refetch} />
       ) : (
-        <div className={styles.statsRow}>
-          <StatCard
-            label="Total saved"
-            value={summary.data ? formatCurrency(summary.data.total_saved, baseCurrency) : undefined}
-            tone="positive"
-            isLoading={summary.isLoading}
-          />
-          <StatCard
-            label="Total target"
-            value={summary.data ? formatCurrency(summary.data.total_target, baseCurrency) : undefined}
-            isLoading={summary.isLoading}
-          />
-          <StatCard
-            label="Overall progress"
-            value={
-              summary.data
+        <SummaryStrip
+          items={[
+            {
+              label: "Total saved",
+              value: summary.data ? formatCurrency(summary.data.total_saved, baseCurrency) : undefined,
+              tone: "positive",
+              isLoading: summary.isLoading,
+            },
+            {
+              label: "Total target",
+              value: summary.data ? formatCurrency(summary.data.total_target, baseCurrency) : undefined,
+              isLoading: summary.isLoading,
+            },
+            {
+              label: "Overall progress",
+              value: summary.data
                 ? summary.data.progress_percentage === null
                   ? "—"
                   : formatPercentage(summary.data.progress_percentage)
-                : undefined
-            }
-            isLoading={summary.isLoading}
-          />
-        </div>
+                : undefined,
+              isLoading: summary.isLoading,
+            },
+          ]}
+        />
       )}
 
       {unconverted.length > 0 && (
-        <p className={styles.notice}>
+        <Notice tone="warning">
           Not included in the totals: goals saved in {unconverted.join(", ")} — no exchange rate from the last 7
           days.
-        </p>
+        </Notice>
       )}
 
-      {goals.isLoading ? (
-        <Skeleton height={220} borderRadius={8} />
-      ) : goals.error ? (
-        <ErrorState error={goals.error} onRetry={goals.refetch} />
-      ) : (goals.data ?? []).length === 0 ? (
-        <EmptyState message="No savings goals yet. Create one for a trip, a new laptop or an emergency fund." />
-      ) : (
-        <div className={styles.grid}>
-          {(goals.data ?? []).map((goal) => (
-            <GoalCard
-              key={goal.id}
-              goal={goal}
-              onAddMoney={(selected) => setMoney({ goal: selected, direction: "deposit" })}
-              onRemoveMoney={(selected) => setMoney({ goal: selected, direction: "withdraw" })}
-              onEdit={(selected) => setForm({ isOpen: true, goal: selected })}
-              onDelete={(selected) => {
-                setActionError(null);
-                setDeleteTarget(selected);
-              }}
-            />
-          ))}
-        </div>
-      )}
+      {renderGoals()}
 
       <GoalFormModal
         isOpen={form.isOpen}

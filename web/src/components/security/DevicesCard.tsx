@@ -6,7 +6,10 @@ import { listSessions, revokeSession } from "../../services/securityService";
 import type { ClientPlatform, Session } from "../../types/security";
 import { extractErrorMessage } from "../../utils/errors";
 import { formatDateTime } from "../../utils/format";
+import { Badge } from "../Badge";
 import { Button } from "../Button";
+import { Card } from "../Card";
+import { Icon } from "../icons/Icon";
 import { ConfirmDialog } from "../ConfirmDialog";
 import { ErrorBanner } from "../ErrorBanner";
 import { ErrorState } from "../ErrorState";
@@ -52,8 +55,8 @@ export function DevicesCard() {
   }
 
   return (
-    <div className={styles.card}>
-      <h2>Signed-in devices</h2>
+    <Card padding="lg" className={styles.card}>
+      <h2 className={styles.title}>Signed-in devices</h2>
       <p className={styles.hint}>Sign out any device you don&apos;t recognise. Its access ends immediately.</p>
       <ErrorBanner message={error} />
       {sessions.isLoading ? (
@@ -64,9 +67,12 @@ export function DevicesCard() {
         <ul className={styles.list}>
           {sessions.data?.map((session) => (
             <li key={session.id} className={styles.row}>
-              <div>
+              <span className={styles.deviceIcon} aria-hidden="true">
+                <Icon name={session.platform === "web" || session.platform === "unknown" ? "monitor" : "smartphone"} size={20} />
+              </span>
+              <div className={styles.rowText}>
                 <strong>{PLATFORM_LABELS[session.platform]}</strong>
-                {session.current && <span className={styles.badge}>This device</span>}
+                {session.current && <Badge tone="primary" className={styles.badge}>This device</Badge>}
                 <div className={styles.meta}>{session.user_agent || "Unknown app"}</div>
                 <div className={styles.meta}>
                   Signed in {formatDateTime(session.created_at)} · last active {formatDateTime(session.last_used_at)}
@@ -82,7 +88,7 @@ export function DevicesCard() {
           ))}
         </ul>
       )}
-      <Button variant="danger" onClick={() => setIsConfirmingAll(true)}>
+      <Button variant="danger-quiet" leadingIcon="log-out" onClick={() => setIsConfirmingAll(true)}>
         Log out of all devices
       </Button>
       <ConfirmDialog
@@ -94,6 +100,6 @@ export function DevicesCard() {
         onConfirm={signOutEverywhere}
         onClose={() => setIsConfirmingAll(false)}
       />
-    </div>
+    </Card>
   );
 }

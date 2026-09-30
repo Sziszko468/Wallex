@@ -15,7 +15,8 @@ import { TextField } from "../TextField";
 import { Select } from "../Select";
 import { ErrorBanner } from "../ErrorBanner";
 import { CurrencySelect } from "../CurrencySelect";
-import styles from "./SubscriptionFormModal.module.scss";
+import { Checkbox } from "../Checkbox";
+import formStyles from "../form.module.scss";
 
 const FREQUENCY_OPTIONS = (Object.keys(FREQUENCY_LABELS) as RecurringFrequency[]).map((value) => ({
   value,
@@ -134,7 +135,7 @@ export function SubscriptionFormModal({
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={subscription ? "Edit subscription" : "Add subscription"}>
-      <form onSubmit={handleSubmit} className={styles.form} noValidate>
+      <form onSubmit={handleSubmit} className={formStyles.stack} noValidate>
         <ErrorBanner message={errorMessage} />
 
         <TextField
@@ -153,10 +154,11 @@ export function SubscriptionFormModal({
           error={fieldErrors.merchant}
         />
 
-        <div className={styles.amountRow}>
+        <div className={formStyles.amountRow}>
           <TextField
             label="Price per payment"
             type="number"
+            inputMode="decimal"
             step={amountStep(currency)}
             min={amountStep(currency)}
             placeholder={amountStep(currency) === "1" ? "0" : "0.00"}
@@ -167,7 +169,7 @@ export function SubscriptionFormModal({
           <CurrencySelect value={currency} onChange={setCurrency} error={fieldErrors.currency} />
         </div>
 
-        <div className={styles.twoColumns}>
+        <div className={formStyles.row}>
           <Select
             label="Billing"
             value={frequency}
@@ -185,7 +187,7 @@ export function SubscriptionFormModal({
           />
         </div>
 
-        <div className={styles.twoColumns}>
+        <div className={formStyles.row}>
           <TextField
             label="First payment"
             type="date"
@@ -210,12 +212,14 @@ export function SubscriptionFormModal({
           error={fieldErrors.description}
         />
 
-        <label className={styles.checkboxRow}>
-          <input type="checkbox" checked={active} onChange={(event) => setActive(event.target.checked)} />
-          Active (paused subscriptions are left out of the totals)
-        </label>
+        <Checkbox
+          label="Active"
+          hint="Paused subscriptions are left out of the totals."
+          checked={active}
+          onChange={(event) => setActive(event.target.checked)}
+        />
 
-        <div className={styles.actions}>
+        <div className={formStyles.actions}>
           <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>

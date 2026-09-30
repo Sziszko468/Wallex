@@ -1,65 +1,44 @@
-@use "../styles/variables" as vars;
+@use "../styles/mixins" as m;
 
-.page {
-  display: flex;
-  flex-direction: column;
-  gap: vars.$space-lg;
-}
-
-.heading {
-  margin: 0;
-  font-size: vars.$font-size-xl;
-}
-
-.sectionHeading {
-  margin: vars.$space-sm 0 0;
-  font-size: vars.$font-size-lg;
-}
-
-.statsRow {
+// Two cards side by side on desktop, the wider one first (7 : 5).
+.split {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: vars.$space-md;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-5);
 
-  @media (min-width: vars.$breakpoint-tablet) {
-    grid-template-columns: repeat(3, 1fr);
+  @include m.tablet-up {
+    gap: var(--space-6);
+  }
+
+  @include m.desktop-up {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
   }
 }
 
-.chartsRow {
+// Two equal cards from tablet up.
+.even {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: vars.$space-md;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-5);
 
-  @media (min-width: vars.$breakpoint-desktop) {
-    grid-template-columns: 2fr 1fr;
+  @include m.tablet-up {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-6);
   }
 }
 
-.listsRow {
+// Savings, subscriptions, achievements: three small cards that share a row when there's room.
+.plans {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: vars.$space-md;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-5);
 
-  @media (min-width: vars.$breakpoint-tablet) {
-    grid-template-columns: 1fr 1fr;
+  @include m.tablet-up {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-6);
   }
-}
 
-.spanTwo {
-  @media (min-width: vars.$breakpoint-tablet) {
-    grid-column: span 1;
+  @include m.desktop-up {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
-}
-
-.spanThree {
-  @media (min-width: vars.$breakpoint-tablet) {
-    grid-column: span 3;
-  }
-}
-
-.skeletonStack {
-  display: flex;
-  flex-direction: column;
-  gap: vars.$space-sm;
 }

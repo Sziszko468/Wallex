@@ -1,74 +1,80 @@
-@use "../../styles/variables" as vars;
+@use "../../styles/mixins" as m;
+
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
 
 .list {
-  list-style: none;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+  width: 100%;
   margin: 0;
   padding: 0;
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: vars.$space-sm;
+  list-style: none;
 
-  @media (min-width: vars.$breakpoint-desktop) {
-    grid-template-columns: 1fr 1fr;
+  @include m.desktop-up {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 .item {
-  --accent: #{vars.$color-primary};
+  --tone: var(--color-info);
+  --tone-soft: var(--color-info-soft);
 
   display: flex;
   align-items: flex-start;
-  gap: vars.$space-sm;
-  padding: vars.$space-sm vars.$space-md;
-  border: 1px solid vars.$color-border;
-  border-left: 4px solid var(--accent);
-  border-radius: vars.$radius-sm;
-  background-color: vars.$color-surface;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background-color: var(--color-surface-subtle);
+  border-radius: var(--radius-md);
 }
 
 .alert {
-  --accent: #{vars.$color-danger};
+  --tone: var(--color-danger);
+  --tone-soft: var(--color-danger-soft);
 }
 
 .warning {
-  --accent: #{vars.$color-warning};
+  --tone: var(--color-warning);
+  --tone-soft: var(--color-warning-soft);
 }
 
 .positive {
-  --accent: #{vars.$color-success};
-}
-
-.info {
-  --accent: #{vars.$color-primary};
+  --tone: var(--color-success);
+  --tone-soft: var(--color-success-soft);
 }
 
 .icon {
-  flex-shrink: 0;
-  width: 1.5rem;
-  height: 1.5rem;
-  border-radius: 50%;
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: vars.$color-surface;
-  background-color: var(--accent);
+  width: 2rem;
+  height: 2rem;
+  color: var(--tone);
+  background-color: var(--tone-soft);
+  border-radius: var(--radius-full);
 }
 
 .text {
   min-width: 0;
+  padding-top: 1px;
 }
 
 .message {
-  margin: 0;
-  font-size: vars.$font-size-sm;
-  color: vars.$color-text;
-  line-height: 1.5rem;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-snug);
+  color: var(--color-text);
 }
 
 .detail {
-  margin: 0;
-  font-size: 0.75rem;
-  color: vars.$color-text-muted;
+  margin-top: 2px;
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  @include m.tabular-numbers;
 }

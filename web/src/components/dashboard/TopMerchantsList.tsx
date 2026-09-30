@@ -13,13 +13,16 @@ interface TopMerchantsListProps {
 export function TopMerchantsList({ merchants }: TopMerchantsListProps) {
   const baseCurrency = useBaseCurrency();
   if (merchants.length === 0) {
-    return <EmptyState message="No expenses with a description this month yet." />;
+    return <EmptyState icon="shopping-bag" message="No expenses with a description this month yet." />;
   }
 
   return (
     <ol className={styles.list}>
       {merchants.map((merchant) => (
         <li key={merchant.merchant} className={styles.item}>
+          <span className={styles.initial} aria-hidden="true">
+            {merchant.merchant.charAt(0).toUpperCase()}
+          </span>
           <div className={styles.details}>
             <span className={styles.name}>{merchant.merchant}</span>
             <span className={styles.meta}>
@@ -27,8 +30,10 @@ export function TopMerchantsList({ merchants }: TopMerchantsListProps) {
               {merchant.share_percentage !== null && ` · ${formatPercentage(merchant.share_percentage)} of spending`}
             </span>
           </div>
-          <span className={styles.total}>{formatCurrency(merchant.total, baseCurrency)}</span>
-          <ChangeBadge value={merchant.change_percentage} />
+          <div className={styles.figures}>
+            <span className={styles.total}>{formatCurrency(merchant.total, baseCurrency)}</span>
+            <ChangeBadge value={merchant.change_percentage} />
+          </div>
         </li>
       ))}
     </ol>

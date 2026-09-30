@@ -1,49 +1,66 @@
-@use "../../styles/variables" as vars;
+@use "../../styles/mixins" as m;
 
 .list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: vars.$space-sm;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .item {
   display: flex;
   align-items: center;
-  gap: vars.$space-sm;
-  padding-bottom: vars.$space-sm;
-  border-bottom: 1px solid vars.$color-border;
+  gap: var(--space-3);
+}
 
-  &:last-child {
-    padding-bottom: 0;
-    border-bottom: none;
-  }
+// Merchants have no category colour of their own: a neutral tile with their initial.
+.initial {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  color: var(--color-text-secondary);
+  background-color: var(--color-bg-subtle);
+  border-radius: var(--radius-md);
 }
 
 .details {
-  flex: 1;
-  min-width: 0;
   display: flex;
+  flex: 1;
   flex-direction: column;
+  min-width: 0;
 }
 
 .name {
-  font-weight: 600;
-  color: vars.$color-text;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  @include m.truncate;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
 }
 
 .meta {
-  font-size: 0.75rem;
-  color: vars.$color-text-muted;
+  @include m.truncate;
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}
+
+.figures {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
 }
 
 .total {
-  font-weight: 700;
-  color: vars.$color-text;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
   white-space: nowrap;
+  @include m.tabular-numbers;
 }

@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import type { SavingsGoal, SavingsSummary } from "../../types/savingsGoal";
 import { formatCurrency, formatPercentage } from "../../utils/format";
 import { goalTone } from "../../utils/savingsGoals";
+import { ButtonLink } from "../ButtonLink";
 import { EmptyState } from "../EmptyState";
 import { ProgressBar } from "../ProgressBar";
 import styles from "./SavingsProgress.module.scss";
@@ -19,12 +20,15 @@ export function SavingsProgress({ summary, goals }: SavingsProgressProps) {
   const shown = goals.filter((goal) => goal.status !== "archived").slice(0, GOALS_SHOWN);
   if (shown.length === 0) {
     return (
-      <div className={styles.empty}>
-        <EmptyState message="No savings goals yet." />
-        <Link to="/goals" className={styles.link}>
-          Create a goal →
-        </Link>
-      </div>
+      <EmptyState
+        icon="goals"
+        message="No savings goals yet. Set one for a trip, a laptop or a rainy day."
+        action={
+          <ButtonLink to="/goals" variant="secondary" size="sm" leadingIcon="plus">
+            Create a goal
+          </ButtonLink>
+        }
+      />
     );
   }
 
@@ -32,7 +36,7 @@ export function SavingsProgress({ summary, goals }: SavingsProgressProps) {
     <div className={styles.overview}>
       <div className={styles.total}>
         <div className={styles.totalHeader}>
-          <span>
+          <span className={styles.saved}>
             <strong>{formatCurrency(summary.total_saved, summary.currency)}</strong> saved of{" "}
             {formatCurrency(summary.total_target, summary.currency)}
           </span>
@@ -64,13 +68,13 @@ export function SavingsProgress({ summary, goals }: SavingsProgressProps) {
       </ul>
 
       <div className={styles.footer}>
-        <span className={styles.meta}>
+        <span className={styles.note}>
           {summary.active_count} active · {summary.completed_count} completed
           {summary.unconverted_currencies.length > 0 &&
             ` · ${summary.unconverted_currencies.join(", ")} not included (no exchange rate)`}
         </span>
         <Link to="/goals" className={styles.link}>
-          All goals →
+          All goals
         </Link>
       </div>
     </div>

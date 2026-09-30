@@ -1,0 +1,43 @@
+// Shared by the log-in, two-factor and register screens.
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-6);
+}
+
+.title {
+  font-size: var(--text-3xl);
+  line-height: var(--leading-tight);
+}
+
+.subtitle {
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--color-text-secondary);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.switch {
+  margin-top: var(--space-6);
+  font-size: var(--text-sm);
+  text-align: center;
+  color: var(--color-text-secondary);
+
+  a {
+    font-weight: var(--weight-semibold);
+  }
+}

@@ -1,64 +1,85 @@
-@use "../../styles/variables" as vars;
+@use "../../styles/mixins" as m;
 
 .list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: vars.$space-sm;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .item {
   display: flex;
   align-items: center;
-  gap: vars.$space-sm;
-  padding-bottom: vars.$space-sm;
-  border-bottom: 1px solid vars.$color-border;
-  font-size: vars.$font-size-sm;
-
-  &:last-child {
-    padding-bottom: 0;
-    border-bottom: none;
-  }
+  gap: var(--space-3);
+  font-size: var(--text-sm);
 }
 
+// Upcoming payments: a little date block on the left, like a calendar leaf.
 .date {
+  display: flex;
   flex-shrink: 0;
-  min-width: 6.5rem;
-  color: vars.$color-text-muted;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  padding: var(--space-1) 0;
+  line-height: 1.1;
+  text-align: center;
+  background-color: var(--color-bg-subtle);
+  border-radius: var(--radius-sm);
 }
 
-.dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
+.day {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  color: var(--color-text);
+}
+
+.month {
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
 }
 
 .name {
+  @include m.truncate;
   flex: 1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: 600;
-  color: vars.$color-text;
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
   text-decoration: none;
 }
 
 a.name:hover {
-  color: vars.$color-primary-dark;
+  color: var(--color-primary-ink);
   text-decoration: underline;
 }
 
 .amount {
-  font-weight: 700;
-  color: vars.$color-text;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
   white-space: nowrap;
+  @include m.tabular-numbers;
 }
 
 .secondary {
-  font-weight: 400;
-  color: vars.$color-text-muted;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-regular);
+  color: var(--color-text-secondary);
+}
+
+.count {
+  font-weight: var(--weight-regular);
+  color: var(--color-text-secondary);
+}
+
+.srOnly {
+  @include m.visually-hidden;
 }

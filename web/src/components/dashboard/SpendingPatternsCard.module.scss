@@ -1,18 +1,18 @@
-@use "../../styles/variables" as vars;
+@use "../../styles/mixins" as m;
 
 .patterns {
   display: flex;
   flex-direction: column;
-  gap: vars.$space-md;
+  gap: var(--space-5);
 }
 
 .stats {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: vars.$space-md;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
 
-  @media (min-width: vars.$breakpoint-tablet) {
-    grid-template-columns: repeat(3, 1fr);
+  @include m.tablet-up {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -23,42 +23,48 @@
 }
 
 .statLabel {
-  font-size: vars.$font-size-sm;
-  color: vars.$color-text-muted;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
 }
 
 .statValue {
-  font-size: vars.$font-size-lg;
-  font-weight: 700;
-  color: vars.$color-text;
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-text);
+  @include m.tabular-numbers;
 }
 
 .statHint {
   min-height: 1rem;
-  font-size: 0.75rem;
-  color: vars.$color-text-muted;
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
 }
 
+// Fixed (sage) vs variable (neutral): two tones, not two hues.
 .split {
   display: flex;
-  height: 10px;
-  border-radius: 999px;
+  height: 0.75rem;
   overflow: hidden;
-  background-color: vars.$color-background;
+  background-color: var(--color-bg-subtle);
+  border-radius: var(--radius-full);
 }
 
 .fixed {
-  background-color: vars.$color-primary-dark;
+  background-color: var(--color-primary);
+  border-radius: var(--radius-full);
 }
 
 .variable {
   flex: 1;
-  background-color: rgba(99, 102, 241, 0.35);
+  background-color: var(--chart-neutral);
+  opacity: 0.45;
 }
 
 .subheading {
-  margin: 0 0 vars.$space-sm;
-  font-size: vars.$font-size-sm;
-  font-weight: 600;
-  color: vars.$color-text-muted;
+  margin-bottom: var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0;
+  color: var(--color-text-secondary);
 }

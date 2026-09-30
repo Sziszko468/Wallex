@@ -1,5 +1,6 @@
 import { Modal } from "./Modal";
 import { Button } from "./Button";
+import formStyles from "./form.module.scss";
 import styles from "./ConfirmDialog.module.scss";
 
 interface ConfirmDialogProps {
@@ -22,9 +23,9 @@ export function ConfirmDialog({
   onClose,
 }: ConfirmDialogProps) {
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title}>
+    <Modal isOpen={isOpen} onClose={onClose} title={title} size="sm">
       <p className={styles.message}>{message}</p>
-      <div className={styles.actions}>
+      <div className={formStyles.actions}>
         <Button type="button" variant="secondary" onClick={onClose} disabled={isConfirming}>
           Cancel
         </Button>

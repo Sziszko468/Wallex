@@ -23,12 +23,15 @@ import { Select } from "../Select";
 import { CurrencySelect } from "../CurrencySelect";
 import { ErrorBanner } from "../ErrorBanner";
 import { TypeToggle } from "../TypeToggle";
+import formStyles from "../form.module.scss";
 import styles from "./TransactionFormModal.module.scss";
 
 interface TransactionFormModalProps {
   isOpen: boolean;
   transaction: Transaction | null;
   categories: Category[];
+  /** Overrides the default "Add transaction" / "Edit transaction" title. */
+  title?: string;
   onClose: () => void;
   onSaved: () => void;
 }
@@ -46,6 +49,7 @@ export function TransactionFormModal({
   isOpen,
   transaction,
   categories,
+  title,
   onClose,
   onSaved,
 }: TransactionFormModalProps) {
@@ -202,46 +206,51 @@ export function TransactionFormModal({
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={transaction ? "Edit transaction" : "Add transaction"}>
-      <form onSubmit={handleSubmit} className={styles.form} noValidate>
+    <Modal isOpen={isOpen} onClose={onClose} title={title ?? (transaction ? "Edit transaction" : "Add transaction")}>
+      <form onSubmit={handleSubmit} className={formStyles.stack} noValidate>
         <ErrorBanner message={errorMessage} />
 
         <TypeToggle value={type} onChange={handleTypeChange} />
 
-        <div className={styles.amountRow}>
-          <TextField
-            label="Amount"
-            type="number"
-            step={amountStep(currency)}
-            min={amountStep(currency)}
-            placeholder={amountStep(currency) === "1" ? "0" : "0.00"}
-            value={amount}
-            onChange={(event) => setAmount(event.target.value)}
-            error={fieldErrors.amount}
-          />
-          <CurrencySelect
-            value={currency}
-            onChange={setCurrency}
-            error={fieldErrors.currency ?? fieldErrors.exchange_rate}
-          />
-        </div>
+        <div className={styles.amountBlock}>
+          <div className={formStyles.amountRow}>
+            <TextField
+              label="Amount"
+              variant="amount"
+              type="number"
+              inputMode="decimal"
+              step={amountStep(currency)}
+              min={amountStep(currency)}
+              placeholder={amountStep(currency) === "1" ? "0" : "0.00"}
+              value={amount}
+              onChange={(event) => setAmount(event.target.value)}
+              error={fieldErrors.amount}
+              autoFocus={!transaction}
+            />
+            <CurrencySelect
+              value={currency}
+              onChange={setCurrency}
+              error={fieldErrors.currency ?? fieldErrors.exchange_rate}
+            />
+          </div>
 
-        {previewKey !== null && (
-          <p className={styles.conversion} aria-live="polite">
-            {previewResult === null && "Converting…"}
-            {previewResult !== null && "data" in previewResult && (
-              <>
-                ≈ {formatCurrency(previewResult.data.base_amount, previewResult.data.base_currency)}
-                {previewResult.data.rate_date && (
-                  <span className={styles.rateSource}> · ECB rate of {formatDate(previewResult.data.rate_date)}</span>
-                )}
-              </>
-            )}
-            {previewResult !== null && "error" in previewResult && (
-              <span className={styles.conversionError}>{previewResult.error}</span>
-            )}
-          </p>
-        )}
+          {previewKey !== null && (
+            <p className={styles.conversion} aria-live="polite">
+              {previewResult === null && "Converting…"}
+              {previewResult !== null && "data" in previewResult && (
+                <>
+                  ≈ {formatCurrency(previewResult.data.base_amount, previewResult.data.base_currency)}
+                  {previewResult.data.rate_date && (
+                    <span className={styles.rateSource}> · ECB rate of {formatDate(previewResult.data.rate_date)}</span>
+                  )}
+                </>
+              )}
+              {previewResult !== null && "error" in previewResult && (
+                <span className={styles.conversionError}>{previewResult.error}</span>
+              )}
+            </p>
+          )}
+        </div>
 
         <Select
           label="Category"
@@ -270,7 +279,7 @@ export function TransactionFormModal({
           error={fieldErrors.date}
         />
 
-        <div className={styles.actions}>
+        <div className={formStyles.actions}>
           <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>

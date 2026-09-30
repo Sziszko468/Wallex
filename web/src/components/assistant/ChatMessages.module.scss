@@ -1,4 +1,4 @@
-@use "../../styles/variables" as vars;
+@use "../../styles/mixins" as m;
 
 .thread {
   display: flex;
@@ -8,7 +8,7 @@
 .messages {
   display: flex;
   flex-direction: column;
-  gap: vars.$space-md;
+  gap: var(--space-5);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -18,12 +18,19 @@
 .fromAssistant {
   display: flex;
   flex-direction: column;
-  gap: vars.$space-xs;
+  gap: var(--space-2);
   max-width: 100%;
 
-  @media (min-width: vars.$breakpoint-tablet) {
+  @include m.tablet-up {
     max-width: 85%;
   }
+}
+
+.bubbleRow {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-width: 0;
 }
 
 .fromUser {
@@ -31,9 +38,9 @@
   align-items: flex-end;
 
   .bubble {
-    background-color: vars.$color-primary;
-    color: white;
-    border-bottom-right-radius: vars.$radius-sm;
+    color: var(--color-on-primary);
+    background-color: var(--color-primary);
+    border-bottom-right-radius: var(--radius-xs);
   }
 }
 
@@ -42,58 +49,70 @@
   align-items: flex-start;
 
   .bubble {
-    background-color: vars.$color-surface;
-    border: 1px solid vars.$color-border;
-    border-bottom-left-radius: vars.$radius-sm;
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-top-left-radius: var(--radius-xs);
   }
 }
 
+.avatar {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  color: var(--color-primary-ink);
+  background-color: var(--color-primary-soft);
+  border-radius: var(--radius-full);
+}
+
 .bubble {
-  padding: 0.65rem vars.$space-md;
-  border-radius: 16px;
-  font-size: 0.95rem;
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  border-radius: var(--radius-lg);
 }
 
 .question {
-  margin: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  line-height: 1.5;
 }
 
 .sources {
   display: flex;
   flex-wrap: wrap;
-  gap: vars.$space-xs;
-  margin: 0;
+  gap: var(--space-2);
+  margin: 0 0 0 calc(2rem + var(--space-3));
   padding: 0;
   list-style: none;
 
   &::before {
     content: "Based on:";
     align-self: center;
-    font-size: 0.75rem;
-    color: vars.$color-text-muted;
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
   }
 }
 
 .source {
-  padding: 0.1rem vars.$space-sm;
-  font-size: 0.75rem;
-  color: vars.$color-primary-dark;
-  background-color: rgba(99, 102, 241, 0.08);
-  border-radius: 999px;
+  padding: 0.125rem var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--color-primary-ink);
+  background-color: var(--color-primary-soft);
+  border-radius: var(--radius-full);
 }
 
 .sourceDetail {
-  color: vars.$color-text-muted;
+  color: var(--color-text-secondary);
 }
 
 .thinking {
   display: inline-flex;
   align-items: center;
-  gap: vars.$space-sm;
-  color: vars.$color-text-muted;
+  gap: var(--space-3);
+  color: var(--color-text-secondary);
 }
 
 .dots {
@@ -104,7 +123,7 @@
     width: 5px;
     height: 5px;
     border-radius: 50%;
-    background-color: vars.$color-text-muted;
+    background-color: var(--color-text-tertiary);
     animation: blink 1.2s infinite ease-in-out;
   }
 
@@ -116,7 +135,7 @@
     animation-delay: 0.4s;
   }
 
-  @media (prefers-reduced-motion: reduce) {
+  @include m.reduced-motion {
     span {
       animation: none;
     }

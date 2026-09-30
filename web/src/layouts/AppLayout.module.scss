@@ -1,133 +1,57 @@
-@use "../styles/variables" as vars;
+@use "../styles/mixins" as m;
 
-.layout {
-  display: flex;
-  flex-direction: column;
+.shell {
   min-height: 100vh;
-}
+  min-height: 100dvh;
 
-.header {
-  background-color: vars.$color-surface;
-  border-bottom: 1px solid vars.$color-border;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-
-.headerBar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: vars.$space-md;
-
-  @media (min-width: vars.$breakpoint-tablet) {
-    padding: vars.$space-md vars.$space-xl;
+  @include m.desktop-up {
+    display: grid;
+    grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   }
 }
 
-.brand {
-  font-weight: 700;
-  font-size: vars.$font-size-lg;
-  color: vars.$color-primary;
-}
-
-.menuToggle {
-  padding: vars.$space-xs vars.$space-sm;
-  background: none;
-  border: 1px solid vars.$color-border;
-  border-radius: vars.$radius-sm;
-  cursor: pointer;
-
-  @media (min-width: vars.$breakpoint-tablet) {
-    display: none;
-  }
-}
-
-.nav {
-  display: none;
-  flex-direction: column;
-  padding: 0 vars.$space-md vars.$space-md;
-  gap: vars.$space-xs;
-
-  &.navOpen {
-    display: flex;
-  }
-
-  @media (min-width: vars.$breakpoint-tablet) {
-    display: flex;
-    flex-direction: row;
-    // Wraps onto a second row when the links don't fit, instead of scrolling the page sideways.
-    flex-wrap: wrap;
-    align-items: center;
-    padding: 0 vars.$space-xl vars.$space-sm;
-    gap: vars.$space-xs vars.$space-sm;
-  }
-}
-
-.navLink {
-  padding: vars.$space-sm;
-  border-radius: vars.$radius-sm;
-  color: vars.$color-text-muted;
+// Visible only while it has keyboard focus: the first Tab stop on every page.
+.skipLink {
+  position: fixed;
+  top: var(--space-3);
+  left: var(--space-3);
+  z-index: calc(var(--z-toast) + 1);
+  padding: var(--space-2) var(--space-4);
+  font-weight: var(--weight-semibold);
+  color: var(--color-on-primary);
   text-decoration: none;
-  font-weight: 500;
+  background-color: var(--color-primary);
+  border-radius: var(--radius-md);
+  transform: translateY(-200%);
 
-  &:hover {
-    background-color: vars.$color-background;
-  }
-}
-
-.navLinkActive {
-  color: vars.$color-primary;
-  background-color: rgba(99, 102, 241, 0.1);
-}
-
-.navFooter {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: vars.$space-sm;
-  margin-top: vars.$space-sm;
-  padding-top: vars.$space-sm;
-  border-top: 1px solid vars.$color-border;
-
-  @media (min-width: vars.$breakpoint-tablet) {
-    flex-direction: row;
-    align-items: center;
-    margin-top: 0;
-    margin-left: auto;
-    padding-top: 0;
-    border-top: none;
-  }
-}
-
-.userEmail {
-  font-size: vars.$font-size-sm;
-  color: vars.$color-text-muted;
-}
-
-.logoutButton {
-  padding: vars.$space-xs vars.$space-md;
-  background: none;
-  border: 1px solid vars.$color-border;
-  border-radius: vars.$radius-sm;
-  cursor: pointer;
-  font-size: vars.$font-size-sm;
-
-  &:hover {
-    background-color: vars.$color-background;
-    border-color: vars.$color-danger;
-    color: vars.$color-danger;
+  &:focus {
+    transform: none;
   }
 }
 
 .main {
-  flex: 1;
-  padding: vars.$space-md;
-  width: 100%;
-  max-width: 1024px;
-  margin: 0 auto;
+  min-width: 0;
+  padding: var(--space-5) var(--space-4) calc(var(--bottom-nav-height) + env(safe-area-inset-bottom) + var(--space-16));
+  outline: none;
 
-  @media (min-width: vars.$breakpoint-tablet) {
-    padding: vars.$space-xl;
+  @include m.tablet-up {
+    padding: var(--space-8) var(--space-8) calc(var(--bottom-nav-height) + env(safe-area-inset-bottom) + var(--space-16));
   }
+
+  // No bottom bar on desktop: a normal amount of room at the end of the page.
+  @include m.desktop-up {
+    padding: var(--space-10) var(--space-12) var(--space-16);
+  }
+}
+
+// Content never stretches edge to edge on big screens.
+.content {
+  width: 100%;
+  max-width: var(--content-max);
+  margin: 0 auto;
+}
+
+// Not drawn — read out by screen readers when the page changes.
+.announcer {
+  @include m.visually-hidden;
 }

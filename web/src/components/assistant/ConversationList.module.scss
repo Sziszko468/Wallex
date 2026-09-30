@@ -1,30 +1,28 @@
-@use "../../styles/variables" as vars;
+@use "../../styles/mixins" as m;
 
 .history {
   display: flex;
   flex-direction: column;
-  gap: vars.$space-sm;
+  gap: var(--space-3);
 }
 
 .heading {
-  margin: 0;
-  font-size: vars.$font-size-sm;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: vars.$color-text-muted;
+  @include m.overline;
+  padding: 0 var(--space-2);
+  letter-spacing: var(--tracking-wide);
+  font-size: var(--text-2xs);
 }
 
 .placeholder {
   display: flex;
   flex-direction: column;
-  gap: vars.$space-xs;
+  gap: var(--space-2);
 }
 
 .empty {
-  margin: 0;
-  font-size: vars.$font-size-sm;
-  color: vars.$color-text-muted;
+  padding: 0 var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
 }
 
 .list {
@@ -38,11 +36,13 @@
 
 .item {
   display: flex;
-  align-items: stretch;
-  border-radius: vars.$radius-sm;
+  align-items: center;
+  border-radius: var(--radius-md);
+  transition: background-color var(--duration-fast) var(--ease-standard);
 
-  &:hover {
-    background-color: vars.$color-background;
+  &:hover,
+  &:focus-within {
+    background-color: var(--color-bg-subtle);
   }
 }
 
@@ -51,54 +51,45 @@
   flex: 1;
   flex-direction: column;
   min-width: 0;
-  padding: vars.$space-sm;
-  color: vars.$color-text;
+  padding: var(--space-2) var(--space-3);
+  color: var(--color-text);
   text-decoration: none;
-  border-radius: vars.$radius-sm;
+  border-radius: var(--radius-md);
+
+  &:hover {
+    text-decoration: none;
+  }
 
   &.active {
-    background-color: rgba(99, 102, 241, 0.1);
+    background-color: var(--color-primary-soft);
 
     .title {
-      color: vars.$color-primary-dark;
-      font-weight: 600;
+      font-weight: var(--weight-semibold);
+      color: var(--color-primary-ink);
     }
   }
 }
 
 .title {
-  overflow: hidden;
-  font-size: vars.$font-size-sm;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  @include m.truncate;
+  font-size: var(--text-sm);
 }
 
 .date {
-  font-size: 0.75rem;
-  color: vars.$color-text-muted;
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
 }
 
 .delete {
   flex-shrink: 0;
-  width: 2rem;
-  font-size: 1.1rem;
-  color: vars.$color-text-muted;
-  background: none;
-  border: none;
-  border-radius: vars.$radius-sm;
-  cursor: pointer;
 
-  &:hover {
-    color: vars.$color-danger;
+  @include m.hover-capable {
+    opacity: 0;
+    transition: opacity var(--duration-fast) var(--ease-standard);
+
+    .item:hover &,
+    .item:focus-within & {
+      opacity: 1;
+    }
   }
-}
-
-.more {
-  align-self: flex-start;
-  padding: vars.$space-xs 0;
-  font-size: vars.$font-size-sm;
-  color: vars.$color-primary;
-  background: none;
-  border: none;
-  cursor: pointer;
 }

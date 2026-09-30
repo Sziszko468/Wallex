@@ -1,0 +1,65 @@
+@use "../styles/mixins" as m;
+
+// Layout primitives shared by every form in the app (dialogs, auth pages, settings).
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+// Two fields side by side from tablet up (dates, amounts), stacked on phones.
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+
+  @include m.tablet-up {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+// Amount + currency: always side by side, the amount gets the room.
+.amountRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 8.75rem;
+  gap: var(--space-3);
+  align-items: start;
+}
+
+// Submit on top and full width on phones (thumb reach), right-aligned pair on larger screens.
+.actions {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+
+  @include m.below-tablet {
+    > * {
+      width: 100%;
+    }
+  }
+
+  @include m.tablet-up {
+    flex-direction: row;
+    justify-content: flex-end;
+  }
+}
+
+// Inline row of actions that shouldn't stretch (security cards).
+.inlineActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.note {
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  color: var(--color-text-secondary);
+
+  strong {
+    font-weight: var(--weight-semibold);
+    color: var(--color-text);
+  }
+}

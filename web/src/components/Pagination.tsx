@@ -1,3 +1,4 @@
+import { Button } from "./Button";
 import styles from "./Pagination.module.scss";
 
 interface PaginationProps {
@@ -14,25 +15,15 @@ export function Pagination({ page, pageSize, totalCount, onPageChange }: Paginat
 
   return (
     <nav className={styles.pagination} aria-label="Transactions pagination">
-      <button
-        type="button"
-        className={styles.button}
-        onClick={() => onPageChange(page - 1)}
-        disabled={page <= 1}
-      >
+      <Button variant="secondary" size="sm" leadingIcon="chevron-left" onClick={() => onPageChange(page - 1)} disabled={page <= 1}>
         Previous
-      </button>
+      </Button>
       <span className={styles.status}>
         Page {page} of {totalPages} · {totalCount} total
       </span>
-      <button
-        type="button"
-        className={styles.button}
-        onClick={() => onPageChange(page + 1)}
-        disabled={page >= totalPages}
-      >
+      <Button variant="secondary" size="sm" trailingIcon="chevron-right" onClick={() => onPageChange(page + 1)} disabled={page >= totalPages}>
         Next
-      </button>
+      </Button>
     </nav>
   );
 }
