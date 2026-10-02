@@ -20,9 +20,7 @@ def fresh_throttle_counters():
 
 
 def _register(client, email, password=PASSWORD):
-    return client.post(
-        reverse("auth-register"), {"email": email, "password": password, "password_confirm": password}
-    )
+    return client.post(reverse("auth-register"), {"email": email, "password": password, "password_confirm": password})
 
 
 # --- Accounts ---------------------------------------------------------------

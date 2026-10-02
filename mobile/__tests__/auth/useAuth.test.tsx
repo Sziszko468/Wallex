@@ -25,6 +25,7 @@ const anna: User = {
   last_name: "",
   date_joined: "2026-09-01",
   base_currency: "EUR",
+  language: "en",
 };
 
 const wrapper = ({ children }: { children: ReactNode }) => <AuthProvider>{children}</AuthProvider>;
@@ -158,14 +159,14 @@ describe("auth state machine (app start, lock, offline, logout)", () => {
 
     await act(() => result.current.login({ email: anna.email, password: "pw" }));
     expect(result.current.status).toBe("signedIn");
-    await AsyncStorage.setItem("spendly_offline:u1:outbox", "[]");
+    await AsyncStorage.setItem("wallex_offline:u1:outbox", "[]");
 
     await act(() => result.current.logout());
 
     expect(result.current.status).toBe("signedOut");
     expect(axios.post).toHaveBeenCalledWith(expect.stringContaining("/auth/logout/"), expect.anything(), expect.anything());
     expect(await getRefreshToken()).toBeNull();
-    expect((await AsyncStorage.getAllKeys()).filter((key) => key.startsWith("spendly_offline"))).toEqual([]);
+    expect((await AsyncStorage.getAllKeys()).filter((key) => key.startsWith("wallex_offline"))).toEqual([]);
   });
 
   it("two-factor on: the password alone stores nothing, the code signs in", async () => {

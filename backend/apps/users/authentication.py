@@ -1,6 +1,7 @@
 import uuid
 
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import InvalidToken
@@ -25,7 +26,7 @@ class SessionJWTAuthentication(JWTAuthentication):
             key = uuid.UUID(str(validated_token[SESSION_CLAIM]))
         except (KeyError, ValueError) as error:
             # Tokens from before sessions existed carry no `sid`: one new sign-in, then all is well.
-            raise InvalidToken("Token is not tied to a session. Please sign in again.") from error
+            raise InvalidToken(_("Token is not tied to a session. Please sign in again.")) from error
 
         session = (
             UserSession.objects.select_related("user")
@@ -33,7 +34,7 @@ class SessionJWTAuthentication(JWTAuthentication):
             .first()
         )
         if session is None or str(session.user_id) != str(user_id):
-            raise AuthenticationFailed("This session has ended. Please sign in again.", code="session_ended")
+            raise AuthenticationFailed(_("This session has ended. Please sign in again."), code="session_ended")
         if not session.user.is_active:
-            raise AuthenticationFailed("User is inactive", code="user_inactive")
+            raise AuthenticationFailed(_("User is inactive"), code="user_inactive")
         return session.user

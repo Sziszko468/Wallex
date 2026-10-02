@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Outlet, useLocation } from "react-router-dom";
 import { QuickAddTransaction } from "../components/transactions/QuickAddTransaction";
 import { ToastProvider } from "../components/Toast";
@@ -9,6 +10,9 @@ import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 import styles from "./AppLayout.module.scss";
 
+/** The page sets its title in its own effect; the screen reader announcement waits for it. */
+const ANNOUNCE_TITLE_DELAY_MS = 120;
+
 // Mirrors $breakpoint-desktop in styles/_mixins.scss.
 const DESKTOP_QUERY = "(min-width: 1024px)";
 
@@ -18,6 +22,7 @@ const DESKTOP_QUERY = "(min-width: 1024px)";
  * meets two copies of the navigation.
  */
 export function AppLayout() {
+  const { t } = useTranslation();
   const isDesktop = useMediaQuery(DESKTOP_QUERY, true);
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
   const openQuickAdd = useCallback(() => setIsQuickAddOpen(true), []);
@@ -33,7 +38,7 @@ export function AppLayout() {
     if (announcedPath.current === pathname) return; // the page that was already there on load
     announcedPath.current = pathname;
     // The page sets its title in its own effect, which runs just after this one.
-    const timer = window.setTimeout(() => setAnnouncement(document.title), 120);
+    const timer = window.setTimeout(() => setAnnouncement(document.title), ANNOUNCE_TITLE_DELAY_MS);
     return () => window.clearTimeout(timer);
   }, [pathname]);
 
@@ -41,7 +46,7 @@ export function AppLayout() {
     <ToastProvider>
       <div className={styles.shell}>
         <a className={styles.skipLink} href="#main-content">
-          Skip to main content
+          {t("common.skipToContent")}
         </a>
 
         {isDesktop ? <Sidebar onAddTransaction={openQuickAdd} /> : <TopBar />}

@@ -6,7 +6,6 @@ from decimal import Decimal
 import anthropic
 import httpx2
 import pytest
-from django.urls import reverse
 from django.utils import timezone
 from rest_framework.throttling import ScopedRateThrottle
 
@@ -43,7 +42,11 @@ def _start(auth_client, fake_model, question="What did I spend the most on?", an
 def test_without_an_api_key_the_assistant_is_unavailable(auth_client, settings):
     settings.AI_ASSISTANT = {**settings.AI_ASSISTANT, "ENABLED": False}
 
-    assert auth_client.get(STATUS).json() == {"available": False, "suggested_questions": [], "max_question_length": 1000}
+    assert auth_client.get(STATUS).json() == {
+        "available": False,
+        "suggested_questions": [],
+        "max_question_length": 1000,
+    }
 
 
 @pytest.mark.django_db
@@ -64,7 +67,11 @@ def test_suggestions_follow_the_users_own_data(user, auth_client, fake_model, fo
     today = timezone.localdate()
     Transaction.objects.create(user=user, category=food_category, type="expense", amount=Decimal("10.00"), date=today)
     Transaction.objects.create(
-        user=user, category=food_category, type="expense", amount=Decimal("10.00"), date=today.replace(day=1) - timedelta(days=3)
+        user=user,
+        category=food_category,
+        type="expense",
+        amount=Decimal("10.00"),
+        date=today.replace(day=1) - timedelta(days=3),
     )
     SavingsGoal.objects.create(user=user, name="Japan trip", target_amount=Decimal("3000.00"))
 
@@ -88,15 +95,24 @@ def test_asking_starts_a_conversation_and_stores_both_messages(user, auth_client
     Transaction.objects.create(
         user=user, category=food_category, type="expense", amount=Decimal("42.00"), date=timezone.localdate()
     )
-    fake_model.script = [tool_call_reply(("get_monthly_spending", _this_month())), text_reply("You spent 42.00 EUR on **Food**.")]
+    fake_model.script = [
+        tool_call_reply(("get_monthly_spending", _this_month())),
+        text_reply("You spent 42.00 EUR on **Food**."),
+    ]
 
-    response = auth_client.post(CONVERSATIONS, {"message": "  What did I spend the most on this month?  "}, format="json")
+    response = auth_client.post(
+        CONVERSATIONS, {"message": "  What did I spend the most on this month?  "}, format="json"
+    )
 
     assert response.status_code == 201
     body = response.json()
     assert body["conversation"]["title"] == "What did I spend the most on this month?"
     question, answer = body["messages"]
-    assert (question["role"], question["content"], question["sources"]) == ("user", "What did I spend the most on this month?", [])
+    assert (question["role"], question["content"], question["sources"]) == (
+        "user",
+        "What did I spend the most on this month?",
+        [],
+    )
     assert (answer["role"], answer["content"]) == ("assistant", "You spent 42.00 EUR on **Food**.")
     today = timezone.localdate()
     assert answer["sources"] == [
@@ -106,7 +122,9 @@ def test_asking_starts_a_conversation_and_stores_both_messages(user, auth_client
     assert conversation.user == user
     assert list(conversation.messages.values_list("role", flat=True)) == ["user", "assistant"]
     # Only the text and which tools were used are kept — never the figures the tools returned.
-    assert conversation.messages.get(role="assistant").sources == [{"tool": "get_monthly_spending", "arguments": _this_month()}]
+    assert conversation.messages.get(role="assistant").sources == [
+        {"tool": "get_monthly_spending", "arguments": _this_month()}
+    ]
 
 
 @pytest.mark.django_db
@@ -115,10 +133,15 @@ def test_a_follow_up_sends_the_history_and_moves_the_conversation_up(auth_client
     other = _start(auth_client, fake_model, "Something else", "OK.")
     fake_model.script = [text_reply("Transport: 0.00 EUR.")]
 
-    response = auth_client.post(_messages_url(first["conversation"]["id"]), {"message": "And on transport?"}, format="json")
+    response = auth_client.post(
+        _messages_url(first["conversation"]["id"]), {"message": "And on transport?"}, format="json"
+    )
 
     assert response.status_code == 201
-    assert [message["content"] for message in response.json()["messages"]] == ["And on transport?", "Transport: 0.00 EUR."]
+    assert [message["content"] for message in response.json()["messages"]] == [
+        "And on transport?",
+        "Transport: 0.00 EUR.",
+    ]
     assert fake_model.requests[-1]["messages"] == [
         {"role": "user", "content": "How much on food?"},
         {"role": "assistant", "content": "42.00 EUR."},
@@ -176,7 +199,10 @@ def test_without_an_api_key_asking_is_refused(auth_client, settings):
     response = auth_client.post(CONVERSATIONS, {"message": "Hi"}, format="json")
 
     assert response.status_code == 503
-    assert response.json() == {"detail": "The AI assistant isn't set up on this server.", "code": "assistant_not_configured"}
+    assert response.json() == {
+        "detail": "The AI assistant isn't set up on this server.",
+        "code": "assistant_not_configured",
+    }
 
 
 @pytest.mark.django_db
@@ -258,7 +284,9 @@ def test_other_users_conversations_are_invisible(auth_client, other_auth_client,
 
 @pytest.mark.django_db
 def test_questions_are_rate_limited_reading_is_not(auth_client, fake_model, monkeypatch):
-    monkeypatch.setattr(ScopedRateThrottle, "THROTTLE_RATES", {**ScopedRateThrottle.THROTTLE_RATES, "assistant": "2/hour"})
+    monkeypatch.setattr(
+        ScopedRateThrottle, "THROTTLE_RATES", {**ScopedRateThrottle.THROTTLE_RATES, "assistant": "2/hour"}
+    )
     started = _start(auth_client, fake_model)
     _start(auth_client, fake_model)
 
@@ -284,4 +312,3 @@ def test_deleting_the_user_deletes_their_conversations(user, auth_client, fake_m
     user.delete()
 
     assert not AssistantConversation.objects.exists() and not AssistantMessage.objects.exists()
-

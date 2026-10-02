@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { Trans, useTranslation } from "react-i18next";
 import type { SavingsGoal, SavingsSummary } from "../../types/savingsGoal";
 import { formatCurrency, formatPercentage } from "../../utils/format";
 import { goalTone } from "../../utils/savingsGoals";
@@ -17,15 +18,16 @@ interface SavingsProgressProps {
 
 /** Overall savings progress (base currency) and the first few goals — all figures from the API. */
 export function SavingsProgress({ summary, goals }: SavingsProgressProps) {
+  const { t } = useTranslation();
   const shown = goals.filter((goal) => goal.status !== "archived").slice(0, GOALS_SHOWN);
   if (shown.length === 0) {
     return (
       <EmptyState
         icon="goals"
-        message="No savings goals yet. Set one for a trip, a laptop or a rainy day."
+        message={t("dashboard.savings.empty")}
         action={
           <ButtonLink to="/goals" variant="secondary" size="sm" leadingIcon="plus">
-            Create a goal
+            {t("dashboard.savings.create")}
           </ButtonLink>
         }
       />
@@ -37,15 +39,21 @@ export function SavingsProgress({ summary, goals }: SavingsProgressProps) {
       <div className={styles.total}>
         <div className={styles.totalHeader}>
           <span className={styles.saved}>
-            <strong>{formatCurrency(summary.total_saved, summary.currency)}</strong> saved of{" "}
-            {formatCurrency(summary.total_target, summary.currency)}
+            <Trans
+              i18nKey="dashboard.savings.savedOf"
+              values={{
+                saved: formatCurrency(summary.total_saved, summary.currency),
+                target: formatCurrency(summary.total_target, summary.currency),
+              }}
+              components={{ strong: <strong /> }}
+            />
           </span>
           {summary.progress_percentage !== null && (
             <span className={styles.percentage}>{formatPercentage(summary.progress_percentage)}</span>
           )}
         </div>
         {summary.progress_percentage !== null && (
-          <ProgressBar percentage={summary.progress_percentage} label="Overall savings progress" size="large" />
+          <ProgressBar percentage={summary.progress_percentage} label={t("dashboard.savings.overallProgress")} size="large" />
         )}
       </div>
 
@@ -62,19 +70,23 @@ export function SavingsProgress({ summary, goals }: SavingsProgressProps) {
                 {formatPercentage(goal.progress_percentage)}
               </span>
             </div>
-            <ProgressBar percentage={goal.progress_percentage} label={`${goal.name} progress`} tone={goalTone(goal.status)} />
+            <ProgressBar
+              percentage={goal.progress_percentage}
+              label={t("dashboard.savings.goalProgress", { name: goal.name })}
+              tone={goalTone(goal.status)}
+            />
           </li>
         ))}
       </ul>
 
       <div className={styles.footer}>
         <span className={styles.note}>
-          {summary.active_count} active · {summary.completed_count} completed
+          {t("dashboard.savings.counts", { active: summary.active_count, completed: summary.completed_count })}
           {summary.unconverted_currencies.length > 0 &&
-            ` · ${summary.unconverted_currencies.join(", ")} not included (no exchange rate)`}
+            ` · ${t("dashboard.savings.notIncluded", { currencies: summary.unconverted_currencies.join(", ") })}`}
         </span>
         <Link to="/goals" className={styles.link}>
-          All goals
+          {t("dashboard.savings.allGoals")}
         </Link>
       </div>
     </div>

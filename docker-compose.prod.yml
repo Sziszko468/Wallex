@@ -1,4 +1,4 @@
-# Production-like Spendly stack: postgres + backend (gunicorn) + web (nginx).
+# Production-like WALLEX stack: postgres + backend (gunicorn) + web (nginx).
 #
 #   cp .env.prod.example .env.prod        # then fill in the secrets
 #   docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
@@ -6,7 +6,7 @@
 # Runs next to the development stack (docker-compose.yml) without sharing containers,
 # volumes or ports. Full guide: docs/deployment.md
 
-name: spendly-prod
+name: wallex-prod
 
 x-logging: &logging
   driver: json-file
@@ -19,7 +19,7 @@ x-backend: &backend
   build:
     context: ./backend
     target: prod
-  image: spendly-backend:${SPENDLY_IMAGE_TAG:-latest}
+  image: wallex-backend:${WALLEX_IMAGE_TAG:-latest}
   env_file: .env.prod
   logging: *logging
 
@@ -72,7 +72,7 @@ services:
       context: ./web
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
-    image: spendly-web:${SPENDLY_IMAGE_TAG:-latest}
+    image: wallex-web:${WALLEX_IMAGE_TAG:-latest}
     restart: unless-stopped
     environment:
       API_UPSTREAM: http://backend:8000

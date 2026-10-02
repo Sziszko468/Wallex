@@ -1,5 +1,7 @@
 import axios, { type InternalAxiosRequestConfig } from "axios";
 import { clearTokens, getAccessToken, setAccessToken } from "../utils/tokenStorage";
+import { HTTP_STATUS } from "../config/http";
+import { currentLanguage } from "../i18n";
 import { notifyLocalWrite } from "./localWrites";
 
 export const API_BASE_URL =
@@ -28,6 +30,18 @@ export function setOnAuthFailure(handler: AuthFailureHandler): void {
   onAuthFailure = handler;
 }
 
+/**
+ * The server answers in the interface language (validation messages, insights, notifications…).
+ * Also on the bare axios calls that skip `apiClient` (sign-in, registration, refresh).
+ */
+function addLanguageHeader(config: InternalAxiosRequestConfig): InternalAxiosRequestConfig {
+  config.headers.set("Accept-Language", currentLanguage());
+  return config;
+}
+
+axios.interceptors.request.use(addLanguageHeader);
+apiClient.interceptors.request.use(addLanguageHeader);
+
 apiClient.interceptors.request.use((config) => {
   const token = getAccessToken();
   if (token) {
@@ -36,7 +50,7 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-const REFRESH_LOCK = "spendly-token-refresh";
+const REFRESH_LOCK = "wallex-token-refresh";
 
 /**
  * All tabs of this browser share one refresh-token cookie, and a refresh token works only
@@ -87,7 +101,7 @@ apiClient.interceptors.response.use(
     const originalRequest = error.config as RetryableRequestConfig;
     const isRefreshCall = originalRequest.url?.includes("/auth/refresh/");
 
-    if (error.response?.status === 401 && !originalRequest._retry && !isRefreshCall) {
+    if (error.response?.status === HTTP_STATUS.UNAUTHORIZED && !originalRequest._retry && !isRefreshCall) {
       originalRequest._retry = true;
       try {
         const newAccessToken = await refreshSession();

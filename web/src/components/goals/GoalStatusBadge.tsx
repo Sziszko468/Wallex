@@ -1,5 +1,5 @@
 import type { SavingsGoalStatus } from "../../types/savingsGoal";
-import { GOAL_STATUS_LABELS } from "../../utils/savingsGoals";
+import { goalStatusLabel } from "../../utils/savingsGoals";
 import { Badge, type BadgeTone } from "../Badge";
 import type { IconName } from "../icons/iconPaths";
 
@@ -13,7 +13,7 @@ export function GoalStatusBadge({ status }: { status: SavingsGoalStatus }) {
   const style = STATUS_STYLE[status];
   return (
     <Badge tone={style.tone} icon={style.icon} variant={style.outline ? "outline" : "soft"}>
-      {GOAL_STATUS_LABELS[status]}
+      {goalStatusLabel(status)}
     </Badge>
   );
 }

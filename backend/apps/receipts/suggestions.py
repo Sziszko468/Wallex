@@ -19,7 +19,9 @@ class CategorySuggestion:
 
 def suggest_category(user, merchant: str | None, receipt_text: str) -> CategorySuggestion | None:
     """Best expense category for a scanned receipt, or None to let the user pick. At most 2 queries."""
-    categories = {category.id: category for category in Category.objects.filter(user=user, type=TransactionType.EXPENSE)}
+    categories = {
+        category.id: category for category in Category.objects.filter(user=user, type=TransactionType.EXPENSE)
+    }
     if not categories:
         return None
 

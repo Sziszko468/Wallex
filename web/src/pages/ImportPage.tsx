@@ -1,4 +1,6 @@
 import { useRef, useState, type ChangeEvent, type DragEvent } from "react";
+import { Trans, useTranslation } from "react-i18next";
+import { CSV_EXTENSION } from "../config/csvImport";
 import { importTransactionsCsv } from "../services/csvImportService";
 import { useBaseCurrency } from "../hooks/useBaseCurrency";
 import { usePageTitle } from "../hooks/usePageTitle";
@@ -15,7 +17,8 @@ import pageStyles from "../components/page.module.scss";
 import styles from "./ImportPage.module.scss";
 
 export function ImportPage() {
-  usePageTitle("Import");
+  const { t } = useTranslation();
+  usePageTitle(t("nav.items.import"));
   const baseCurrency = useBaseCurrency();
   const toast = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -40,8 +43,8 @@ export function ImportPage() {
     setIsDragging(false);
     const file = event.dataTransfer.files?.[0];
     if (!file) return;
-    if (!file.name.toLowerCase().endsWith(".csv")) {
-      setErrorMessage("That doesn't look like a CSV file. Choose a file ending in .csv.");
+    if (!file.name.toLowerCase().endsWith(CSV_EXTENSION)) {
+      setErrorMessage(t("importCsv.notCsv"));
       return;
     }
     selectFile(file);
@@ -55,7 +58,7 @@ export function ImportPage() {
     try {
       const result = await importTransactionsCsv(selectedFile);
       setSummary(result);
-      toast.success(`${result.imported} transaction${result.imported === 1 ? "" : "s"} imported`);
+      toast.success(t("importCsv.imported", { count: result.imported }));
       setSelectedFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (error) {
@@ -68,19 +71,14 @@ export function ImportPage() {
   return (
     <div className={pageStyles.page}>
       <PageHeader
-        title="Import transactions"
-        description="Bring in a CSV file from your bank or another app."
+        title={t("importCsv.title")}
+        description={t("importCsv.description")}
       />
 
       <Card padding="lg" className={styles.card}>
-        <h2 className={styles.cardTitle}>Upload a CSV file</h2>
+        <h2 className={styles.cardTitle}>{t("importCsv.uploadTitle")}</h2>
         <p className={styles.helpText}>
-          Expected columns: <code>date</code>, <code>description</code>, <code>amount</code>.
-          Dates as <code>YYYY-MM-DD</code> or <code>DD/MM/YYYY</code>. Amount is signed —
-          negative for expenses, positive for income (e.g. <code>-42.50</code>), in your base currency
-          ({baseCurrency}). Categories are
-          detected automatically from the description (e.g. "Albert Heijn" → Food, "Shell" →
-          Transport, "Netflix" → Entertainment); an unmatched expense falls back to "Other".
+          <Trans i18nKey="importCsv.help" values={{ currency: baseCurrency }} components={{ code: <code /> }} />
         </p>
 
         <ErrorBanner message={errorMessage} />
@@ -88,7 +86,7 @@ export function ImportPage() {
         <input
           ref={fileInputRef}
           type="file"
-          accept=".csv"
+          accept={CSV_EXTENSION}
           onChange={handleFileChange}
           className={styles.fileInput}
           id="csv-file-input"
@@ -106,8 +104,8 @@ export function ImportPage() {
           <span className={styles.dropIcon} aria-hidden="true">
             <Icon name={selectedFile ? "file" : "upload"} size={24} />
           </span>
-          <span className={styles.dropTitle}>{selectedFile ? selectedFile.name : "Choose CSV file"}</span>
-          <span className={styles.dropHint}>{selectedFile ? "Ready to import" : "or drag and drop it here"}</span>
+          <span className={styles.dropTitle}>{selectedFile ? selectedFile.name : t("importCsv.choose")}</span>
+          <span className={styles.dropHint}>{selectedFile ? t("importCsv.ready") : t("importCsv.dragHint")}</span>
         </label>
 
         <Button
@@ -118,13 +116,13 @@ export function ImportPage() {
           disabled={!selectedFile}
           className={styles.importButton}
         >
-          Import
+          {t("importCsv.submit")}
         </Button>
       </Card>
 
       {summary && (
         <Card padding="lg" className={styles.card}>
-          <h2 className={styles.cardTitle}>Import result</h2>
+          <h2 className={styles.cardTitle}>{t("importCsv.resultTitle")}</h2>
           <ImportResultSummary summary={summary} />
         </Card>
       )}

@@ -44,7 +44,11 @@ _TRANSACTION_VALIDATION = validation_error(
     ("Fractional forints", {"amount": ["HUF amounts can't have decimals."]}),
     (
         "No exchange rate",
-        {"exchange_rate": ["No HUF exchange rate is available for 2026-09-26. Enter the rate manually or try again later."]},
+        {
+            "exchange_rate": [
+                "No HUF exchange rate is available for 2026-09-26. Enter the rate manually or try again later."
+            ]
+        },
     ),
     ("Rate for the base currency", {"exchange_rate": ["Must be 1 when the currency is your base currency."]}),
     ("Missing fields", {"category": ["This field is required."], "date": ["This field is required."]}),
@@ -87,11 +91,14 @@ TRANSACTION_VIEWSET_SCHEMA = extend_schema_view(
         responses={
             200: OpenApiResponse(TransactionSerializer(many=True), description="One page of transactions."),
             400: validation_error(
-                ("Invalid filters", {
-                    "type": ["Select a valid choice. foo is not one of the available choices."],
-                    "category": ["Select a valid choice. That choice is not one of the available choices."],
-                    "date_from": ["Enter a valid date."],
-                }),
+                (
+                    "Invalid filters",
+                    {
+                        "type": ["Select a valid choice. foo is not one of the available choices."],
+                        "category": ["Select a valid choice. That choice is not one of the available choices."],
+                        "date_from": ["Enter a valid date."],
+                    },
+                ),
                 description="A filter value is invalid.",
             ),
             404: error_response("`page` is past the last page.", ("Past the end", {"detail": "Invalid page."})),
@@ -256,7 +263,11 @@ Imported expenses re-check the affected months' budgets (push notifications as u
                         "skipped": 1,
                         "failed": 2,
                         "details": [
-                            {"row": 4, "status": "failed", "reason": "Could not detect a category for 'Mystery income'."},
+                            {
+                                "row": 4,
+                                "status": "failed",
+                                "reason": "Could not detect a category for 'Mystery income'.",
+                            },
                             {"row": 5, "status": "failed", "reason": "Unrecognized amount 'abc'."},
                             {"row": 6, "status": "skipped", "reason": "Duplicate of an existing transaction."},
                         ],

@@ -1,3 +1,4 @@
+import { t } from "i18next";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/apiBaseUrl";
 import { AppError } from "../utils/appError";
@@ -5,6 +6,7 @@ import { expiresWithin } from "../utils/jwt";
 import * as tokenStorage from "../utils/tokenStorage";
 import type { AuthTokens } from "../types/auth";
 import { logWarning } from "../utils/logging";
+import { HTTP_STATUS } from "../config/http";
 
 /**
  * Owns the token lifecycle, independent of React:
@@ -25,14 +27,14 @@ const LOGOUT_TIMEOUT_MS = 5_000;
 /** The backend no longer accepts the stored refresh token; the user must sign in again. */
 export class SessionExpiredError extends AppError {
   constructor() {
-    super("Your session has expired. Please sign in again.");
+    super(t("errors.sessionExpired"));
   }
 }
 
 /** The session was ended locally (logout, lock) while a request was in flight. */
 export class SessionClosedError extends AppError {
   constructor() {
-    super("You have been signed out.");
+    super(t("errors.signedOut"));
   }
 }
 
@@ -106,7 +108,7 @@ async function performRefresh(): Promise<string> {
     // Anything else (offline, timeout, 5xx) is transient: keep the session so a
     // later attempt can still succeed, and let the caller show a network error.
     const status = axios.isAxiosError(error) ? error.response?.status : undefined;
-    if (status === 400 || status === 401) {
+    if (status === HTTP_STATUS.BAD_REQUEST || status === HTTP_STATUS.UNAUTHORIZED) {
       throw new SessionExpiredError();
     }
     throw error;

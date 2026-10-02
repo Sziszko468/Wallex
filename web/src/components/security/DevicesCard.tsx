@@ -1,9 +1,10 @@
 import { useCallback, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { useAsyncData } from "../../hooks/useAsyncData";
 import { useAuth } from "../../hooks/useAuth";
 import { listSessions, revokeSession } from "../../services/securityService";
-import type { ClientPlatform, Session } from "../../types/security";
+import type { Session } from "../../types/security";
 import { extractErrorMessage } from "../../utils/errors";
 import { formatDateTime } from "../../utils/format";
 import { Badge } from "../Badge";
@@ -16,15 +17,9 @@ import { ErrorState } from "../ErrorState";
 import { Skeleton } from "../Skeleton";
 import styles from "./SecurityCards.module.scss";
 
-const PLATFORM_LABELS: Record<ClientPlatform, string> = {
-  web: "Browser",
-  ios: "iPhone app",
-  android: "Android app",
-  unknown: "Other device",
-};
-
 /** Where the account is signed in, with "sign out" per device and everywhere. */
 export function DevicesCard() {
+  const { t } = useTranslation();
   const { logoutEverywhere } = useAuth();
   const navigate = useNavigate();
   const sessions = useAsyncData(useCallback(() => listSessions(), []));
@@ -56,8 +51,8 @@ export function DevicesCard() {
 
   return (
     <Card padding="lg" className={styles.card}>
-      <h2 className={styles.title}>Signed-in devices</h2>
-      <p className={styles.hint}>Sign out any device you don&apos;t recognise. Its access ends immediately.</p>
+      <h2 className={styles.title}>{t("security.devices.title")}</h2>
+      <p className={styles.hint}>{t("security.devices.hint")}</p>
       <ErrorBanner message={error} />
       {sessions.isLoading ? (
         <Skeleton height={64} />
@@ -71,17 +66,17 @@ export function DevicesCard() {
                 <Icon name={session.platform === "web" || session.platform === "unknown" ? "monitor" : "smartphone"} size={20} />
               </span>
               <div className={styles.rowText}>
-                <strong>{PLATFORM_LABELS[session.platform]}</strong>
-                {session.current && <Badge tone="primary" className={styles.badge}>This device</Badge>}
-                <div className={styles.meta}>{session.user_agent || "Unknown app"}</div>
+                <strong>{t(`security.devices.platforms.${session.platform}`)}</strong>
+                {session.current && <Badge tone="primary" className={styles.badge}>{t("security.devices.thisDevice")}</Badge>}
+                <div className={styles.meta}>{session.user_agent || t("security.devices.unknownApp")}</div>
                 <div className={styles.meta}>
-                  Signed in {formatDateTime(session.created_at)} · last active {formatDateTime(session.last_used_at)}
+                  {t("security.devices.activity", { signedIn: formatDateTime(session.created_at), lastActive: formatDateTime(session.last_used_at) })}
                   {session.ip_address ? ` · ${session.ip_address}` : ""}
                 </div>
               </div>
               {!session.current && (
-                <Button variant="secondary" onClick={() => void signOut(session)} aria-label={`Sign out ${PLATFORM_LABELS[session.platform]} signed in ${formatDateTime(session.created_at)}`}>
-                  Sign out
+                <Button variant="secondary" onClick={() => void signOut(session)} aria-label={t("security.devices.signOutLabel", { platform: t(`security.devices.platforms.${session.platform}`), signedIn: formatDateTime(session.created_at) })}>
+                  {t("security.devices.signOut")}
                 </Button>
               )}
             </li>
@@ -89,13 +84,13 @@ export function DevicesCard() {
         </ul>
       )}
       <Button variant="danger-quiet" leadingIcon="log-out" onClick={() => setIsConfirmingAll(true)}>
-        Log out of all devices
+        {t("security.devices.logOutAll")}
       </Button>
       <ConfirmDialog
         isOpen={isConfirmingAll}
-        title="Log out of all devices?"
-        message="Every browser and phone signed in to your account is signed out, this one included. You will need your password to sign in again."
-        confirmLabel="Log out everywhere"
+        title={t("security.devices.confirmTitle")}
+        message={t("security.devices.confirmMessage")}
+        confirmLabel={t("security.devices.confirmLabel")}
         isConfirming={isSigningOutAll}
         onConfirm={signOutEverywhere}
         onClose={() => setIsConfirmingAll(false)}

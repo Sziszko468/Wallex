@@ -19,6 +19,7 @@ from decimal import ROUND_HALF_UP, Decimal
 
 from django.db.models import Q
 
+from apps.categories.defaults import display_name
 from apps.currencies.rates import Converter
 from apps.transactions.recurrence import (
     monthly_equivalent,
@@ -133,7 +134,7 @@ def get_summary(user, today: date) -> dict:
             subscription.category_id,
             {
                 "category_id": subscription.category_id,
-                "category_name": subscription.category.name,
+                "category_name": display_name(subscription.category.name),
                 "monthly_total": ZERO,
                 "subscription_count": 0,
             },

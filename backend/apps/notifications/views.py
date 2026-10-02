@@ -20,9 +20,7 @@ from .serializers import DeviceSerializer, NotificationPreferenceSerializer, Not
 
 
 @DEVICE_VIEWSET_SCHEMA
-class DeviceViewSet(
-    mixins.ListModelMixin, mixins.DestroyModelMixin, viewsets.GenericViewSet
-):
+class DeviceViewSet(mixins.ListModelMixin, mixins.DestroyModelMixin, viewsets.GenericViewSet):
     """The signed-in user's push-capable devices.
 
     POST registers (or refreshes) the calling device and is idempotent on the

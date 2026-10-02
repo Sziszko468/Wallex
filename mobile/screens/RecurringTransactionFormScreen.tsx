@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
+import { useTranslation } from "react-i18next";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { listCategories } from "../services/categoriesService";
 import {
@@ -31,6 +32,7 @@ const SUCCESS_DISMISS_DELAY_MS = 550;
  * and editing an existing one (`/edit-recurring/[id]`) — mirrors
  * TransactionFormScreen's create/edit dual-mode pattern exactly. */
 export function RecurringTransactionFormScreen() {
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const itemId = id ? Number(id) : null;
   const isEditMode = itemId !== null;
@@ -85,28 +87,28 @@ export function RecurringTransactionFormScreen() {
 
   function validate(): FieldErrors {
     const errors: FieldErrors = {};
-    if (!name.trim()) errors.name = "Name is required.";
+    if (!name.trim()) errors.name = t("common.validation.nameRequired");
 
     const numericAmount = Number(amount);
     if (!amount.trim()) {
-      errors.amount = "Amount is required.";
+      errors.amount = t("common.validation.amountRequired");
     } else if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
-      errors.amount = "Amount must be greater than 0.";
+      errors.amount = t("common.validation.amountPositive");
     }
 
-    if (categoryId === null) errors.category = "Choose a category.";
+    if (categoryId === null) errors.category = t("common.validation.categoryRequired");
 
     if (!startDate.trim()) {
-      errors.start_date = "Start date is required.";
+      errors.start_date = t("recurring.form.startRequired");
     } else if (!isValidIsoDate(startDate)) {
-      errors.start_date = "Enter a valid date (YYYY-MM-DD).";
+      errors.start_date = t("common.validation.dateInvalid");
     }
 
     if (endDate.trim()) {
       if (!isValidIsoDate(endDate)) {
-        errors.end_date = "Enter a valid date (YYYY-MM-DD).";
+        errors.end_date = t("common.validation.dateInvalid");
       } else if (endDate < startDate) {
-        errors.end_date = "End date must be on or after the start date.";
+        errors.end_date = t("recurring.form.endBeforeStart");
       }
     }
 
@@ -157,8 +159,8 @@ export function RecurringTransactionFormScreen() {
         <ErrorBanner message={errorMessage} />
 
         <TextField
-          label="Name"
-          placeholder="e.g. Rent, Netflix, Spotify"
+          label={t("common.form.name")}
+          placeholder={t("recurring.form.namePlaceholder")}
           autoFocus={!isEditMode}
           value={name}
           onChangeText={setName}
@@ -168,7 +170,7 @@ export function RecurringTransactionFormScreen() {
         <TypeToggle value={type} onChange={handleTypeChange} />
 
         <TextField
-          label="Amount"
+          label={t("common.form.amount")}
           placeholder="0.00"
           keyboardType="decimal-pad"
           value={amount}
@@ -177,7 +179,7 @@ export function RecurringTransactionFormScreen() {
         />
 
         <View style={styles.field}>
-          <Text style={styles.label}>Category</Text>
+          <Text style={styles.label}>{t("common.form.category")}</Text>
           <SectionState
             isLoading={categories.isLoading}
             error={categories.error}
@@ -193,15 +195,15 @@ export function RecurringTransactionFormScreen() {
         </View>
 
         <View style={styles.field}>
-          <Text style={styles.label}>Frequency</Text>
+          <Text style={styles.label}>{t("recurring.form.frequency")}</Text>
           <FrequencyPicker value={frequency} onChange={setFrequency} />
         </View>
 
         <QuickDateField value={startDate} onChange={setStartDate} error={fieldErrors.start_date} />
 
         <TextField
-          label="End date (optional)"
-          placeholder="YYYY-MM-DD"
+          label={t("recurring.form.endDate")}
+          placeholder={t("common.form.datePlaceholder")}
           autoCapitalize="none"
           maxLength={10}
           value={endDate}
@@ -210,8 +212,8 @@ export function RecurringTransactionFormScreen() {
         />
 
         <TextField
-          label="Description (optional)"
-          placeholder="e.g. Apartment on Main St."
+          label={t("common.form.description")}
+          placeholder={t("recurring.form.descriptionPlaceholder")}
           value={description}
           onChangeText={setDescription}
         />
@@ -225,11 +227,11 @@ export function RecurringTransactionFormScreen() {
           <View style={[styles.checkbox, isActive && styles.checkboxChecked]}>
             {isActive && <Text style={styles.checkmark}>✓</Text>}
           </View>
-          <Text style={styles.toggleLabel}>Active</Text>
+          <Text style={styles.toggleLabel}>{t("recurring.form.active")}</Text>
         </Pressable>
 
         <Button
-          title={justSaved ? "Saved ✓" : isEditMode ? "Save changes" : "Save"}
+          title={justSaved ? t("common.saved") : isEditMode ? t("common.actions.saveChanges") : t("common.actions.save")}
           variant={justSaved ? "success" : "primary"}
           size="large"
           onPress={handleSave}

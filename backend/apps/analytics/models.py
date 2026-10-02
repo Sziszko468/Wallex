@@ -100,9 +100,7 @@ class UserAchievement(models.Model):
 class AssistantConversation(models.Model):
     """A chat with the finance assistant. Shared by every device of the user (web, iOS, Android)."""
 
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="assistant_conversations"
-    )
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="assistant_conversations")
     # The first question, shortened — what the history list shows.
     title = models.CharField(max_length=120)
     created_at = models.DateTimeField(auto_now_add=True)

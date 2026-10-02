@@ -2,6 +2,8 @@ from calendar import monthrange
 from datetime import date, timedelta
 from decimal import Decimal
 
+from apps.common.constants import DAYS_PER_WEEK, MONTHS_PER_YEAR
+
 from .models import Frequency, RecurringTransaction
 
 # How many times each frequency occurs per month / per year on average (weekly = 52 / 12).
@@ -29,7 +31,7 @@ def yearly_equivalent(amount: Decimal, frequency: str) -> Decimal:
 
 def _add_months(start: date, months: int) -> date:
     """start + N months, clamped to the target month's length (Jan 31 + 1 month = Feb 28/29)."""
-    years, month_index = divmod(start.month - 1 + months, 12)
+    years, month_index = divmod(start.month - 1 + months, MONTHS_PER_YEAR)
     year = start.year + years
     month = month_index + 1
     return date(year, month, min(start.day, monthrange(year, month)[1]))
@@ -46,11 +48,11 @@ def next_occurrence_on_or_after(recurring: RecurringTransaction, day: date) -> d
     if day <= start:
         candidate = start
     elif recurring.frequency == Frequency.WEEKLY:
-        weeks = -(-(day - start).days // 7)  # ceiling division
+        weeks = -(-(day - start).days // DAYS_PER_WEEK)  # ceiling division
         candidate = start + timedelta(weeks=weeks)
     else:
-        step = 12 if recurring.frequency == Frequency.YEARLY else 1
-        elapsed_months = (day.year - start.year) * 12 + (day.month - start.month)
+        step = MONTHS_PER_YEAR if recurring.frequency == Frequency.YEARLY else 1
+        elapsed_months = (day.year - start.year) * MONTHS_PER_YEAR + (day.month - start.month)
         periods = elapsed_months // step
         candidate = _add_months(start, periods * step)
         if candidate < day:
@@ -61,7 +63,9 @@ def next_occurrence_on_or_after(recurring: RecurringTransaction, day: date) -> d
     return candidate
 
 
-def occurrences_from(recurring: RecurringTransaction, day: date, *, until: date | None = None, limit: int) -> list[date]:
+def occurrences_from(
+    recurring: RecurringTransaction, day: date, *, until: date | None = None, limit: int
+) -> list[date]:
     """Up to `limit` scheduled dates on or after `day` (and on or before `until`, when given)."""
     dates: list[date] = []
     occurrence = next_occurrence_on_or_after(recurring, day)

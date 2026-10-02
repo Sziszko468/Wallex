@@ -53,16 +53,10 @@ class BudgetQuerySet(models.QuerySet):
 
 
 class Budget(models.Model):
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="budgets"
-    )
-    category = models.ForeignKey(
-        Category, on_delete=models.CASCADE, related_name="budgets", null=True, blank=True
-    )
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="budgets")
+    category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name="budgets", null=True, blank=True)
     # In the user's base currency (converted when the base currency changes).
-    amount = models.DecimalField(
-        max_digits=12, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))]
-    )
+    amount = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))])
     year = models.PositiveIntegerField(validators=[MinValueValidator(2000), MaxValueValidator(2100)])
     month = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(12)])
     created_at = models.DateTimeField(auto_now_add=True)
@@ -119,9 +113,7 @@ class SavingsGoal(models.Model):
     Moving money into a goal is not an expense: goals don't touch transactions or budgets.
     """
 
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="savings_goals"
-    )
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="savings_goals")
     name = models.CharField(max_length=100)
     target_amount = models.DecimalField(
         max_digits=12, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))]
@@ -141,9 +133,7 @@ class SavingsGoal(models.Model):
         ordering = ["target_date", "name", "id"]
         constraints = [
             models.CheckConstraint(condition=models.Q(target_amount__gt=0), name="savings_goal_target_positive"),
-            models.CheckConstraint(
-                condition=models.Q(current_amount__gte=0), name="savings_goal_current_not_negative"
-            ),
+            models.CheckConstraint(condition=models.Q(current_amount__gte=0), name="savings_goal_current_not_negative"),
         ]
         indexes = [models.Index(fields=["user", "status"], name="savings_goal_user_status_idx")]
 

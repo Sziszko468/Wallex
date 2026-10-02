@@ -9,14 +9,15 @@ runs (the monthly rent of 600.00 EUR, a 15.49 USD subscription). Everything else
 is variable.
 """
 
-import calendar
 from collections import Counter
 from datetime import date, timedelta
 
 from django.db.models import Count, Exists, OuterRef, Q, Sum, Value
 from django.db.models.functions import Coalesce, ExtractIsoWeekDay
+from django.utils.dates import WEEKDAYS
 
 from apps.categories.models import TransactionType
+from apps.common.constants import DAYS_PER_WEEK
 from apps.transactions.models import RecurringTransaction, Transaction
 
 from .services import MONEY_OUTPUT, ZERO, get_recurring_monthly_expenses, month_date_range, to_cents
@@ -62,12 +63,12 @@ def get_spending_patterns(user, year: int, month: int, today: date) -> dict:
 
     occurrences = Counter(day.isoweekday() for day in days)
     weekdays = []
-    for weekday in range(1, 8):
+    for weekday in range(1, DAYS_PER_WEEK + 1):
         row = by_weekday.get(weekday, {"total": ZERO, "transaction_count": 0})
         weekdays.append(
             {
                 "weekday": weekday,
-                "name": calendar.day_name[weekday - 1],
+                "name": str(WEEKDAYS[weekday - 1]),
                 "total": row["total"],
                 "transaction_count": row["transaction_count"],
                 "days": occurrences[weekday],

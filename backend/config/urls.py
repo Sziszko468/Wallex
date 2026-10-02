@@ -19,9 +19,7 @@ router.register("categories", CategoryViewSet, basename="category")
 router.register("transactions", TransactionViewSet, basename="transaction")
 router.register("budgets", BudgetViewSet, basename="budget")
 router.register("savings-goals", SavingsGoalViewSet, basename="savingsgoal")
-router.register(
-    "recurring-transactions", RecurringTransactionViewSet, basename="recurringtransaction"
-)
+router.register("recurring-transactions", RecurringTransactionViewSet, basename="recurringtransaction")
 router.register("subscriptions", SubscriptionViewSet, basename="subscription")
 router.register("devices", DeviceViewSet, basename="device")
 router.register("notifications", NotificationViewSet, basename="notification")

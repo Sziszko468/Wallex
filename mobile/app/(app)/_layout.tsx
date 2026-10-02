@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { View } from "react-native";
 import { Stack } from "expo-router";
+import { useTranslation } from "react-i18next";
 import { SafeAreaInsetsContext, useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors } from "../../utils/theme";
 import { usePushNotifications } from "../../hooks/usePushNotifications";
@@ -31,6 +32,7 @@ export default function AppLayout() {
 }
 
 function AppStack() {
+  const { t } = useTranslation();
   return (
     <Stack>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -38,7 +40,7 @@ function AppStack() {
         name="add-transaction"
         options={{
           presentation: "modal",
-          title: "Add transaction",
+          title: t("screens.addTransaction"),
           headerStyle: { backgroundColor: colors.surface },
         }}
       />
@@ -46,14 +48,14 @@ function AppStack() {
         name="edit-transaction/[id]"
         options={{
           presentation: "modal",
-          title: "Edit transaction",
+          title: t("screens.editTransaction"),
           headerStyle: { backgroundColor: colors.surface },
         }}
       />
       <Stack.Screen
         name="transaction/[id]"
         options={{
-          title: "Transaction details",
+          title: t("screens.transactionDetails"),
           headerStyle: { backgroundColor: colors.surface },
         }}
       />
@@ -61,7 +63,7 @@ function AppStack() {
         name="add-recurring"
         options={{
           presentation: "modal",
-          title: "Add recurring transaction",
+          title: t("screens.addRecurring"),
           headerStyle: { backgroundColor: colors.surface },
         }}
       />
@@ -69,14 +71,14 @@ function AppStack() {
         name="scan-receipt"
         options={{
           presentation: "modal",
-          title: "Scan receipt",
+          title: t("screens.scanReceipt"),
           headerStyle: { backgroundColor: colors.surface },
         }}
       />
       <Stack.Screen
         name="notification-settings"
         options={{
-          title: "Notifications",
+          title: t("screens.notifications"),
           headerStyle: { backgroundColor: colors.surface },
         }}
       />
@@ -84,7 +86,7 @@ function AppStack() {
         name="edit-recurring/[id]"
         options={{
           presentation: "modal",
-          title: "Edit recurring transaction",
+          title: t("screens.editRecurring"),
           headerStyle: { backgroundColor: colors.surface },
         }}
       />

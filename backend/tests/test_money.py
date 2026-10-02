@@ -14,16 +14,45 @@ from apps.subscriptions.models import Subscription
 from apps.transactions.models import Frequency, Transaction
 
 MONEY_KEYS = {
-    "amount", "total_income", "total_expenses", "balance", "income", "expenses",
-    "budget_amount", "spent_amount", "remaining_amount", "base_amount",
+    "amount",
+    "total_income",
+    "total_expenses",
+    "balance",
+    "income",
+    "expenses",
+    "budget_amount",
+    "spent_amount",
+    "remaining_amount",
+    "base_amount",
     "exchange_rate",  # not money, but a decimal that must never become a float either
-    "total", "average", "previous_total", "average_monthly_expenses", "average_daily_spending",
-    "average_per_day", "fixed_expenses", "variable_expenses", "recurring_commitments", "expected_to_date",
-    "current_amount", "previous_amount", "change_amount",
-    "monthly_cost", "yearly_cost", "base_monthly_cost", "base_yearly_cost", "monthly_total", "yearly_total",
-    "due_this_month", "target_amount", "current_amount", "remaining_amount", "monthly_needed",
-    "base_current_amount", "base_target_amount", "total_saved", "total_target",
-    "progress", "target",  # achievements: money progress (and, for consistency, every other kind) as strings
+    "total",
+    "average",
+    "previous_total",
+    "average_monthly_expenses",
+    "average_daily_spending",
+    "average_per_day",
+    "fixed_expenses",
+    "variable_expenses",
+    "recurring_commitments",
+    "expected_to_date",
+    "current_amount",
+    "previous_amount",
+    "change_amount",
+    "monthly_cost",
+    "yearly_cost",
+    "base_monthly_cost",
+    "base_yearly_cost",
+    "monthly_total",
+    "yearly_total",
+    "due_this_month",
+    "target_amount",
+    "monthly_needed",
+    "base_current_amount",
+    "base_target_amount",
+    "total_saved",
+    "total_target",
+    "progress",
+    "target",  # achievements: money progress (and, for consistency, every other kind) as strings
 }
 
 
@@ -133,15 +162,29 @@ def test_money_is_always_serialized_as_a_decimal_string(auth_client, user, food,
         user=user, category=salary, type=TransactionType.INCOME, amount=Decimal("1000.00"), date=date(2026, 9, 1)
     )
     Transaction.objects.create(
-        user=user, category=food, type=TransactionType.EXPENSE, amount=Decimal("15000"),
-        currency="HUF", exchange_rate=Decimal("0.0025650891"), date=date(2026, 9, 4), description="Spar",
+        user=user,
+        category=food,
+        type=TransactionType.EXPENSE,
+        amount=Decimal("15000"),
+        currency="HUF",
+        exchange_rate=Decimal("0.0025650891"),
+        date=date(2026, 9, 4),
+        description="Spar",
     )
     Subscription.objects.create(
-        user=user, category=food, name="Meal kit", amount=Decimal("10.00"), frequency=Frequency.WEEKLY,
-        start_date=date(2026, 9, 1), next_occurrence_date=date(2026, 9, 1),
+        user=user,
+        category=food,
+        name="Meal kit",
+        amount=Decimal("10.00"),
+        frequency=Frequency.WEEKLY,
+        start_date=date(2026, 9, 1),
+        next_occurrence_date=date(2026, 9, 1),
     )
     SavingsGoal.objects.create(
-        user=user, name="Japan trip", target_amount=Decimal("3000.00"), current_amount=Decimal("1850.10"),
+        user=user,
+        name="Japan trip",
+        target_amount=Decimal("3000.00"),
+        current_amount=Decimal("1850.10"),
         target_date=date(2099, 1, 1),
     )
     month = {"year": 2026, "month": 9}

@@ -11,6 +11,7 @@ import { refreshSession, setOnAuthFailure } from "../services/apiClient";
 import { clearTokens, removeLegacyTokens, setAccessToken } from "../utils/tokenStorage";
 import type { LoginPayload, RegisterPayload, User } from "../types/auth";
 import type { CurrencyCode } from "../types/currency";
+import type { Language } from "../i18n/languages";
 
 /** The password was checked: either signed in, or a two-factor code is needed. */
 export type LoginOutcome = { status: "signedIn" } | { status: "mfaRequired"; mfaToken: string };
@@ -28,6 +29,8 @@ interface AuthContextValue {
   logoutEverywhere: () => Promise<number>;
   /** Converts the user's data on the server, then updates `user`. */
   changeBaseCurrency: (currency: CurrencyCode) => Promise<void>;
+  /** Saves the interface language to the account (see hooks/useLanguage). */
+  changeLanguage: (language: Language) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -113,6 +116,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(await authService.updateCurrentUser({ base_currency: currency }));
   }, []);
 
+  const changeLanguage = useCallback(async (language: Language) => {
+    setUser(await authService.updateCurrentUser({ language }));
+  }, []);
+
   const value: AuthContextValue = {
     user,
     isAuthenticated: user !== null,
@@ -123,6 +130,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logout,
     logoutEverywhere,
     changeBaseCurrency,
+    changeLanguage,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

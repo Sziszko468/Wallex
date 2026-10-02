@@ -1,5 +1,6 @@
 /** Signing in with two-factor authentication: password first, then the authenticator code. */
 import { render, screen, userEvent } from "@testing-library/react-native";
+import { LanguageProvider } from "../../hooks/useLanguage";
 import { LoginScreen } from "../../screens/LoginScreen";
 
 const mockLogin = jest.fn();
@@ -19,7 +20,11 @@ function httpError(status: number, data: unknown) {
 
 async function submitPassword() {
   const user = userEvent.setup();
-  await render(<LoginScreen />);
+  await render(
+    <LanguageProvider>
+      <LoginScreen />
+    </LanguageProvider>
+  );
   await user.type(screen.getByLabelText("Email"), "anna@example.com");
   await user.type(screen.getByLabelText("Password"), "correct horse battery");
   await user.press(screen.getByRole("button", { name: "Log in" }));

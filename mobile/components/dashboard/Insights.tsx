@@ -1,21 +1,9 @@
 import { StyleSheet, Text, View } from "react-native";
-import type { Insight, InsightSeverity, InsightType } from "../../types/dashboard";
+import { useTranslation } from "react-i18next";
+import type { Insight, InsightSeverity } from "../../types/dashboard";
 import { formatCurrency } from "../../utils/format";
 import { useBaseCurrency } from "../../hooks/useBaseCurrency";
 import { colors, fontSize, radius, spacing } from "../../utils/theme";
-
-// What the backend-computed `amount` means for each insight type — a label only,
-// the value itself is displayed exactly as received.
-const AMOUNT_LABELS: Record<InsightType, string> = {
-  top_category: "spent",
-  category_increase: "more",
-  category_decrease: "less",
-  budget_exceeded: "over budget",
-  budget_warning: "left",
-  recurring_share: "recurring per month",
-  overspending: "more than earned",
-  savings: "saved",
-};
 
 const SEVERITY_STYLES: Record<InsightSeverity, { color: string; icon: string }> = {
   alert: { color: colors.danger, icon: "!" },
@@ -29,9 +17,10 @@ interface InsightsProps {
 }
 
 export function Insights({ insights }: InsightsProps) {
+  const { t } = useTranslation();
   const baseCurrency = useBaseCurrency();
   if (insights.length === 0) {
-    return <Text style={styles.empty}>No insights for this month yet.</Text>;
+    return <Text style={styles.empty}>{t("dashboard.insights.empty")}</Text>;
   }
 
   return (
@@ -51,7 +40,8 @@ export function Insights({ insights }: InsightsProps) {
               <Text style={styles.message}>{insight.message}</Text>
               {insight.amount !== null && (
                 <Text style={styles.detail}>
-                  {formatCurrency(insight.amount, baseCurrency)} {AMOUNT_LABELS[insight.type]}
+                  {/* What the amount means depends on the insight type; the value is shown as received. */}
+                  {t(`dashboard.insights.amount.${insight.type}`, { amount: formatCurrency(insight.amount, baseCurrency) })}
                 </Text>
               )}
             </View>

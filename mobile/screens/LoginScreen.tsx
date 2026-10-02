@@ -1,22 +1,20 @@
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Link } from "expo-router";
-import { useAuth, type SignOutReason } from "../hooks/useAuth";
+import { useTranslation } from "react-i18next";
+import { APP_NAME } from "../config/app";
+import { MFA_CODE_LENGTH } from "../config/security";
+import { useAuth } from "../hooks/useAuth";
 import { extractErrorMessage } from "../utils/errors";
 import { Button } from "../components/Button";
+import { LanguageSelector } from "../components/LanguageSelector";
 import { TextField } from "../components/TextField";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { Screen } from "../components/Screen";
 import { colors, fontSize, spacing } from "../utils/theme";
 
-const SIGN_OUT_NOTICES: Record<SignOutReason, string> = {
-  expired: "Your session has expired. Please sign in again.",
-  biometricsUnavailable:
-    "Biometric unlock is no longer available on this device, so you were signed out for your security. Please sign in again.",
-  storageError: "We couldn't read your saved session. Please sign in again.",
-};
-
 export function LoginScreen() {
+  const { t } = useTranslation();
   const { login, verifyMfa, signOutReason } = useAuth();
 
   const [email, setEmail] = useState("");
@@ -58,14 +56,12 @@ export function LoginScreen() {
   if (mfaToken) {
     return (
       <Screen scroll>
-        <Text style={styles.brand}>Spendly</Text>
-        <Text style={styles.heading}>Two-factor authentication</Text>
-        <Text style={styles.hint}>
-          Enter the 6-digit code from your authenticator app, or one of your recovery codes.
-        </Text>
+        <Text style={styles.brand}>{APP_NAME}</Text>
+        <Text style={styles.heading}>{t("auth.mfa.title")}</Text>
+        <Text style={styles.hint}>{t("auth.mfa.subtitle", { digits: MFA_CODE_LENGTH })}</Text>
         <ErrorBanner message={errorMessage} />
         <TextField
-          label="Authentication code"
+          label={t("auth.mfa.code")}
           keyboardType="number-pad"
           textContentType="oneTimeCode"
           autoComplete="one-time-code"
@@ -73,9 +69,9 @@ export function LoginScreen() {
           value={code}
           onChangeText={setCode}
         />
-        <Button title="Verify" onPress={handleCode} isLoading={isSubmitting} />
+        <Button title={t("auth.mfa.verify")} onPress={handleCode} isLoading={isSubmitting} />
         <Button
-          title="Use a different account"
+          title={t("auth.mfa.differentAccount")}
           variant="secondary"
           onPress={() => {
             setMfaToken(null);
@@ -89,12 +85,12 @@ export function LoginScreen() {
 
   return (
     <Screen scroll>
-      <Text style={styles.brand}>Spendly</Text>
-      <Text style={styles.heading}>Log in</Text>
-      <ErrorBanner message={errorMessage ?? (signOutReason ? SIGN_OUT_NOTICES[signOutReason] : null)} />
+      <Text style={styles.brand}>{APP_NAME}</Text>
+      <Text style={styles.heading}>{t("auth.login.title")}</Text>
+      <ErrorBanner message={errorMessage ?? (signOutReason ? t(`auth.notices.${signOutReason}`) : null)} />
 
       <TextField
-        label="Email"
+        label={t("auth.fields.email")}
         keyboardType="email-address"
         textContentType="emailAddress"
         autoComplete="email"
@@ -102,20 +98,24 @@ export function LoginScreen() {
         onChangeText={setEmail}
       />
       <TextField
-        label="Password"
+        label={t("auth.fields.password")}
         secureTextEntry
         textContentType="password"
         autoComplete="password"
         value={password}
         onChangeText={setPassword}
       />
-      <Button title="Log in" onPress={handleSubmit} isLoading={isSubmitting} />
+      <Button title={t("auth.login.submit")} onPress={handleSubmit} isLoading={isSubmitting} />
 
       <View style={styles.footer}>
-        <Text style={styles.footerText}>Don&apos;t have an account? </Text>
+        <Text style={styles.footerText}>{t("auth.login.noAccount")} </Text>
         <Link href="/register" style={styles.link}>
-          Register
+          {t("auth.login.registerLink")}
         </Link>
+      </View>
+
+      <View style={styles.language}>
+        <LanguageSelector />
       </View>
     </Screen>
   );
@@ -148,6 +148,9 @@ const styles = StyleSheet.create({
   footerText: {
     color: colors.textMuted,
     fontSize: fontSize.sm,
+  },
+  language: {
+    marginTop: spacing.lg,
   },
   link: {
     color: colors.primary,

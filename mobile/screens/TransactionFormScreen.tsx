@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
+import { useTranslation } from "react-i18next";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { useBaseCurrency } from "../hooks/useBaseCurrency";
 import { useCreateTransaction } from "../hooks/useCreateTransaction";
@@ -38,6 +39,7 @@ const SUCCESS_DISMISS_DELAY_MS = 550;
  * a different initial fetch and a PATCH instead of a POST on submit.
  */
 export function TransactionFormScreen() {
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const transactionId = id ? Number(id) : null;
   const isEditMode = transactionId !== null;
@@ -102,21 +104,21 @@ export function TransactionFormScreen() {
     const numericAmount = Number(amount);
 
     if (!amount.trim()) {
-      errors.amount = "Amount is required.";
+      errors.amount = t("common.validation.amountRequired");
     } else if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
-      errors.amount = "Amount must be greater than 0.";
+      errors.amount = t("common.validation.amountPositive");
     } else if (!hasValidPrecision(amount, currency)) {
-      errors.amount = `${currency} amounts can't have decimals.`;
+      errors.amount = t("common.validation.noDecimals", { currency });
     }
 
     if (categoryId === null) {
-      errors.category = "Choose a category.";
+      errors.category = t("common.validation.categoryRequired");
     }
 
     if (!date.trim()) {
-      errors.date = "Date is required.";
+      errors.date = t("common.validation.dateRequired");
     } else if (!isValidIsoDate(date)) {
-      errors.date = "Enter a valid date (YYYY-MM-DD).";
+      errors.date = t("common.validation.dateInvalid");
     }
 
     return errors;
@@ -131,7 +133,7 @@ export function TransactionFormScreen() {
     // Only new transactions can be recorded offline; changing an existing one
     // needs the server (it may have changed there meanwhile).
     if (isEditMode && isOffline) {
-      setErrorMessage("You're offline. Editing needs a connection — try again once you're back online.");
+      setErrorMessage(t("transactions.form.offlineEdit"));
       return;
     }
 
@@ -162,13 +164,11 @@ export function TransactionFormScreen() {
         // Changed on another device since the form was opened: show what is there now.
         fillFrom(latest);
         setFieldErrors({});
-        setErrorMessage(
-          "This transaction was just changed on another device. Its latest version is shown — make your change again and save."
-        );
+        setErrorMessage(t("transactions.form.conflict"));
         return;
       }
       if (isEditMode && isNotFound(error)) {
-        setErrorMessage("This transaction no longer exists — it was deleted on another device.");
+        setErrorMessage(t("transactions.form.gone"));
         return;
       }
       setFieldErrors((previous) => ({ ...previous, ...extractFieldErrors(error) }));
@@ -188,7 +188,7 @@ export function TransactionFormScreen() {
         {!isEditMode && (
           <View style={styles.scanLink}>
             <Button
-              title="📷  Scan a receipt instead"
+              title={t("transactions.form.scanInstead")}
               variant="secondary"
               onPress={() => router.replace("/scan-receipt")}
             />
@@ -198,7 +198,7 @@ export function TransactionFormScreen() {
         <TypeToggle value={type} onChange={handleTypeChange} />
 
         <TextField
-          label={`Amount (${currency})`}
+          label={t("common.form.amountIn", { currency })}
           placeholder="0.00"
           keyboardType="decimal-pad"
           autoFocus={!isEditMode}
@@ -208,7 +208,7 @@ export function TransactionFormScreen() {
         />
 
         <View style={styles.field}>
-          <Text style={styles.label}>Category</Text>
+          <Text style={styles.label}>{t("common.form.category")}</Text>
           <SectionState
             isLoading={categories.isLoading}
             error={categories.error}
@@ -224,8 +224,8 @@ export function TransactionFormScreen() {
         </View>
 
         <TextField
-          label="Description (optional)"
-          placeholder="e.g. Groceries"
+          label={t("common.form.description")}
+          placeholder={t("common.form.descriptionPlaceholder")}
           value={description}
           onChangeText={setDescription}
         />
@@ -236,13 +236,13 @@ export function TransactionFormScreen() {
           title={
             justSaved
               ? savedOffline
-                ? "Saved offline — will sync ✓"
-                : "Saved ✓"
+                ? t("common.savedOffline")
+                : t("common.saved")
               : isEditMode
-                ? "Save changes"
+                ? t("common.actions.saveChanges")
                 : isOffline
-                  ? "Save offline"
-                  : "Save"
+                  ? t("common.saveOffline")
+                  : t("common.actions.save")
           }
           variant={justSaved ? "success" : "primary"}
           size="large"

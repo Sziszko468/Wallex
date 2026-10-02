@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { listTransactions, deleteTransaction } from "../services/transactionsService";
 import { listCategories } from "../services/categoriesService";
 import { useAsyncData } from "../hooks/useAsyncData";
@@ -27,6 +28,9 @@ import { extractErrorMessage, isConflict, isNotFound } from "../utils/errors";
 import styles from "../components/page.module.scss";
 
 const PAGE_SIZE = 20;
+const SEARCH_DEBOUNCE_MS = 400;
+const LOADING_ROWS = 6;
+const LOADING_ROW_HEIGHT = 64;
 
 interface FormModalState {
   isOpen: boolean;
@@ -34,7 +38,8 @@ interface FormModalState {
 }
 
 export function TransactionsPage() {
-  usePageTitle("Transactions");
+  const { t } = useTranslation();
+  usePageTitle(t("transactions.title"));
   const toast = useToast();
   const [filters, setFilters] = useState<TransactionFiltersValue>(emptyTransactionFilters);
   const [ordering, setOrdering] = useState("-date");
@@ -47,7 +52,7 @@ export function TransactionsPage() {
   // Deleted optimistically: hidden at once, shown again only if the server refuses.
   const [removedIds, setRemovedIds] = useState<ReadonlySet<number>>(() => new Set());
 
-  const debouncedSearch = useDebouncedValue(filters.search, 400);
+  const debouncedSearch = useDebouncedValue(filters.search, SEARCH_DEBOUNCE_MS);
 
   // Any change to what's being asked for should start back at page 1 —
   // otherwise a stricter filter can land the user on a now-nonexistent page.
@@ -102,7 +107,7 @@ export function TransactionsPage() {
   }
 
   function handleSaved() {
-    toast.success(formModal.transaction ? "Changes saved" : "Transaction added");
+    toast.success(formModal.transaction ? t("transactions.toast.saved") : t("transactions.toast.added"));
     closeFormModal();
     // Not optimistic: the server computes base_amount and the exchange rate. Reload in the
     // background so the list stays on screen.
@@ -132,16 +137,12 @@ export function TransactionsPage() {
     setRemoved(target.id, true);
     try {
       await deleteTransaction(target.id, target.updated_at);
-      toast.success("Transaction deleted");
+      toast.success(t("transactions.toast.deleted"));
     } catch (error) {
       if (!isNotFound(error)) {
         // Refused: bring the row back. (404 = already deleted on another device: done anyway.)
         setRemoved(target.id, false);
-        setDeleteError(
-          isConflict(error)
-            ? "This transaction was just changed on another device, so it wasn't deleted. Check the latest version and try again."
-            : extractErrorMessage(error)
-        );
+        setDeleteError(isConflict(error) ? t("transactions.delete.conflict") : extractErrorMessage(error));
       }
     }
     // Ids are never reused, so a deleted row can stay in removedIds after the reload.
@@ -155,33 +156,33 @@ export function TransactionsPage() {
   const isChronological = ordering === "-date" || ordering === "date";
 
   const deleteTargetLabel = deleteTarget
-    ? deleteTarget.description || categoriesById.get(deleteTarget.category)?.name || "this transaction"
+    ? deleteTarget.description || categoriesById.get(deleteTarget.category)?.name || t("transactions.thisTransaction")
     : "";
 
   function renderResults() {
-    if (transactions.isLoading) return <SkeletonRows count={6} rowHeight={64} />;
+    if (transactions.isLoading) return <SkeletonRows count={LOADING_ROWS} rowHeight={LOADING_ROW_HEIGHT} />;
     if (transactions.error) return <ErrorState error={transactions.error} onRetry={transactions.refetch} />;
 
     if (visibleTransactions.length === 0 && page === 1) {
       return hasActiveFilters ? (
         <EmptyState
           icon="search"
-          title="No transactions match your filters"
-          message="Try a different search, or clear the filters to see everything."
+          title={t("transactions.empty.filteredTitle")}
+          message={t("transactions.empty.filteredMessage")}
           action={
             <Button variant="secondary" onClick={() => setFilters(emptyTransactionFilters)}>
-              Clear filters
+              {t("transactions.filters.clear")}
             </Button>
           }
         />
       ) : (
         <EmptyState
           icon="receipt"
-          title="No transactions yet"
-          message="Add your first transaction to start understanding your spending."
+          title={t("transactions.empty.title")}
+          message={t("transactions.empty.message")}
           action={
             <Button leadingIcon="plus" onClick={openCreateModal}>
-              Add transaction
+              {t("transactions.add")}
             </Button>
           }
         />
@@ -211,11 +212,11 @@ export function TransactionsPage() {
   return (
     <div className={styles.page}>
       <PageHeader
-        title="Transactions"
-        description="Everything you've earned and spent."
+        title={t("transactions.title")}
+        description={t("transactions.description")}
         actions={
           <Button type="button" leadingIcon="plus" onClick={openCreateModal}>
-            Add transaction
+            {t("transactions.add")}
           </Button>
         }
       />
@@ -250,9 +251,9 @@ export function TransactionsPage() {
 
       <ConfirmDialog
         isOpen={deleteTarget !== null}
-        title="Delete transaction"
-        message={`Delete "${deleteTargetLabel}"? This can't be undone.`}
-        confirmLabel="Delete"
+        title={t("transactions.delete.title")}
+        message={t("common.confirm.deleteMessage", { name: deleteTargetLabel })}
+        confirmLabel={t("common.actions.delete")}
         onConfirm={confirmDelete}
         onClose={() => setDeleteTarget(null)}
       />

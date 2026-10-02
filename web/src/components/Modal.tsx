@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, type MouseEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import { useFocusTrap } from "../hooks/useFocusTrap";
 import { IconButton } from "./IconButton";
 import styles from "./Modal.module.scss";
@@ -40,6 +41,7 @@ function unlockPage() {
 }
 
 export function Modal({ isOpen, onClose, title, description, children, size = "md", placement = "center" }: ModalProps) {
+  const { t } = useTranslation();
   const titleId = useId();
   const descriptionId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -95,7 +97,7 @@ export function Modal({ isOpen, onClose, title, description, children, size = "m
               </p>
             )}
           </div>
-          <IconButton icon="x" label="Close" size="sm" onClick={onClose} />
+          <IconButton icon="x" label={t("common.actions.close")} size="sm" onClick={onClose} />
         </header>
         <div className={styles.body}>{children}</div>
       </div>

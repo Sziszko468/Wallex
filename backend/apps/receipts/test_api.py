@@ -70,8 +70,12 @@ def test_nothing_recognized_returns_empty_fields_for_manual_entry(auth_client, f
 def test_category_from_the_users_history_beats_rules(auth_client, user, food, fake_ocr, receipt_image):
     household = Category.objects.create(user=user, name="Household", type=TransactionType.EXPENSE)
     Transaction.objects.create(
-        user=user, category=household, type=TransactionType.EXPENSE,
-        amount=Decimal("10.00"), date=date(2026, 9, 1), description="tesco global zrt",
+        user=user,
+        category=household,
+        type=TransactionType.EXPENSE,
+        amount=Decimal("10.00"),
+        date=date(2026, 9, 1),
+        description="tesco global zrt",
     )
     fake_ocr.text = RECEIPT_TEXT
 
@@ -84,8 +88,12 @@ def test_category_from_the_users_history_beats_rules(auth_client, user, food, fa
 def test_other_users_history_is_not_used(auth_client, other_user, food, fake_ocr, receipt_image):
     theirs = Category.objects.create(user=other_user, name="Groceries", type=TransactionType.EXPENSE)
     Transaction.objects.create(
-        user=other_user, category=theirs, type=TransactionType.EXPENSE,
-        amount=Decimal("10.00"), date=date(2026, 9, 1), description="TESCO Global Zrt",
+        user=other_user,
+        category=theirs,
+        type=TransactionType.EXPENSE,
+        amount=Decimal("10.00"),
+        date=date(2026, 9, 1),
+        description="TESCO Global Zrt",
     )
     fake_ocr.text = RECEIPT_TEXT
 
@@ -100,7 +108,11 @@ def test_nothing_recognized_is_unreadable(auth_client, fake_ocr, receipt_image):
 
     data = _scan(auth_client, receipt_image).data
 
-    assert (data["outcome"], data["items"], data["currency"]) == ("unreadable", [], {"value": None, "confidence": "low"})
+    assert (data["outcome"], data["items"], data["currency"]) == (
+        "unreadable",
+        [],
+        {"value": None, "confidence": "low"},
+    )
 
 
 @pytest.mark.django_db

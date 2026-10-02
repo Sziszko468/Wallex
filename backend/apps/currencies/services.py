@@ -6,6 +6,7 @@ from decimal import ROUND_HALF_UP
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 from apps.budgets.models import Budget
 from apps.transactions.models import Transaction
@@ -24,6 +25,7 @@ from .rates import (
 )
 
 BULK_BATCH_SIZE = 500
+RATE_INSERT_BATCH_SIZE = 1000
 
 
 def store_rates(rates: Iterable[EcbRate]) -> int:
@@ -31,7 +33,7 @@ def store_rates(rates: Iterable[EcbRate]) -> int:
     rows = [ExchangeRate(date=rate.day, currency=rate.currency, rate=rate.rate) for rate in rates]
     ExchangeRate.objects.bulk_create(
         rows,
-        batch_size=1000,
+        batch_size=RATE_INSERT_BATCH_SIZE,
         update_conflicts=True,
         unique_fields=["currency", "date"],
         update_fields=["rate"],
@@ -76,7 +78,10 @@ def change_base_currency(user, new_base: str) -> None:
             to_new_base = rates.rate(old_base, new_base, item.date).value
             item.exchange_rate = (item.exchange_rate * to_new_base).quantize(RATE_QUANTUM, rounding=ROUND_HALF_UP)
         if base_amount_for(item.amount, item.exchange_rate) > MAX_BASE_AMOUNT:
-            raise ConversionError(f"A transaction of {item.amount} {item.currency} is too large to express in {new_base}.")
+            raise ConversionError(
+                _("A transaction of %(amount)s %(currency)s is too large to express in %(base)s.")
+                % {"amount": item.amount, "currency": item.currency, "base": new_base}
+            )
         item.updated_at = now
 
     if budgets:
@@ -84,7 +89,7 @@ def change_base_currency(user, new_base: str) -> None:
         for budget in budgets:
             budget.amount = to_currency(budget.amount, latest, new_base)
             if budget.amount > MAX_AMOUNT:
-                raise ConversionError(f"A budget would be too large in {new_base}.")
+                raise ConversionError(_("A budget would be too large in %(base)s.") % {"base": new_base})
             budget.updated_at = now
 
     Transaction.objects.bulk_update(transactions, ["exchange_rate", "updated_at"], batch_size=BULK_BATCH_SIZE)

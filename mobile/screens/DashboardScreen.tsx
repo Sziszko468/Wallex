@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { RefreshControl, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { useRefetchOnDataChange } from "../hooks/useOffline";
@@ -25,10 +26,12 @@ import {
 import { listCategories } from "../services/categoriesService";
 import { listTransactions } from "../services/transactionsService";
 import { colors, fontSize, spacing } from "../utils/theme";
+import { MONTHS_PER_YEAR } from "../config/calendar";
 
 const RECENT_TRANSACTIONS_COUNT = 5;
 
 export function DashboardScreen() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const today = useMemo(() => new Date(), []);
   const [year, setYear] = useState(today.getFullYear());
@@ -98,14 +101,14 @@ export function DashboardScreen() {
   function goToPreviousMonth() {
     if (month === 1) {
       setYear((y) => y - 1);
-      setMonth(12);
+      setMonth(MONTHS_PER_YEAR);
     } else {
       setMonth((m) => m - 1);
     }
   }
 
   function goToNextMonth() {
-    if (month === 12) {
+    if (month === MONTHS_PER_YEAR) {
       setYear((y) => y + 1);
       setMonth(1);
     } else {
@@ -128,29 +131,31 @@ export function DashboardScreen() {
           />
         }
       >
-        <Text style={styles.greeting}>Hi{displayName ? `, ${displayName}` : ""}</Text>
+        <Text style={styles.greeting}>
+          {displayName ? t("dashboard.greetingWithName", { name: displayName }) : t("dashboard.greeting")}
+        </Text>
 
         <MonthSelector year={year} month={month} onPrevious={goToPreviousMonth} onNext={goToNextMonth} />
 
-        <DashboardCard title="Overview">
+        <DashboardCard title={t("dashboard.cards.overview")}>
           <SectionState isLoading={dashboard.isLoading} error={dashboard.error} onRetry={dashboard.refetch}>
             {dashboard.data && <SummaryCard stats={dashboard.data} />}
           </SectionState>
         </DashboardCard>
 
-        <DashboardCard title="Insights">
+        <DashboardCard title={t("dashboard.cards.insights")}>
           <SectionState isLoading={insights.isLoading} error={insights.error} onRetry={insights.refetch}>
             {insights.data && <Insights insights={insights.data.insights} />}
           </SectionState>
         </DashboardCard>
 
-        <DashboardCard title="Monthly spending">
+        <DashboardCard title={t("dashboard.cards.monthly")}>
           <SectionState isLoading={monthly.isLoading} error={monthly.error} onRetry={monthly.refetch}>
             {monthly.data && <SpendingTrendChart months={monthly.data.months} selectedMonth={month} />}
           </SectionState>
         </DashboardCard>
 
-        <DashboardCard title="Top categories">
+        <DashboardCard title={t("dashboard.cards.topCategories")}>
           <SectionState
             isLoading={categoryBreakdown.isLoading || categories.isLoading}
             error={categoryBreakdown.error ?? categories.error}
@@ -168,7 +173,7 @@ export function DashboardScreen() {
           </SectionState>
         </DashboardCard>
 
-        <DashboardCard title="Recent transactions">
+        <DashboardCard title={t("dashboard.cards.recent")}>
           <SectionState
             isLoading={recentTransactions.isLoading || categories.isLoading}
             error={recentTransactions.error ?? categories.error}
@@ -187,14 +192,14 @@ export function DashboardScreen() {
           </SectionState>
         </DashboardCard>
 
-        <DashboardCard title="Budget status">
+        <DashboardCard title={t("dashboard.cards.budgetStatus")}>
           <SectionState isLoading={dashboard.isLoading} error={dashboard.error} onRetry={dashboard.refetch}>
             {dashboard.data && <BudgetStatus budgets={dashboard.data.budget_usage} />}
           </SectionState>
         </DashboardCard>
       </Screen>
 
-      <Fab accessibilityLabel="Add transaction" onPress={() => router.push("/add-transaction")} />
+      <Fab accessibilityLabel={t("dashboard.addTransaction")} onPress={() => router.push("/add-transaction")} />
     </View>
   );
 }

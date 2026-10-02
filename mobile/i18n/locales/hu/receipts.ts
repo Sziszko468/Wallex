@@ -1,0 +1,65 @@
+import type { DeepStrings } from "../../types";
+import type { receipts as en } from "../en/receipts";
+
+export const receipts: DeepStrings<typeof en> = {
+  scan: {
+    title: "Blokk beolvasása",
+    intro: "Fotózd le az egész blokkot, laposan és jól megvilágítva. Mielőtt bármi mentésre kerülne, minden részletet ellenőrizhetsz.",
+    offline: "Offline vagy. A beolvasáshoz kapcsolat kell – add hozzá inkább kézzel a tranzakciót.",
+    cameraNeeded: "A(z) {{appName}}-nak kamera-hozzáférésre van szüksége a blokkok beolvasásához.",
+    openSettings: "Beállítások megnyitása",
+    takePhoto: "Fotó készítése",
+    choose: "Választás a galériából",
+    manual: "Inkább kézzel adom meg",
+    reading: "A blokk beolvasása…",
+  },
+  confirm: {
+    heading: "Ellenőrizd az adatokat",
+    subFound: "Semmi sem kerül mentésre, amíg meg nem nyomod a Mentés gombot.",
+    subNone: "Nem tudtunk szöveget olvasni ezen a fotón. Add meg az adatokat magad, vagy fotózd újra jobb fényben.",
+    merchant: "Kereskedő",
+    currency: "Pénznem",
+    items: "A blokk tételei ({{count}})",
+    itemsNote: "A fotóról leolvasva – csak a fenti végösszeg kerül mentésre.",
+    save: "Tranzakció mentése",
+    retake: "Új fotó",
+    hints: {
+      merchantMissing: "A kereskedő nem található a blokkon – kérjük, add meg.",
+      amountMissing: "A végösszeg nem található a blokkon – kérjük, add meg.",
+      dateMissing: "A dátum nem található a blokkon – a mai napra állítottuk, kérjük, ellenőrizd.",
+      lowConfidence: "Ebben nem voltunk biztosak – kérjük, ellenőrizd.",
+      currencyUnsupported:
+        "Ez a blokk {{currency}} pénznemben készült, amelyet a(z) {{appName}} még nem tud rögzíteni. Válassz pénznemet, és add meg benne az összeget.",
+      currencyMissing: "A pénznem nem található a blokkon – {{currency}} pénznemre állítottuk, kérjük, ellenőrizd.",
+      currencyMixed: "A blokkon több pénznem is szerepel – kérjük, ellenőrizd ezt.",
+      categoryFromHistory: "Javaslat: amit legutóbb ehhez a kereskedőhöz választottál.",
+      categoryFromName: "Javaslat a kereskedő neve alapján.",
+    },
+    errors: {
+      merchantRequired: "A kereskedő megadása kötelező.",
+    },
+  },
+  problems: {
+    photoTips: "Ügyelj rá, hogy az egész blokk a képen legyen, laposan és jól megvilágítva.",
+    badImage: "Ez a fotó nem használható",
+    ocrUnavailable: "A beolvasás jelenleg nem érhető el",
+    ocrUnavailableMessage: "{{reason}} A blokkod sehol nem lett elmentve.",
+    rateLimited: "Túl sok beolvasás",
+    rateLimitedMessage: "Az elmúlt órában sok blokkot olvastál be. Próbáld később, vagy add hozzá ezt kézzel.",
+    timeout: "A blokk beolvasása túl sokáig tartott",
+    timeoutMessage: "Próbáld újra élesebb fotóval, vagy add hozzá kézzel a tranzakciót.",
+    offline: "Nincs kapcsolat",
+    offlineMessage: "A beolvasás a szerveren történik. Add hozzá kézzel a tranzakciót – újra online állapotban szinkronizáljuk.",
+    unknown: "Valami hiba történt",
+    unreadable: "Nem tudtuk beolvasni ezt a fotót",
+    unreadableMessage: "Nem találtunk rajta szöveget. {{tips}}",
+    unsupported: "Ez nem tűnik blokknak",
+    unsupportedMessage: "Találtunk szöveget, de végösszeget és dátumot nem. A(z) {{appName}} nyomtatott boltblokkokat olvas.",
+    actions: {
+      retake: "Új fotó",
+      library: "Másik fotó választása",
+      review: "Az adatok megadása így is",
+      manual: "Hozzáadás kézzel",
+    },
+  },
+};

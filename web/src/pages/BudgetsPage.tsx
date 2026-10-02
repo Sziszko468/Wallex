@@ -1,4 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { BUDGET_NEAR_LIMIT_PERCENT, FULL_PERCENT } from "../config/budget";
 import { listBudgets } from "../services/budgetsService";
 import { listCategories } from "../services/categoriesService";
 import { useAsyncData } from "../hooks/useAsyncData";
@@ -20,14 +22,15 @@ function currentPeriod() {
   return { year: now.getFullYear(), month: now.getMonth() + 1 };
 }
 
-/** Near the limit from 80% — the same thresholds the warning notifications use. */
+/** Near the limit from BUDGET_NEAR_LIMIT_PERCENT — the same threshold the warning notifications use. */
 function statusOf(budget: Budget): BudgetRowStatus {
-  if (budget.usage_percentage > 100) return "over_budget";
-  return budget.usage_percentage >= 80 ? "near_limit" : "on_track";
+  if (budget.usage_percentage > FULL_PERCENT) return "over_budget";
+  return budget.usage_percentage >= BUDGET_NEAR_LIMIT_PERCENT ? "near_limit" : "on_track";
 }
 
 export function BudgetsPage() {
-  usePageTitle("Budgets");
+  const { t } = useTranslation();
+  usePageTitle(t("budgets.title"));
   const [{ year, month }, setPeriod] = useState(currentPeriod);
 
   // Not paginated or filterable server-side — fetch once, filter by the
@@ -76,8 +79,8 @@ export function BudgetsPage() {
       return (
         <EmptyState
           icon="budgets"
-          title={`No budgets for ${formatMonthYear(year, month)}`}
-          message="Budgets you set for a month appear here, with what you've spent and what's left."
+          title={t("budgets.emptyTitle", { period: formatMonthYear(year, month) })}
+          message={t("budgets.emptyMessage")}
         />
       );
     }
@@ -89,7 +92,7 @@ export function BudgetsPage() {
             <BudgetRow
               key={budget.id}
               card
-              name={category?.name ?? "Overall"}
+              name={category?.name ?? t("budgets.overall")}
               category={category}
               spent={budget.spent_amount}
               budget={budget.amount}
@@ -106,8 +109,8 @@ export function BudgetsPage() {
   return (
     <div className={pageStyles.page}>
       <PageHeader
-        title="Budgets"
-        description="What you plan to spend, and how it's going."
+        title={t("budgets.title")}
+        description={t("budgets.description")}
         actions={<MonthNavigator year={year} month={month} onChange={handlePeriodChange} />}
       />
       {renderBudgets()}

@@ -3,10 +3,10 @@ from django.contrib.auth import get_user_model
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
-from conftest import issue_tokens
 
 from apps.categories.defaults import DEFAULT_CATEGORIES
 from apps.categories.models import Category
+from conftest import issue_tokens
 
 User = get_user_model()
 
@@ -90,9 +90,7 @@ def test_register_duplicate_email_rejected(api_client, user):
 
 @pytest.mark.django_db
 def test_login_success(api_client, user):
-    response = api_client.post(
-        reverse("auth-login"), {"email": user.email, "password": "testpass123"}
-    )
+    response = api_client.post(reverse("auth-login"), {"email": user.email, "password": "testpass123"})
     assert response.status_code == status.HTTP_200_OK
     assert "access" in response.data
     assert "refresh" in response.data
@@ -100,17 +98,13 @@ def test_login_success(api_client, user):
 
 @pytest.mark.django_db
 def test_login_wrong_password_rejected(api_client, user):
-    response = api_client.post(
-        reverse("auth-login"), {"email": user.email, "password": "wrong-password"}
-    )
+    response = api_client.post(reverse("auth-login"), {"email": user.email, "password": "wrong-password"})
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 @pytest.mark.django_db
 def test_login_nonexistent_email_rejected(api_client):
-    response = api_client.post(
-        reverse("auth-login"), {"email": "ghost@example.com", "password": "whatever123"}
-    )
+    response = api_client.post(reverse("auth-login"), {"email": "ghost@example.com", "password": "whatever123"})
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
@@ -242,10 +236,18 @@ def test_a_user_with_financial_data_can_be_deleted_with_everything_they_own(user
     from apps.transactions.models import Frequency, RecurringTransaction, Transaction
 
     category = Category.objects.create(user=user, name="Food", type=TransactionType.EXPENSE)
-    Transaction.objects.create(user=user, category=category, type="expense", amount=Decimal("5.00"), date=date(2026, 9, 1))
+    Transaction.objects.create(
+        user=user, category=category, type="expense", amount=Decimal("5.00"), date=date(2026, 9, 1)
+    )
     RecurringTransaction.objects.create(
-        user=user, category=category, name="Box", type="expense", amount=Decimal("9.00"),
-        frequency=Frequency.MONTHLY, start_date=date(2026, 9, 1), next_occurrence_date=date(2026, 9, 1),
+        user=user,
+        category=category,
+        name="Box",
+        type="expense",
+        amount=Decimal("9.00"),
+        frequency=Frequency.MONTHLY,
+        start_date=date(2026, 9, 1),
+        next_occurrence_date=date(2026, 9, 1),
     )
     Budget.objects.create(user=user, category=category, amount=Decimal("50.00"), year=2026, month=9)
     Device.objects.create(user=user, expo_push_token="ExponentPushToken[abc]", platform="ios")

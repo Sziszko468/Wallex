@@ -1,4 +1,5 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import type { Category } from "../types/category";
 import { colors, fontSize, radius, spacing } from "../utils/theme";
 
@@ -9,8 +10,9 @@ interface CategoryChipPickerProps {
 }
 
 export function CategoryChipPicker({ categories, selectedId, onSelect }: CategoryChipPickerProps) {
+  const { t } = useTranslation();
   if (categories.length === 0) {
-    return <Text style={styles.empty}>No categories available for this type.</Text>;
+    return <Text style={styles.empty}>{t("common.form.noCategories")}</Text>;
   }
 
   return (

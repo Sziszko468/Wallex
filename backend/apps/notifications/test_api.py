@@ -146,9 +146,7 @@ def test_update_preferences(auth_client, user):
 @pytest.mark.django_db
 @pytest.mark.parametrize("days", [0, 8])
 def test_reminder_days_out_of_range_rejected(auth_client, days):
-    response = auth_client.patch(
-        reverse("notification-preferences"), {"recurring_reminder_days": days}, format="json"
-    )
+    response = auth_client.patch(reverse("notification-preferences"), {"recurring_reminder_days": days}, format="json")
     assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 

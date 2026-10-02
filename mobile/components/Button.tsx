@@ -48,11 +48,14 @@ export function Button({
   );
 }
 
+/** Taken off the vertical padding: the minimum height already centres the label. */
+const VERTICAL_PADDING_TRIM = 4;
+
 const styles = StyleSheet.create({
   base: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: spacing.md - 4,
+    paddingVertical: spacing.md - VERTICAL_PADDING_TRIM,
     paddingHorizontal: spacing.md,
     borderRadius: radius.md,
     minHeight: 48,

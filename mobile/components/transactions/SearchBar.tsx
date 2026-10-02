@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import { colors, fontSize, radius, spacing } from "../../utils/theme";
 
 interface SearchBarProps {
@@ -7,7 +8,9 @@ interface SearchBarProps {
   placeholder?: string;
 }
 
-export function SearchBar({ value, onChangeText, placeholder = "Search transactions" }: SearchBarProps) {
+export function SearchBar({ value, onChangeText, placeholder }: SearchBarProps) {
+  const { t } = useTranslation();
+  const label = placeholder ?? t("transactions.search");
   return (
     <View style={styles.container}>
       <Text style={styles.icon} accessibilityElementsHidden importantForAccessibility="no">
@@ -17,9 +20,9 @@ export function SearchBar({ value, onChangeText, placeholder = "Search transacti
         style={styles.input}
         value={value}
         onChangeText={onChangeText}
-        placeholder={placeholder}
+        placeholder={label}
         placeholderTextColor={colors.textMuted}
-        accessibilityLabel={placeholder}
+        accessibilityLabel={label}
         autoCapitalize="none"
         autoCorrect={false}
         returnKeyType="search"
@@ -27,7 +30,7 @@ export function SearchBar({ value, onChangeText, placeholder = "Search transacti
       {value.length > 0 && (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Clear search"
+          accessibilityLabel={t("transactions.clearSearch")}
           onPress={() => onChangeText("")}
           hitSlop={8}
           style={styles.clearButton}

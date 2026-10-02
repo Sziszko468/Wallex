@@ -15,6 +15,4 @@ def income_category(user):
 
 @pytest.fixture
 def other_user_expense_category(other_user):
-    return Category.objects.create(
-        user=other_user, name="Groceries", type=TransactionType.EXPENSE
-    )
+    return Category.objects.create(user=other_user, name="Groceries", type=TransactionType.EXPENSE)

@@ -5,6 +5,7 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.db.models.functions import Lower
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 from apps.currencies.models import Currency
 
@@ -14,6 +15,9 @@ class User(AbstractUser):
     # Every total (analytics, budgets, subscription totals) is in this currency. Changed only
     # through apps.currencies.services.change_base_currency, which re-expresses the user's data.
     base_currency = models.CharField(max_length=3, choices=Currency.choices, default=Currency.EUR)
+    # The language of the apps, and of every text the server writes for this user outside a request
+    # (notifications, the assistant). Kept in step by the apps: PATCH /api/auth/me/.
+    language = models.CharField(max_length=8, choices=settings.LANGUAGES, default=settings.LANGUAGE_CODE)
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["username"]
@@ -86,29 +90,29 @@ class UserSession(models.Model):
 
 
 class AuditAction(models.TextChoices):
-    ACCOUNT_CREATED = "account_created", "Account created"
-    LOGIN_SUCCEEDED = "login_succeeded", "Signed in"
-    LOGIN_FAILED = "login_failed", "Wrong email or password"
-    LOGIN_BLOCKED = "login_blocked", "Sign-in blocked after too many failures"
-    MFA_FAILED = "mfa_failed", "Wrong two-factor code"
-    LOGOUT = "logout", "Signed out"
-    LOGOUT_ALL = "logout_all", "Signed out everywhere"
-    SESSION_REVOKED = "session_revoked", "Device signed out"
-    REFRESH_TOKEN_REUSED = "refresh_token_reused", "Stolen session blocked"
-    PASSWORD_CHANGED = "password_changed", "Password changed"
-    MFA_ENABLED = "mfa_enabled", "Two-factor authentication turned on"
-    MFA_DISABLED = "mfa_disabled", "Two-factor authentication turned off"
-    RECOVERY_CODE_USED = "recovery_code_used", "Recovery code used"
-    RECOVERY_CODES_REGENERATED = "recovery_codes_regenerated", "New recovery codes"
-    BASE_CURRENCY_CHANGED = "base_currency_changed", "Base currency changed"
-    TRANSACTIONS_IMPORTED = "transactions_imported", "Transactions imported"
-    OBJECT_DELETED = "object_deleted", "Deleted"
+    ACCOUNT_CREATED = "account_created", _("Account created")
+    LOGIN_SUCCEEDED = "login_succeeded", _("Signed in")
+    LOGIN_FAILED = "login_failed", _("Wrong email or password")
+    LOGIN_BLOCKED = "login_blocked", _("Sign-in blocked after too many failures")
+    MFA_FAILED = "mfa_failed", _("Wrong two-factor code")
+    LOGOUT = "logout", _("Signed out")
+    LOGOUT_ALL = "logout_all", _("Signed out everywhere")
+    SESSION_REVOKED = "session_revoked", _("Device signed out")
+    REFRESH_TOKEN_REUSED = "refresh_token_reused", _("Stolen session blocked")
+    PASSWORD_CHANGED = "password_changed", _("Password changed")
+    MFA_ENABLED = "mfa_enabled", _("Two-factor authentication turned on")
+    MFA_DISABLED = "mfa_disabled", _("Two-factor authentication turned off")
+    RECOVERY_CODE_USED = "recovery_code_used", _("Recovery code used")
+    RECOVERY_CODES_REGENERATED = "recovery_codes_regenerated", _("New recovery codes")
+    BASE_CURRENCY_CHANGED = "base_currency_changed", _("Base currency changed")
+    TRANSACTIONS_IMPORTED = "transactions_imported", _("Transactions imported")
+    OBJECT_DELETED = "object_deleted", _("Deleted")
 
 
 class AuditCategory(models.TextChoices):
-    LOGIN = "login", "Sign-in attempts"
-    ACCOUNT = "account", "Account and security changes"
-    DATA = "data", "Bulk and destructive data changes"
+    LOGIN = "login", _("Sign-in attempts")
+    ACCOUNT = "account", _("Account and security changes")
+    DATA = "data", _("Bulk and destructive data changes")
 
 
 AUDIT_CATEGORIES: dict[str, set[str]] = {

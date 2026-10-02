@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { Category } from "../../types/category";
 import type { Transaction } from "../../types/transaction";
 import { ButtonLink } from "../ButtonLink";
@@ -11,14 +12,15 @@ interface RecentTransactionsListProps {
 }
 
 export function RecentTransactionsList({ transactions, categoriesById }: RecentTransactionsListProps) {
+  const { t } = useTranslation();
   if (transactions.length === 0) {
     return (
       <EmptyState
         icon="transactions"
-        message="No transactions yet. Add your first one to see it here."
+        message={t("dashboard.recent.empty")}
         action={
           <ButtonLink to="/transactions" variant="secondary" size="sm">
-            Go to transactions
+            {t("dashboard.recent.goTo")}
           </ButtonLink>
         }
       />

@@ -12,15 +12,17 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from decimal import Decimal
 from enum import StrEnum
-from typing import Generic, TypeVar
 
 from apps.categories.models import TransactionType
 from apps.categories.rules import match_category_name, normalize_text
-
-T = TypeVar("T")
+from apps.common.constants import MONTHS_PER_YEAR
 
 MAX_AMOUNT = Decimal("9999999999.99")  # Transaction.amount: max_digits=12, decimal_places=2
 OLDEST_PLAUSIBLE_YEAR = 2000
+TWO_DIGIT_YEAR_BASE = 2000  # "26" on a receipt means 2026
+TWO_DIGIT_YEAR_LENGTH = 2
+MIN_NAME_LETTERS = 3  # fewer letters than this is a number or a symbol, not a name
+MIN_NAME_LETTER_SHARE = 0.5  # at least half of a merchant line must be letters
 MERCHANT_SEARCH_LINES = 8
 MERCHANT_MAX_LENGTH = 100
 
@@ -31,7 +33,7 @@ class Confidence(StrEnum):
 
 
 @dataclass(frozen=True)
-class Extracted(Generic[T]):
+class Extracted[T]:
     value: T | None
     confidence: Confidence
 
@@ -61,7 +63,7 @@ class ParsedReceipt:
     amount: Extracted[Decimal]
     date: Extracted[date]
     currency: Extracted[str] = field(default_factory=Extracted.missing)
-    # A currency printed on the receipt that Spendly can't record (e.g. "CZK"), if no supported one was.
+    # A currency printed on the receipt that WALLEX can't record (e.g. "CZK"), if no supported one was.
     unsupported_currency: str | None = None
     items: list[ReceiptItem] = field(default_factory=list)
 
@@ -76,14 +78,25 @@ TOTAL_KEYWORDS: list[tuple[str, ...]] = [
 ]
 # Lines that carry an amount but never the total paid.
 NOT_TOTAL_KEYWORDS = (
-    "subtotal", "sub total", "reszosszeg", "afa", "vat", "tax", "btw", "mwst",
-    "visszajaro", "change", "keszpenz", "cash", "kedvezmeny", "discount", "megtakaritas",
+    "subtotal",
+    "sub total",
+    "reszosszeg",
+    "afa",
+    "vat",
+    "tax",
+    "btw",
+    "mwst",
+    "visszajaro",
+    "change",
+    "keszpenz",
+    "cash",
+    "kedvezmeny",
+    "discount",
+    "megtakaritas",
 )
 
 # 1 234,50 · 1.234,50 · 1,234.50 · 12.99 · 12,99 · 4590 · 4 590
-AMOUNT_PATTERN = re.compile(
-    r"(?<![\d.,])(\d{1,3}(?:[ .,]\d{3})+|\d+)(?:([.,])(\d{2}))?(?![\d.,]*\d)"
-)
+AMOUNT_PATTERN = re.compile(r"(?<![\d.,])(\d{1,3}(?:[ .,]\d{3})+|\d+)(?:([.,])(\d{2}))?(?![\d.,]*\d)")
 
 
 def _amount_of(match: re.Match) -> Decimal | None:
@@ -163,12 +176,14 @@ def extract_date(lines: list[str], today: date) -> Extracted[date]:
 
         for match in DATE_DMY.finditer(line):
             first, second, raw_year = int(match.group(1)), int(match.group(2)), match.group(3)
-            year = int(raw_year) + 2000 if len(raw_year) == 2 else int(raw_year)
+            year = int(raw_year) + TWO_DIGIT_YEAR_BASE if len(raw_year) == TWO_DIGIT_YEAR_LENGTH else int(raw_year)
             # Day-first (European) unless that's impossible; ambiguous or 2-digit years are guesses.
-            day, month = (second, first) if first <= 12 < second else (first, second)
+            day, month = (second, first) if first <= MONTHS_PER_YEAR < second else (first, second)
             found = _valid_date(year, month, day, today)
             if found:
-                ambiguous = len(raw_year) == 2 or (first <= 12 and second <= 12 and first != second)
+                ambiguous = len(raw_year) == TWO_DIGIT_YEAR_LENGTH or (
+                    first <= MONTHS_PER_YEAR and second <= MONTHS_PER_YEAR and first != second
+                )
                 return Extracted(found, Confidence.LOW if ambiguous else Confidence.HIGH)
 
     return Extracted.missing()
@@ -178,8 +193,25 @@ def extract_date(lines: list[str], today: date) -> Extracted[date]:
 
 COMPANY_SUFFIX = re.compile(r"\b(kft|zrt|nyrt|bt|kkt|gmbh|b\.?v|ltd|inc|llc|s\.?r\.?o|sp\.? z o\.?o)\b\.?")
 NOT_MERCHANT_KEYWORDS = (
-    "nyugta", "blokk", "receipt", "szamla", "invoice", "adoszam", "tax id", "vat no",
-    "cim:", "address", "tel:", "tel.", "telefon", "www.", "http", "koszonjuk", "thank you", "udvozoljuk", "welcome",
+    "nyugta",
+    "blokk",
+    "receipt",
+    "szamla",
+    "invoice",
+    "adoszam",
+    "tax id",
+    "vat no",
+    "cim:",
+    "address",
+    "tel:",
+    "tel.",
+    "telefon",
+    "www.",
+    "http",
+    "koszonjuk",
+    "thank you",
+    "udvozoljuk",
+    "welcome",
 )
 
 
@@ -189,7 +221,7 @@ def _clean(line: str) -> str:
 
 def _looks_like_name(line: str) -> bool:
     letters = sum(char.isalpha() for char in line)
-    return letters >= 3 and letters / max(len(line.replace(" ", "")), 1) >= 0.5
+    return letters >= MIN_NAME_LETTERS and letters / max(len(line.replace(" ", "")), 1) >= MIN_NAME_LETTER_SHARE
 
 
 def extract_merchant(lines: list[str]) -> Extracted[str]:
@@ -237,7 +269,7 @@ SUPPORTED_CURRENCY_MARKERS: list[tuple[re.Pattern, str]] = [
     (re.compile(_marker("chf")), "CHF"),
     (re.compile("|".join(["¥", "円", _marker("jpy")])), "JPY"),
 ]
-# Currencies seen on receipts around Hungary (and a few symbols) that Spendly can't record.
+# Currencies seen on receipts around Hungary (and a few symbols) that WALLEX can't record.
 UNSUPPORTED_CURRENCY_MARKERS: list[tuple[re.Pattern, str]] = [
     (re.compile("|".join([_marker("czk"), _marker("kc")])), "CZK"),
     (re.compile("|".join([_marker("pln"), _marker("zł"), _marker("zl")])), "PLN"),
@@ -257,7 +289,7 @@ def _count_markers(text: str, markers: list[tuple[re.Pattern, str]]) -> Counter:
 
 
 def extract_currency(lines: list[str]) -> tuple[Extracted[str], str | None]:
-    """(the receipt's currency if Spendly supports it, an unsupported one printed instead).
+    """(the receipt's currency if WALLEX supports it, an unsupported one printed instead).
 
     High confidence when exactly one currency appears; when several do (a price list in
     EUR with a HUF total…), the most frequent one is a low-confidence guess.
@@ -289,12 +321,16 @@ TRAILING_PRICE_NOISE = re.compile(r"(?:[\s€$£¥]*[^\W\d_]{0,3}\.?){0,2}\s*$")
 
 def _looks_like_item_name(text: str) -> bool:
     """Product names often carry numbers ("TEJ 2,8% 1L"): three letters besides quantity markers are enough."""
-    return sum(char.isalpha() for char in QUANTITY_TOKENS.sub("", text)) >= 3
+    return sum(char.isalpha() for char in QUANTITY_TOKENS.sub("", text)) >= MIN_NAME_LETTERS
 
 
 def _is_item_line(normalized: str) -> bool:
     padded = f" {normalized} "
-    keywords = (*[keyword for group in TOTAL_KEYWORDS for keyword in group], *NOT_TOTAL_KEYWORDS, *NOT_MERCHANT_KEYWORDS)
+    keywords = (
+        *[keyword for group in TOTAL_KEYWORDS for keyword in group],
+        *NOT_TOTAL_KEYWORDS,
+        *NOT_MERCHANT_KEYWORDS,
+    )
     return not any(keyword in normalized for keyword in keywords) and not any(
         keyword in padded for keyword in ADDRESS_KEYWORDS
     )
@@ -308,7 +344,7 @@ def extract_items(lines: list[str]) -> list[ReceiptItem]:
     end, total_amount = total if total else (len(lines), None)
 
     items: list[ReceiptItem] = []
-    for line, normalized_line in zip(lines[:end], normalized[:end]):
+    for line, normalized_line in zip(lines[:end], normalized[:end], strict=True):
         if not _is_item_line(normalized_line):
             continue
         text = _without_dates(line)

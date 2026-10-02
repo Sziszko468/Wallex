@@ -1,4 +1,5 @@
 import type { InternalAxiosRequestConfig } from "axios";
+import { currentLanguage } from "../i18n";
 import { getOfflineUser, readUserJson, removeUserKeys, writeUserJson } from "../utils/offlineStore";
 import { logWarning } from "../utils/logging";
 
@@ -31,8 +32,9 @@ function sortedParams(params: unknown): string {
   return JSON.stringify(entries);
 }
 
+/** Per language: the server writes some of the cached texts (insights, category names…) in it. */
 export function cacheKeyFor(config: InternalAxiosRequestConfig): string {
-  return `${config.url ?? ""}?${sortedParams(config.params)}`;
+  return `${currentLanguage()}:${config.url ?? ""}?${sortedParams(config.params)}`;
 }
 
 export function storeResponse(key: string, data: unknown): void {

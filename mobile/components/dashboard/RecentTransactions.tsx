@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import type { Transaction } from "../../types/transaction";
 import { formatCurrency, formatShortDate } from "../../utils/format";
 import { useBaseCurrency } from "../../hooks/useBaseCurrency";
@@ -15,16 +16,17 @@ export function RecentTransactions({
   colorByCategoryId,
   nameByCategoryId,
 }: RecentTransactionsProps) {
+  const { t } = useTranslation();
   const baseCurrency = useBaseCurrency();
   if (transactions.length === 0) {
-    return <Text style={styles.empty}>No transactions yet.</Text>;
+    return <Text style={styles.empty}>{t("dashboard.recent.empty")}</Text>;
   }
 
   return (
     <View>
       {transactions.map((transaction, index) => {
         const isIncome = transaction.type === "income";
-        const categoryName = nameByCategoryId.get(transaction.category) ?? "Uncategorized";
+        const categoryName = nameByCategoryId.get(transaction.category) ?? t("common.uncategorized");
 
         return (
           <View

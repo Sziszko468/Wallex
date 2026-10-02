@@ -22,6 +22,7 @@ from .models import RELATED_TYPES, Device, Notification, NotificationPreference,
 logger = logging.getLogger(__name__)
 
 MAX_DELIVERY_ATTEMPTS = 3
+LAST_ERROR_MAX_LENGTH = Notification._meta.get_field("last_error").max_length
 RETRY_WINDOW = timedelta(hours=24)
 # A PENDING row younger than this may still be delivered by its own request's on_commit hook.
 PENDING_GRACE_PERIOD = timedelta(minutes=5)
@@ -101,9 +102,7 @@ def notify(
     if related is not None:
         model, object_id = related
         defaults.update(content_type=related_content_type(model), object_id=object_id)
-    notification, created = Notification.objects.get_or_create(
-        user=user, dedupe_key=dedupe_key, defaults=defaults
-    )
+    notification, created = Notification.objects.get_or_create(user=user, dedupe_key=dedupe_key, defaults=defaults)
     if not created:
         return None
 
@@ -138,12 +137,12 @@ def deliver(notification: Notification) -> None:
     except expo.PushServiceError as error:
         logger.warning("Push delivery of notification %s failed: %s", notification.id, error)
         notification.status = NotificationStatus.FAILED
-        notification.last_error = str(error)[:255]
+        notification.last_error = str(error)[:LAST_ERROR_MAX_LENGTH]
         notification.save(update_fields=["status", "attempts", "last_error"])
         return
 
     errors = []
-    for device, ticket in zip(devices, tickets):
+    for device, ticket in zip(devices, tickets, strict=False):  # Expo answers one ticket per message, in order
         if ticket.ok:
             continue
         if ticket.error == expo.DEVICE_NOT_REGISTERED:
@@ -156,7 +155,7 @@ def deliver(notification: Notification) -> None:
         notification.sent_at = timezone.now()
     else:
         notification.status = NotificationStatus.FAILED
-    notification.last_error = "; ".join(errors)[:255]
+    notification.last_error = "; ".join(errors)[:LAST_ERROR_MAX_LENGTH]
     notification.save(update_fields=["status", "attempts", "sent_at", "last_error"])
 
 

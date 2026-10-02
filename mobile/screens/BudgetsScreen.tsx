@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { RefreshControl, StyleSheet, Text } from "react-native";
+import { useTranslation } from "react-i18next";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { useRefetchOnDataChange } from "../hooks/useOffline";
 import { listBudgets } from "../services/budgetsService";
@@ -10,8 +11,10 @@ import { SectionState } from "../components/SectionState";
 import { MonthSelector } from "../components/MonthSelector";
 import { BudgetCard } from "../components/budgets/BudgetCard";
 import { colors, fontSize, spacing } from "../utils/theme";
+import { MONTHS_PER_YEAR } from "../config/calendar";
 
 export function BudgetsScreen() {
+  const { t } = useTranslation();
   const today = useMemo(() => new Date(), []);
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth() + 1);
@@ -50,14 +53,14 @@ export function BudgetsScreen() {
   function goToPreviousMonth() {
     if (month === 1) {
       setYear((y) => y - 1);
-      setMonth(12);
+      setMonth(MONTHS_PER_YEAR);
     } else {
       setMonth((m) => m - 1);
     }
   }
 
   function goToNextMonth() {
-    if (month === 12) {
+    if (month === MONTHS_PER_YEAR) {
       setYear((y) => y + 1);
       setMonth(1);
     } else {
@@ -88,7 +91,7 @@ export function BudgetsScreen() {
         }}
       >
         {budgetsForMonth.length === 0 ? (
-          <Text style={styles.empty}>No budgets set for this month.</Text>
+          <Text style={styles.empty}>{t("budgets.empty")}</Text>
         ) : (
           budgetsForMonth.map((budget) => (
             <BudgetCard

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { Comparison, ComparisonAgainst } from "../../types/dashboard";
 import { useBaseCurrency } from "../../hooks/useBaseCurrency";
 import { formatCurrency, formatMonthYear } from "../../utils/format";
@@ -13,46 +14,52 @@ interface MonthComparisonProps {
   categoryLimit?: number;
 }
 
-const OPTIONS: readonly SegmentedOption<ComparisonAgainst>[] = [
-  { value: "previous_month", label: "vs last month" },
-  { value: "previous_year", label: "vs last year" },
-];
-
 const TOTALS = [
-  { key: "total_income", label: "Income", goodWhen: "up" },
-  { key: "total_expenses", label: "Expenses", goodWhen: "down" },
-  { key: "balance", label: "Balance", goodWhen: "up" },
+  { key: "total_income", labelKey: "common.labels.income", goodWhen: "up" },
+  { key: "total_expenses", labelKey: "common.labels.expenses", goodWhen: "down" },
+  { key: "balance", labelKey: "common.labels.balance", goodWhen: "up" },
 ] as const;
 
 /** Month-over-month or year-over-year: totals and categories, differences from the API. */
 export function MonthComparison({ comparison, against, onAgainstChange, categoryLimit = 4 }: MonthComparisonProps) {
+  const { t } = useTranslation();
   const baseCurrency = useBaseCurrency();
   const current = comparison.current_month;
   const previous = comparison.previous_month;
+
+  const options: readonly SegmentedOption<ComparisonAgainst>[] = [
+    { value: "previous_month", label: t("dashboard.comparison.vsLastMonth") },
+    { value: "previous_year", label: t("dashboard.comparison.vsLastYear") },
+  ];
 
   return (
     <div className={styles.comparison}>
       <div className={styles.controls}>
         <SegmentedControl
-          options={OPTIONS}
+          options={options}
           value={against}
           onChange={onAgainstChange}
-          label="Compare with"
+          label={t("dashboard.comparison.compareWith")}
           semantics="pressed"
           size="sm"
         />
         <p className={styles.period}>
-          {formatMonthYear(current.year, current.month)} compared with {formatMonthYear(previous.year, previous.month)}
+          {t("dashboard.comparison.period", {
+            current: formatMonthYear(current.year, current.month),
+            previous: formatMonthYear(previous.year, previous.month),
+          })}
         </p>
       </div>
 
       <dl className={styles.totals}>
-        {TOTALS.map(({ key, label, goodWhen }) => (
+        {TOTALS.map(({ key, labelKey, goodWhen }) => (
           <div key={key} className={styles.total}>
-            <dt>{label}</dt>
+            <dt>{t(labelKey)}</dt>
             <dd>
               <span className={styles.value}>{formatCurrency(current[key], baseCurrency)}</span>
-              <span className={styles.previous}>was {formatCurrency(previous[key], baseCurrency)}</span>
+              <span className={styles.previous}>
+                {t("dashboard.comparison.was", { amount: formatCurrency(previous[key], baseCurrency) })}
+              </span>
               <ChangeBadge value={comparison.percentage_difference[key]} goodWhen={goodWhen} />
             </dd>
           </div>
@@ -62,12 +69,12 @@ export function MonthComparison({ comparison, against, onAgainstChange, category
       {comparison.categories.length > 0 && (
         <div className={tableStyles.scroll}>
           <table className={tableStyles.table}>
-            <caption className={tableStyles.visuallyHidden}>Categories compared</caption>
+            <caption className={tableStyles.visuallyHidden}>{t("dashboard.comparison.categories")}</caption>
             <thead>
               <tr>
-                <th scope="col">Category</th>
-                <th scope="col" className={tableStyles.number}>Spent</th>
-                <th scope="col" className={tableStyles.number}>Change</th>
+                <th scope="col">{t("common.labels.category")}</th>
+                <th scope="col" className={tableStyles.number}>{t("dashboard.comparison.spent")}</th>
+                <th scope="col" className={tableStyles.number}>{t("common.labels.change")}</th>
               </tr>
             </thead>
             <tbody>
@@ -77,7 +84,7 @@ export function MonthComparison({ comparison, against, onAgainstChange, category
                   <td className={tableStyles.number}>
                     {formatCurrency(category.current_amount, baseCurrency)}
                     <span className={tableStyles.secondary}>
-                      was {formatCurrency(category.previous_amount, baseCurrency)}
+                      {t("dashboard.comparison.was", { amount: formatCurrency(category.previous_amount, baseCurrency) })}
                     </span>
                   </td>
                   <td className={tableStyles.number}>

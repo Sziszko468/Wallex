@@ -24,17 +24,25 @@ from django.contrib.auth import get_user_model
 from django.core import signing
 from django.db import transaction
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 from . import crypto
 from .models import RecoveryCode, TotpDevice
 
-ISSUER = "Spendly"
+ISSUER = "WALLEX"
 DIGITS = 6
 PERIOD = 30  # seconds
 DRIFT_STEPS = 1
 RECOVERY_CODE_COUNT = 10
+SECRET_BYTES = 20  # 160 random bits, as RFC 4226 recommends
+RECOVERY_CODE_BYTES = 5  # 40 bits: 8 base32 characters
+RECOVERY_CODE_LENGTH = 8
+RECOVERY_CODE_GROUP_LENGTH = 4  # shown as "abcd-efgh"
+_OFFSET_MASK = 0x0F  # RFC 4226 §5.3: the last nibble picks where the 4 bytes start
+_SIGN_BIT_MASK = 0x7FFFFFFF  # ... and the top bit is cleared so the number is never negative
+_INTEGER_BYTES = 4
 CHALLENGE_MAX_AGE = 300  # seconds
-_CHALLENGE_SALT = "spendly.users.mfa-challenge"
+_CHALLENGE_SALT = "wallex.users.mfa-challenge"
 
 
 class MfaError(Exception):
@@ -46,7 +54,7 @@ class MfaError(Exception):
 
 def generate_secret() -> str:
     """160 random bits, base32 without padding (what authenticator apps expect)."""
-    return base64.b32encode(secrets.token_bytes(20)).decode().rstrip("=")
+    return base64.b32encode(secrets.token_bytes(SECRET_BYTES)).decode().rstrip("=")
 
 
 def _key(secret: str) -> bytes:
@@ -55,8 +63,8 @@ def _key(secret: str) -> bytes:
 
 def hotp(key: bytes, counter: int, digits: int = DIGITS) -> str:
     digest = hmac.new(key, struct.pack(">Q", counter), hashlib.sha1).digest()
-    offset = digest[-1] & 0x0F
-    number = struct.unpack(">I", digest[offset : offset + 4])[0] & 0x7FFFFFFF
+    offset = digest[-1] & _OFFSET_MASK
+    number = struct.unpack(">I", digest[offset : offset + _INTEGER_BYTES])[0] & _SIGN_BIT_MASK
     return str(number % 10**digits).zfill(digits)
 
 
@@ -95,8 +103,8 @@ def _normalize_recovery_code(code: str) -> str:
 
 
 def _new_recovery_code() -> str:
-    raw = base64.b32encode(secrets.token_bytes(5)).decode().lower()  # 8 chars, 40 bits
-    return f"{raw[:4]}-{raw[4:]}"
+    raw = base64.b32encode(secrets.token_bytes(RECOVERY_CODE_BYTES)).decode().lower()  # 8 chars, 40 bits
+    return f"{raw[:RECOVERY_CODE_GROUP_LENGTH]}-{raw[RECOVERY_CODE_GROUP_LENGTH:]}"
 
 
 def _issue_recovery_codes(user) -> list[str]:
@@ -126,7 +134,7 @@ def is_enabled(user) -> bool:
 def start_setup(user) -> tuple[str, str]:
     """A new secret, not active until confirmed with a code. Returns (secret, otpauth URI)."""
     if is_enabled(user):
-        raise MfaError("Two-factor authentication is already on. Turn it off first to set up a new authenticator.")
+        raise MfaError(_("Two-factor authentication is already on. Turn it off first to set up a new authenticator."))
     secret = generate_secret()
     TotpDevice.objects.update_or_create(
         user=user, defaults={"encrypted_secret": crypto.encrypt(secret), "confirmed_at": None, "last_used_step": None}
@@ -139,10 +147,10 @@ def confirm_setup(user, code: str) -> list[str]:
     """Turns 2FA on when `code` comes from the new authenticator. Returns the recovery codes."""
     device = TotpDevice.objects.select_for_update().filter(user=user, confirmed_at__isnull=True).first()
     if device is None:
-        raise MfaError("Start the setup first.")
+        raise MfaError(_("Start the setup first."))
     step = matching_step(crypto.decrypt(device.encrypted_secret), code)
     if step is None:
-        raise MfaError("That code isn't right. Check the time on your phone and try the newest code.")
+        raise MfaError(_("That code isn't right. Check the time on your phone and try the newest code."))
     device.confirmed_at = timezone.now()
     device.last_used_step = step
     device.save(update_fields=["confirmed_at", "last_used_step"])
@@ -158,7 +166,7 @@ def disable(user) -> None:
 @transaction.atomic
 def regenerate_recovery_codes(user) -> list[str]:
     if not is_enabled(user):
-        raise MfaError("Two-factor authentication is off.")
+        raise MfaError(_("Two-factor authentication is off."))
     return _issue_recovery_codes(user)
 
 
@@ -186,11 +194,11 @@ def verify(user, code: str) -> str | None:
         return Method.TOTP
 
     normalized = _normalize_recovery_code(code)
-    if len(normalized) != 8:
+    if len(normalized) != RECOVERY_CODE_LENGTH:
         return None
-    used = RecoveryCode.objects.filter(
-        user=user, code_hash=crypto.keyed_hash(normalized), used_at__isnull=True
-    ).update(used_at=timezone.now())
+    used = RecoveryCode.objects.filter(user=user, code_hash=crypto.keyed_hash(normalized), used_at__isnull=True).update(
+        used_at=timezone.now()
+    )
     return Method.RECOVERY_CODE if used else None
 
 

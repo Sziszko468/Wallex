@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import type { TransactionType } from "../types/category";
 import { colors, fontSize, radius, spacing } from "../utils/theme";
 
@@ -8,16 +9,17 @@ interface TypeToggleProps {
 }
 
 export function TypeToggle({ value, onChange }: TypeToggleProps) {
+  const { t } = useTranslation();
   return (
     <View style={styles.row}>
       <Segment
-        label="Expense"
+        label={t("common.transactionType.expense")}
         isActive={value === "expense"}
         activeColor={colors.danger}
         onPress={() => onChange("expense")}
       />
       <Segment
-        label="Income"
+        label={t("common.transactionType.income")}
         isActive={value === "income"}
         activeColor={colors.success}
         onPress={() => onChange("income")}

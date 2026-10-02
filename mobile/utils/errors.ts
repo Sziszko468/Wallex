@@ -1,6 +1,8 @@
 import axios, { type AxiosError } from "axios";
+import { t } from "i18next";
 import type { ApiErrorBody } from "../types/api";
 import { AppError } from "./appError";
+import { HTTP_STATUS } from "../config/http";
 
 export type FieldErrors = Record<string, string>;
 
@@ -34,12 +36,12 @@ export function extractErrorMessage(error: unknown): string {
   const body = getErrorBody(error);
   if (!body) {
     if (axios.isAxiosError(error) && error.code === "ECONNABORTED") {
-      return "The server took too long to respond. Please try again.";
+      return t("errors.timeout");
     }
     if (axios.isAxiosError(error) && !error.response) {
-      return "Network error — please check your connection and try again.";
+      return t("errors.network");
     }
-    return "Something went wrong. Please try again.";
+    return t("errors.generic");
   }
 
   if (typeof body.detail === "string") return body.detail;
@@ -53,7 +55,7 @@ export function extractErrorMessage(error: unknown): string {
   const firstField = Object.keys(fieldErrors)[0];
   if (firstField) return fieldErrors[firstField]!;
 
-  return "Something went wrong. Please try again.";
+  return t("errors.generic");
 }
 
 function statusOf(error: unknown): number | undefined {
@@ -62,12 +64,12 @@ function statusOf(error: unknown): number | undefined {
 
 /** The object no longer exists — typically deleted on another device. */
 export function isNotFound(error: unknown): boolean {
-  return statusOf(error) === 404;
+  return statusOf(error) === HTTP_STATUS.NOT_FOUND;
 }
 
 /** 412: the object was changed on another device after it was loaded; nothing was saved. */
 export function isConflict(error: unknown): boolean {
-  return statusOf(error) === 412;
+  return statusOf(error) === HTTP_STATUS.PRECONDITION_FAILED;
 }
 
 /** The object as it is now on the server, sent along with a 412. */

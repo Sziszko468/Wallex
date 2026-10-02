@@ -61,17 +61,34 @@ def user_b_owns_everything(other_user):
     today = timezone.localdate()
     category = Category.objects.create(user=other_user, name=f"{CANARY} category", type=TransactionType.EXPENSE)
     transaction = Transaction.objects.create(
-        user=other_user, category=category, type="expense", amount=Decimal(AMOUNT), date=today,
+        user=other_user,
+        category=category,
+        type="expense",
+        amount=Decimal(AMOUNT),
+        date=today,
         description=f"{CANARY} groceries",
     )
-    budget = Budget.objects.create(user=other_user, category=category, amount=Decimal(AMOUNT), year=today.year, month=today.month)
+    budget = Budget.objects.create(
+        user=other_user, category=category, amount=Decimal(AMOUNT), year=today.year, month=today.month
+    )
     recurring = RecurringTransaction.objects.create(
-        user=other_user, category=category, name=f"{CANARY} rent", type="expense", amount=Decimal(AMOUNT),
-        frequency=Frequency.MONTHLY, start_date=date(2026, 1, 1), next_occurrence_date=date(2026, 1, 1),
+        user=other_user,
+        category=category,
+        name=f"{CANARY} rent",
+        type="expense",
+        amount=Decimal(AMOUNT),
+        frequency=Frequency.MONTHLY,
+        start_date=date(2026, 1, 1),
+        next_occurrence_date=date(2026, 1, 1),
     )
     subscription = Subscription.objects.create(
-        user=other_user, category=category, name=f"{CANARY} streaming", amount=Decimal("17.99"),
-        frequency=Frequency.MONTHLY, start_date=date(2026, 1, 5), next_occurrence_date=date(2026, 1, 5),
+        user=other_user,
+        category=category,
+        name=f"{CANARY} streaming",
+        amount=Decimal("17.99"),
+        frequency=Frequency.MONTHLY,
+        start_date=date(2026, 1, 5),
+        next_occurrence_date=date(2026, 1, 5),
     )
     goal = SavingsGoal.objects.create(user=other_user, name=f"{CANARY} trip", target_amount=Decimal(AMOUNT))
     device = Device.objects.create(
@@ -83,7 +100,9 @@ def user_b_owns_everything(other_user):
     conversation = AssistantConversation.objects.create(user=other_user, title=f"{CANARY} question")
     AssistantMessage.objects.create(conversation=conversation, role="user", content=f"{CANARY} question")
     AssistantMessage.objects.create(
-        conversation=conversation, role="assistant", content=f"{CANARY} answer: {AMOUNT} EUR",
+        conversation=conversation,
+        role="assistant",
+        content=f"{CANARY} answer: {AMOUNT} EUR",
         sources=[{"tool": "get_savings_progress", "arguments": {"goal": f"{CANARY} trip"}}],
     )
     session, _ = start_session(other_user)
@@ -114,7 +133,13 @@ def test_the_sweep_covers_the_api():
     names = {name for _, name in GET_ROUTES}
     # A sanity floor: if route discovery broke, the sweep would silently check nothing.
     assert len(GET_ROUTES) >= 35  # 37 when written
-    assert {"transaction-list", "transaction-detail", "analytics-dashboard", "auth-security-events", "session-list"} <= names
+    assert {
+        "transaction-list",
+        "transaction-detail",
+        "analytics-dashboard",
+        "auth-security-events",
+        "session-list",
+    } <= names
     assert {"assistant-status", "assistantconversation-list", "assistantconversation-detail"} <= names
 
 

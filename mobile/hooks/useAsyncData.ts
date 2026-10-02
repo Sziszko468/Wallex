@@ -1,7 +1,9 @@
 import axios from "axios";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { nextSyncTick } from "../utils/syncClock";
 import { useSyncState } from "./useSync";
+import { HTTP_STATUS } from "../config/http";
 
 interface AsyncState<T> {
   data: T | null;
@@ -19,7 +21,7 @@ interface AsyncDataOptions {
 }
 
 function isNotFound(error: unknown): boolean {
-  return axios.isAxiosError(error) && error.response?.status === 404;
+  return axios.isAxiosError(error) && error.response?.status === HTTP_STATUS.NOT_FOUND;
 }
 
 function sameData(a: unknown, b: unknown): boolean {
@@ -36,7 +38,8 @@ function sameData(a: unknown, b: unknown): boolean {
  * - `refetch()` reloads with a loading state (retry buttons, filters).
  * - `revalidate()` reloads silently: the current data stays on screen until the new data
  *   arrives, and unchanged data keeps its identity (no re-render, no form re-seeding).
- * - Live views revalidate by themselves when SyncProvider detects a server change.
+ * - Live views revalidate by themselves when SyncProvider detects a server change, and when the
+ *   interface language changes (the server writes some texts, such as insights, in it).
  */
 export function useAsyncData<T>(fetcher: () => Promise<T>, { live = true }: AsyncDataOptions = {}) {
   const [state, setState] = useState<AsyncState<T>>({
@@ -78,6 +81,15 @@ export function useAsyncData<T>(fetcher: () => Promise<T>, { live = true }: Asyn
   useEffect(() => {
     void refetch();
   }, [refetch]);
+
+  const { i18n } = useTranslation();
+  const language = i18n.language;
+  const shownLanguage = useRef(language);
+  useEffect(() => {
+    if (shownLanguage.current === language) return;
+    shownLanguage.current = language;
+    if (live) void revalidate();
+  }, [language, live, revalidate]);
 
   const sync = useSyncState();
   const syncVersion = sync?.version ?? 0;

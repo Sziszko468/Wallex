@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
 from apps.categories.models import Category, TransactionType
@@ -59,7 +60,7 @@ class TransactionSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             "amount": {
                 "help_text": (
-                    "Positive, in `currency`, as paid (decimal string, e.g. `\"45.90\"`). "
+                    'Positive, in `currency`, as paid (decimal string, e.g. `"45.90"`). '
                     "Max 2 decimals; whole numbers for HUF and JPY."
                 )
             },
@@ -82,9 +83,7 @@ class TransactionSerializer(serializers.ModelSerializer):
         category = attrs.get("category", getattr(self.instance, "category", None))
         tx_type = attrs.get("type", getattr(self.instance, "type", None))
         if category is not None and tx_type is not None and category.type != tx_type:
-            raise serializers.ValidationError(
-                {"type": "Transaction type must match the selected category's type."}
-            )
+            raise serializers.ValidationError({"type": _("Transaction type must match the selected category's type.")})
         return self._with_exchange_rate(attrs)
 
     def _with_exchange_rate(self, attrs):
@@ -104,7 +103,7 @@ class TransactionSerializer(serializers.ModelSerializer):
         if "exchange_rate" in attrs:
             if currency == base_currency and attrs["exchange_rate"] != ONE:
                 raise serializers.ValidationError(
-                    {"exchange_rate": ["Must be 1 when the currency is your base currency."]}
+                    {"exchange_rate": [_("Must be 1 when the currency is your base currency.")]}
                 )
         elif currency == base_currency:
             attrs["exchange_rate"] = ONE
@@ -113,12 +112,14 @@ class TransactionSerializer(serializers.ModelSerializer):
                 attrs["exchange_rate"] = exchange_rate(currency, base_currency, day).value
             except MissingExchangeRateError as error:
                 raise serializers.ValidationError(
-                    {"exchange_rate": [f"{error} Enter the rate manually or try again later."]}
+                    {"exchange_rate": [_("%(error)s Enter the rate manually or try again later.") % {"error": error}]}
                 ) from error
 
         rate = attrs.get("exchange_rate", getattr(instance, "exchange_rate", ONE))
         if amount is not None and base_amount_for(amount, rate) > MAX_BASE_AMOUNT:
-            raise serializers.ValidationError({"amount": ["This amount is too large to convert to your base currency."]})
+            raise serializers.ValidationError(
+                {"amount": [_("This amount is too large to convert to your base currency.")]}
+            )
         return attrs
 
 
@@ -137,9 +138,7 @@ class RecurringScheduleSerializer(serializers.ModelSerializer):
         start_date = attrs.get("start_date", getattr(self.instance, "start_date", None))
         end_date = attrs.get("end_date", getattr(self.instance, "end_date", None))
         if end_date is not None and start_date is not None and end_date < start_date:
-            raise serializers.ValidationError(
-                {"end_date": "End date must be on or after the start date."}
-            )
+            raise serializers.ValidationError({"end_date": _("End date must be on or after the start date.")})
 
         # The amount is billed in `currency` (default: the base currency) and never converted.
         base_currency = self.context["request"].user.base_currency
@@ -198,7 +197,9 @@ class RecurringTransactionSerializer(RecurringScheduleSerializer):
             "frequency": {"help_text": "How often it repeats, counted from `start_date`."},
             "start_date": {"help_text": "First occurrence."},
             "end_date": {"help_text": "Last possible occurrence (inclusive); `null` = no end."},
-            "next_occurrence_date": {"help_text": "Scheduling state: starts at `start_date`, reset when `start_date` changes."},
+            "next_occurrence_date": {
+                "help_text": "Scheduling state: starts at `start_date`, reset when `start_date` changes."
+            },
             "is_active": {"help_text": "`false` pauses reminders and excludes the template from insights."},
             "is_subscription": {
                 "help_text": "`true` for rows created through `/api/subscriptions/`; manage those there."
@@ -211,8 +212,8 @@ class RecurringTransactionSerializer(RecurringScheduleSerializer):
         tx_type = attrs.get("type", getattr(self.instance, "type", None))
         if category is not None and tx_type is not None and category.type != tx_type:
             raise serializers.ValidationError(
-                {"type": "Recurring transaction type must match the selected category's type."}
+                {"type": _("Recurring transaction type must match the selected category's type.")}
             )
         if self.instance is not None and self.instance.is_subscription and tx_type != TransactionType.EXPENSE:
-            raise serializers.ValidationError({"type": "Subscriptions are always expenses."})
+            raise serializers.ValidationError({"type": _("Subscriptions are always expenses.")})
         return self.validate_schedule_and_amount(attrs)

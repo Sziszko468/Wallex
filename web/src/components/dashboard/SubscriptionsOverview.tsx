@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import type { DashboardSubscriptions } from "../../types/dashboard";
 import { useBaseCurrency } from "../../hooks/useBaseCurrency";
 import { formatCurrency } from "../../utils/format";
@@ -12,15 +13,16 @@ interface SubscriptionsOverviewProps {
 
 /** The month's subscriptions from the dashboard response — every figure computed by the API. */
 export function SubscriptionsOverview({ subscriptions }: SubscriptionsOverviewProps) {
+  const { t } = useTranslation();
   const baseCurrency = useBaseCurrency();
   if (subscriptions.active_count === 0) {
     return (
       <EmptyState
         icon="subscriptions"
-        message="No subscriptions this month. Add them to see what they cost over a year."
+        message={t("dashboard.subscriptions.empty")}
         action={
           <ButtonLink to="/subscriptions" variant="secondary" size="sm" leadingIcon="plus">
-            Add your subscriptions
+            {t("dashboard.subscriptions.add")}
           </ButtonLink>
         }
       />
@@ -28,9 +30,9 @@ export function SubscriptionsOverview({ subscriptions }: SubscriptionsOverviewPr
   }
 
   const figures = [
-    { label: "Per month", value: subscriptions.monthly_total, primary: true },
-    { label: "Yearly projection", value: subscriptions.yearly_total, primary: false },
-    { label: "Billed this month", value: subscriptions.due_this_month, primary: false },
+    { label: t("dashboard.subscriptions.perMonth"), value: subscriptions.monthly_total, primary: true },
+    { label: t("dashboard.subscriptions.yearly"), value: subscriptions.yearly_total, primary: false },
+    { label: t("dashboard.subscriptions.billed"), value: subscriptions.due_this_month, primary: false },
   ];
 
   return (
@@ -45,12 +47,12 @@ export function SubscriptionsOverview({ subscriptions }: SubscriptionsOverviewPr
       </dl>
       <div className={styles.footer}>
         <span className={styles.meta}>
-          {subscriptions.active_count} active {subscriptions.active_count === 1 ? "subscription" : "subscriptions"}
+          {t("dashboard.subscriptions.active", { count: subscriptions.active_count })}
           {subscriptions.unconverted_currencies.length > 0 &&
-            ` · ${subscriptions.unconverted_currencies.join(", ")} not included (no exchange rate)`}
+            ` · ${t("dashboard.subscriptions.notIncluded", { currencies: subscriptions.unconverted_currencies.join(", ") })}`}
         </span>
         <Link to="/subscriptions" className={styles.link}>
-          Manage subscriptions
+          {t("dashboard.subscriptions.manage")}
         </Link>
       </div>
     </div>

@@ -1,4 +1,4 @@
-# Spendly web — design system
+# WALLEX web — design system
 
 The web app's look is defined in one place and used everywhere: **design tokens** (CSS custom
 properties) plus a small set of shared components. This document explains the ideas behind them and
@@ -6,7 +6,7 @@ how to extend them. Scope: the React app in `web/`. (The Expo mobile app has its
 
 ## Design direction — "Sage & Linen"
 
-Spendly should feel like a calm ledger, not a dashboard template:
+WALLEX should feel like a calm ledger, not a dashboard template:
 
 - **Warm neutrals instead of white and black.** Pages are linen (`#f4f2ea`), cards a soft off-white;
   the dark theme is deep graphite with a faint green cast. Pure `#fff` / `#000` are never used as a
@@ -17,7 +17,7 @@ Spendly should feel like a calm ledger, not a dashboard template:
   hairline borders do the rest. Shadows exist only for things that float (menus, dialogs, toasts).
 - **One typeface with real numerals.** Plus Jakarta Sans (variable, self-hosted). Amounts use
   tabular figures so columns line up and values don't jitter.
-- **A signature shape.** The Spendly ring — three unequal, round-ended arcs (sage, teal, sand) —
+- **A signature shape.** The WALLEX ring — three unequal, round-ended arcs (sage, teal, sand) —
   is the logo, the loading indicator and the auth-screen illustration.
 
 Usability wins over decoration: nothing is added that doesn't help someone understand or act.
@@ -41,7 +41,7 @@ Usability wins over decoration: nothing is added that doesn't help someone under
 
 ## Themes
 
-Three states, stored as `spendly-theme` in `localStorage`:
+Three states, stored as `wallex-theme` in `localStorage`:
 
 | Choice | Behaviour |
 |---|---|

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import type { CategoryBreakdownEntry } from "../../types/dashboard";
 import { categoryTone } from "../../utils/categoryStyle";
@@ -16,10 +17,11 @@ interface CategoryDonutChartProps {
 
 /** Where the month's spending went, as soft rounded segments. The largest category is named in the middle. */
 export function CategoryDonutChart({ data, colorFor }: CategoryDonutChartProps) {
+  const { t } = useTranslation();
   const baseCurrency = useBaseCurrency();
   const reduceMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
   if (data.length === 0) {
-    return <EmptyState icon="budgets" message="No expenses recorded this month yet." />;
+    return <EmptyState icon="budgets" message={t("dashboard.byCategory.empty")} />;
   }
 
   // Same as the monthly chart: Number(...) here is purely for the charting
@@ -33,7 +35,7 @@ export function CategoryDonutChart({ data, colorFor }: CategoryDonutChartProps) 
   const largest = data[0];
 
   return (
-    <ChartContainer label="Spending by category this month">
+    <ChartContainer label={t("dashboard.byCategory.chart")}>
       <div className={styles.chart}>
         <ResponsiveContainer width="100%" height={220}>
           <PieChart>
@@ -57,7 +59,7 @@ export function CategoryDonutChart({ data, colorFor }: CategoryDonutChartProps) 
         </ResponsiveContainer>
         {largest && (
           <div className={styles.center} aria-hidden="true">
-            <span className={styles.label}>Largest</span>
+            <span className={styles.label}>{t("dashboard.byCategory.largest")}</span>
             <span className={styles.name}>{largest.category_name}</span>
           </div>
         )}

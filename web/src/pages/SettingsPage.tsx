@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { usePageTitle } from "../hooks/usePageTitle";
@@ -10,16 +11,19 @@ import { ConfirmDialog } from "../components/ConfirmDialog";
 import { CurrencySelect } from "../components/CurrencySelect";
 import { DetailList } from "../components/DetailList";
 import { ErrorBanner } from "../components/ErrorBanner";
+import { LanguageSelector } from "../components/LanguageSelector";
 import { Notice } from "../components/Notice";
 import { PageHeader } from "../components/PageHeader";
 import { ThemeSelector } from "../components/ThemeSelector";
 import type { CurrencyCode } from "../types/currency";
 import { extractErrorMessage } from "../utils/errors";
+import { formatDate } from "../utils/format";
 import pageStyles from "../components/page.module.scss";
 import styles from "./SettingsPage.module.scss";
 
 export function SettingsPage() {
-  usePageTitle("Settings");
+  const { t } = useTranslation();
+  usePageTitle(t("settings.title"));
   const { user, logout, changeBaseCurrency } = useAuth();
   const navigate = useNavigate();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -51,7 +55,7 @@ export function SettingsPage() {
     setIsChangingCurrency(true);
     try {
       await changeBaseCurrency(selectedCurrency);
-      setCurrencyNotice(`Your base currency is now ${selectedCurrency}. Totals, budgets and recurring amounts were converted.`);
+      setCurrencyNotice(t("settings.currency.changed", { currency: selectedCurrency }));
     } catch (error) {
       setCurrencyError(extractErrorMessage(error));
     } finally {
@@ -64,86 +68,82 @@ export function SettingsPage() {
 
   return (
     <div className={pageStyles.page}>
-      <PageHeader title="Settings" description="Your profile, how Spendly looks, and how your money is shown." />
+      <PageHeader title={t("settings.title")} description={t("settings.description")} />
 
       <div className={styles.sections}>
         <Card padding="lg" className={styles.card}>
           <div className={styles.cardHeader}>
             <Avatar name={fullName || user?.email || "?"} size="lg" />
             <div>
-              <h2 className={styles.title}>Profile</h2>
-              <p className={styles.hint}>{fullName || "Your account"}</p>
+              <h2 className={styles.title}>{t("settings.profile.title")}</h2>
+              <p className={styles.hint}>{fullName || t("settings.profile.fallbackName")}</p>
             </div>
           </div>
           <DetailList
             items={[
-              { label: "Email", value: user?.email ?? "—" },
-              { label: "First name", value: user?.first_name || "—" },
-              { label: "Last name", value: user?.last_name || "—" },
-              { label: "Member since", value: user ? new Date(user.date_joined).toLocaleDateString() : "—" },
+              { label: t("settings.profile.email"), value: user?.email ?? t("common.states.notAvailable") },
+              { label: t("settings.profile.firstName"), value: user?.first_name || t("common.states.notAvailable") },
+              { label: t("settings.profile.lastName"), value: user?.last_name || t("common.states.notAvailable") },
+              { label: t("settings.profile.memberSince"), value: user ? formatDate(user.date_joined) : t("common.states.notAvailable") },
             ]}
           />
         </Card>
 
         <Card padding="lg" className={styles.card}>
           <div>
-            <h2 className={styles.title}>Appearance</h2>
-            <p className={styles.hint}>
-              System follows your device&apos;s light or dark setting, including when it changes at sunset.
-            </p>
+            <h2 className={styles.title}>{t("settings.appearance.title")}</h2>
+            <p className={styles.hint}>{t("settings.appearance.hint")}</p>
           </div>
           <ThemeSelector fullWidth />
         </Card>
 
         <Card padding="lg" className={styles.card}>
           <div>
-            <h2 className={styles.title}>Currency</h2>
-            <p className={styles.hint}>
-              Totals, budgets and recurring amounts are shown in your base currency. Every transaction keeps the
-              currency it was paid in.
-            </p>
+            <h2 className={styles.title}>{t("settings.language.title")}</h2>
+            <p className={styles.hint}>{t("settings.language.hint")}</p>
+          </div>
+          <LanguageSelector fullWidth />
+        </Card>
+
+        <Card padding="lg" className={styles.card}>
+          <div>
+            <h2 className={styles.title}>{t("settings.currency.title")}</h2>
+            <p className={styles.hint}>{t("settings.currency.hint")}</p>
           </div>
           <ErrorBanner message={currencyError} />
           {currencyNotice && <Notice tone="success">{currencyNotice}</Notice>}
-          <CurrencySelect label="Base currency" value={selectedCurrency} onChange={handleCurrencySelect} />
+          <CurrencySelect label={t("settings.currency.baseCurrency")} value={selectedCurrency} onChange={handleCurrencySelect} />
           <Button className={styles.action} onClick={() => setIsConfirmOpen(true)} disabled={selectedCurrency === baseCurrency}>
-            Change base currency
+            {t("settings.currency.change")}
           </Button>
         </Card>
 
         <Card padding="lg" className={styles.card}>
           <div>
-            <h2 className={styles.title}>Security</h2>
-            <p className={styles.hint}>
-              Signed-in devices, logging out everywhere, your password, two-factor authentication and recent
-              sign-ins.
-            </p>
+            <h2 className={styles.title}>{t("settings.security.title")}</h2>
+            <p className={styles.hint}>{t("settings.security.hint")}</p>
           </div>
           <ButtonLink to="/settings/security" variant="secondary" leadingIcon="security" className={styles.action}>
-            Manage security
+            {t("settings.security.manage")}
           </ButtonLink>
         </Card>
 
         <Card padding="lg" className={styles.card}>
           <div>
-            <h2 className={styles.title}>Session</h2>
-            <p className={styles.hint}>Log out of Spendly on this device.</p>
+            <h2 className={styles.title}>{t("settings.session.title")}</h2>
+            <p className={styles.hint}>{t("settings.session.hint")}</p>
           </div>
           <Button variant="secondary" leadingIcon="log-out" className={styles.action} onClick={handleLogout} isLoading={isLoggingOut}>
-            Log out
+            {t("common.actions.logOut")}
           </Button>
         </Card>
       </div>
 
       <ConfirmDialog
         isOpen={isConfirmOpen}
-        title={`Switch to ${selectedCurrency}?`}
-        message={
-          `Totals will be shown in ${selectedCurrency} instead of ${baseCurrency}. Each transaction is converted ` +
-          "with the ECB rate of its own date; budgets and recurring amounts are converted at the latest rate. " +
-          "The original amounts of your transactions don't change."
-        }
-        confirmLabel="Switch currency"
+        title={t("settings.currency.confirmTitle", { currency: selectedCurrency })}
+        message={t("settings.currency.confirmMessage", { to: selectedCurrency, from: baseCurrency })}
+        confirmLabel={t("settings.currency.confirmLabel")}
         isConfirming={isChangingCurrency}
         onConfirm={handleConfirmCurrencyChange}
         onClose={() => setIsConfirmOpen(false)}

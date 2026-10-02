@@ -1,7 +1,12 @@
 import axios from "axios";
+import { HTTP_STATUS } from "../config/http";
 
 // A proxy/load balancer answering for a server that is down or restarting.
-const SERVER_UNAVAILABLE_STATUSES = new Set([502, 503, 504]);
+const SERVER_UNAVAILABLE_STATUSES = new Set<number>([
+  HTTP_STATUS.BAD_GATEWAY,
+  HTTP_STATUS.SERVICE_UNAVAILABLE,
+  HTTP_STATUS.GATEWAY_TIMEOUT,
+]);
 
 /** Django wrote the answer itself (a DRF error body): the backend is up, only one feature isn't. */
 function answeredByBackend(data: unknown): boolean {

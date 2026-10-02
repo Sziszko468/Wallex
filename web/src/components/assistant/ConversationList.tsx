@@ -1,4 +1,7 @@
+import { useTranslation } from "react-i18next";
 import { NavLink } from "react-router-dom";
+import { t } from "i18next";
+import { currentLocale } from "../../i18n";
 import type { AssistantConversationSummary } from "../../types/assistant";
 import { Button } from "../Button";
 import { IconButton } from "../IconButton";
@@ -24,8 +27,8 @@ function lastActive(isoTimestamp: string): string {
   const date = new Date(isoTimestamp);
   const isToday = date.toDateString() === new Date().toDateString();
   return isToday
-    ? `Today, ${date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}`
-    : date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    ? t("assistant.list.today", { time: date.toLocaleTimeString(currentLocale(), { hour: "2-digit", minute: "2-digit" }) })
+    : date.toLocaleDateString(currentLocale(), { month: "short", day: "numeric" });
 }
 
 export function ConversationList({
@@ -39,9 +42,10 @@ export function ConversationList({
   onDelete,
   onOpen,
 }: ConversationListProps) {
+  const { t } = useTranslation();
   return (
-    <nav className={styles.history} aria-label="Conversation history">
-      <h2 className={styles.heading}>History</h2>
+    <nav className={styles.history} aria-label={t("assistant.list.label")}>
+      <h2 className={styles.heading}>{t("assistant.history")}</h2>
       {isLoading ? (
         <div className={styles.placeholder}>
           <Skeleton height={36} />
@@ -50,7 +54,7 @@ export function ConversationList({
       ) : error ? (
         <ErrorState error={error} onRetry={onRetry} />
       ) : conversations.length === 0 ? (
-        <p className={styles.empty}>Your conversations will appear here.</p>
+        <p className={styles.empty}>{t("assistant.list.empty")}</p>
       ) : (
         <>
           <ul className={styles.list}>
@@ -66,7 +70,7 @@ export function ConversationList({
                 </NavLink>
                 <IconButton
                   icon="trash"
-                  label={`Delete conversation: ${conversation.title}`}
+                  label={t("assistant.list.delete", { title: conversation.title })}
                   variant="danger"
                   size="sm"
                   className={styles.delete}
@@ -77,7 +81,7 @@ export function ConversationList({
           </ul>
           {hasMore && (
             <Button variant="ghost" size="sm" onClick={onLoadMore} disabled={isLoadingMore}>
-              {isLoadingMore ? "Loading…" : "Show older"}
+              {isLoadingMore ? t("common.states.loading") : t("assistant.list.showOlder")}
             </Button>
           )}
         </>

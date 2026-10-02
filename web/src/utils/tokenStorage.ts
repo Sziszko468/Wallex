@@ -11,7 +11,8 @@
 
 let accessToken: string | null = null;
 
-// Where earlier versions kept both tokens. Removed on start so no old refresh token lingers.
+// Where earlier versions (before the app was renamed) kept both tokens. Removed on start so no old
+// refresh token lingers.
 const LEGACY_KEYS = ["spendly_access_token", "spendly_refresh_token"];
 
 export function getAccessToken(): string | null {

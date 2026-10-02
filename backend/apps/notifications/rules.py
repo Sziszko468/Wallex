@@ -18,12 +18,14 @@ Scheduled rules run hourly for every active user (run_scheduled_rules, called by
 - send_insight_notifications — important (alert) insights such as overspending.
 """
 
-import calendar
 import logging
 from datetime import date
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
+from django.utils.dates import MONTHS
+from django.utils.translation import gettext as _
+from django.utils.translation import ngettext
 
 from apps.analytics import services as analytics
 from apps.analytics.anomalies import find_unusual_spending
@@ -37,6 +39,7 @@ from apps.analytics.insights import (
 from apps.budgets.models import Budget, SavingsGoal, SavingsGoalStatus
 from apps.budgets.savings import progress_percentage
 from apps.categories.models import Category, TransactionType
+from apps.common.i18n import in_user_language
 from apps.currencies.formatting import format_money
 from apps.subscriptions.models import Subscription
 from apps.transactions.models import RecurringTransaction
@@ -47,8 +50,9 @@ from .services import already_notified, get_preferences, notify
 
 logger = logging.getLogger(__name__)
 
-# Progress (in %) at which a savings goal notifies; 100 = reached.
-SAVINGS_MILESTONES = (25, 50, 75, 90, 100)
+# Progress (in %) at which a savings goal notifies; FULL_PERCENT = reached.
+FULL_PERCENT = 100
+SAVINGS_MILESTONES = (25, 50, 75, 90, FULL_PERCENT)
 # At most this many unusual-spending notifications per scheduled run, the largest excess first.
 MAX_UNUSUAL_SPENDING_PER_RUN = 3
 # Last month's summary is sent during the first days of the new month only — a summary
@@ -62,16 +66,16 @@ _BUDGET_INSIGHT_TYPES = {InsightType.BUDGET_EXCEEDED, InsightType.BUDGET_WARNING
 # --- Real-time rules ---------------------------------------------------------
 
 
+@in_user_language
 def check_budget_thresholds(user, year: int, month: int) -> None:
     """Called after anything that can change a month's budget usage (expense or budget written)."""
     preferences = get_preferences(user)
     if not (preferences.budget_warnings or preferences.budget_exceeded):
         return
 
-    month_name = calendar.month_name[month]
+    month_name = str(MONTHS[month])
     for usage in analytics.get_budget_usage(user, year, month):
         is_overall = usage["category_id"] is None
-        budget_name = "overall" if is_overall else usage["category_name"]
         data = {"screen": "budgets", "budget_id": usage["budget_id"], "year": year, "month": month}
         used = whole_percent(usage["usage_percentage"])
 
@@ -79,8 +83,14 @@ def check_budget_thresholds(user, year: int, month: int) -> None:
             notify(
                 user,
                 NotificationKind.BUDGET_EXCEEDED,
-                title="Budget exceeded",
-                body=f"You've spent {used}% of your {budget_name} budget for {month_name}.",
+                title=_("Budget exceeded"),
+                body=(
+                    _("You've spent %(percent)s%% of your overall budget for %(month)s.")
+                    % {"percent": used, "month": month_name}
+                    if is_overall
+                    else _("You've spent %(percent)s%% of your %(name)s budget for %(month)s.")
+                    % {"percent": used, "name": usage["category_name"], "month": month_name}
+                ),
                 dedupe_key=f"budget_exceeded:{usage['budget_id']}",
                 related=(Budget, usage["budget_id"]),
                 data=data,
@@ -90,8 +100,14 @@ def check_budget_thresholds(user, year: int, month: int) -> None:
             notify(
                 user,
                 NotificationKind.BUDGET_WARNING,
-                title="Budget almost used",
-                body=f"You've used {used}% of your {budget_name} budget for {month_name}.",
+                title=_("Budget almost used"),
+                body=(
+                    _("You've used %(percent)s%% of your overall budget for %(month)s.")
+                    % {"percent": used, "month": month_name}
+                    if is_overall
+                    else _("You've used %(percent)s%% of your %(name)s budget for %(month)s.")
+                    % {"percent": used, "name": usage["category_name"], "month": month_name}
+                ),
                 dedupe_key=f"budget_warning:{usage['budget_id']}",
                 related=(Budget, usage["budget_id"]),
                 data=data,
@@ -99,6 +115,7 @@ def check_budget_thresholds(user, year: int, month: int) -> None:
             )
 
 
+@in_user_language
 def check_savings_goal(user, goal: SavingsGoal, previous_progress: Decimal) -> None:
     """Called after a goal's progress may have grown (money added, target lowered).
 
@@ -114,14 +131,21 @@ def check_savings_goal(user, goal: SavingsGoal, previous_progress: Decimal) -> N
         return
 
     milestone = crossed[-1]
-    if milestone == 100:
-        title = "Savings goal reached"
-        body = f"You reached your {goal.name} goal of {format_money(goal.target_amount, goal.currency)}."
+    if milestone == FULL_PERCENT:
+        title = _("Savings goal reached")
+        body = _("You reached your %(goal)s goal of %(amount)s.") % {
+            "goal": goal.name,
+            "amount": format_money(goal.target_amount, goal.currency),
+        }
     else:
         remaining = format_money(goal.target_amount - goal.current_amount, goal.currency)
-        title = "Savings goal progress"
+        title = _("Savings goal progress")
         # Rounded down, so a goal that isn't reached never reads "100% saved".
-        body = f"You are {remaining} away from your {goal.name} goal ({int(progress)}% saved)."
+        body = _("You are %(remaining)s away from your %(goal)s goal (%(percent)s%% saved).") % {
+            "remaining": remaining,
+            "goal": goal.name,
+            "percent": int(progress),
+        }
     notify(
         user,
         NotificationKind.SAVINGS_GOAL,
@@ -136,22 +160,37 @@ def check_savings_goal(user, goal: SavingsGoal, previous_progress: Decimal) -> N
 # --- Scheduled rules ---------------------------------------------------------
 
 
-def _due_phrase(days_left: int) -> str:
+def _subscription_due_text(name: str, days_left: int) -> str:
     if days_left == 0:
-        return "today"
+        return _("%(name)s payment expected today.") % {"name": name}
     if days_left == 1:
-        return "tomorrow"
-    return f"in {days_left} days"
+        return _("%(name)s payment expected tomorrow.") % {"name": name}
+    return ngettext(
+        "%(name)s payment expected in %(days)d day.",
+        "%(name)s payment expected in %(days)d days.",
+        days_left,
+    ) % {"name": name, "days": days_left}
 
 
+def _recurring_due_text(name: str, days_left: int) -> str:
+    if days_left == 0:
+        return _("%(name)s is due today.") % {"name": name}
+    if days_left == 1:
+        return _("%(name)s is due tomorrow.") % {"name": name}
+    return ngettext(
+        "%(name)s is due in %(days)d day.",
+        "%(name)s is due in %(days)d days.",
+        days_left,
+    ) % {"name": name, "days": days_left}
+
+
+@in_user_language
 def send_payment_reminders(user, preferences: NotificationPreference, today: date) -> None:
     """A reminder `recurring_reminder_days` (or fewer) days before each recurring expense is due.
     Subscriptions get their own kind and switch; every other recurring expense is `recurring_due`."""
     if not (preferences.subscription_reminders or preferences.recurring_reminders):
         return
-    recurring_expenses = RecurringTransaction.objects.filter(
-        user=user, type=TransactionType.EXPENSE, is_active=True
-    )
+    recurring_expenses = RecurringTransaction.objects.filter(user=user, type=TransactionType.EXPENSE, is_active=True)
     for recurring in recurring_expenses:
         occurrence = next_occurrence_on_or_after(recurring, today)
         if occurrence is None:
@@ -160,15 +199,14 @@ def send_payment_reminders(user, preferences: NotificationPreference, today: dat
         if days_left > preferences.recurring_reminder_days:
             continue
 
-        when = _due_phrase(days_left)
         # One reminder per payment, even if the item is turned into a subscription meanwhile.
         dedupe_key = f"recurring_due:{recurring.id}:{occurrence.isoformat()}"
         if recurring.is_subscription:
             notify(
                 user,
                 NotificationKind.SUBSCRIPTION_DUE,
-                title="Subscription payment",
-                body=f"{recurring.name} payment expected {when}.",
+                title=_("Subscription payment"),
+                body=_subscription_due_text(recurring.name, days_left),
                 dedupe_key=dedupe_key,
                 related=(Subscription, recurring.id),
                 data={"screen": "subscriptions", "subscription_id": recurring.id, "date": occurrence.isoformat()},
@@ -178,8 +216,8 @@ def send_payment_reminders(user, preferences: NotificationPreference, today: dat
             notify(
                 user,
                 NotificationKind.RECURRING_DUE,
-                title="Upcoming payment",
-                body=f"{recurring.name} is due {when}.",
+                title=_("Upcoming payment"),
+                body=_recurring_due_text(recurring.name, days_left),
                 dedupe_key=dedupe_key,
                 related=(RecurringTransaction, recurring.id),
                 data={"screen": "recurring", "recurring_id": recurring.id, "date": occurrence.isoformat()},
@@ -187,6 +225,7 @@ def send_payment_reminders(user, preferences: NotificationPreference, today: dat
             )
 
 
+@in_user_language
 def send_unusual_spending(user, preferences: NotificationPreference, today: date) -> None:
     """Categories spending clearly more than usual by this day of the month (see
     apps/analytics/anomalies.py for what "usual" means). Once per category and month."""
@@ -199,11 +238,11 @@ def send_unusual_spending(user, preferences: NotificationPreference, today: date
         notification = notify(
             user,
             NotificationKind.UNUSUAL_SPENDING,
-            title="Unusual spending",
-            body=(
-                f"Your {item.category_name} expenses increased by {whole_percent(item.increase_percentage)}% "
-                "compared to your usual spending so far this month."
-            ),
+            title=_("Unusual spending"),
+            body=_(
+                "Your %(name)s expenses increased by %(percent)s%% compared to your usual spending so far this month."
+            )
+            % {"name": item.category_name, "percent": whole_percent(item.increase_percentage)},
             dedupe_key=f"unusual_spending:{item.category_id}:{today:%Y-%m}",
             related=(Category, item.category_id),
             data={"screen": "transactions", "category_id": item.category_id, "year": today.year, "month": today.month},
@@ -218,11 +257,19 @@ def _spending_change_sentence(change: Decimal | None, compared_month: str) -> st
         return ""
     rounded = whole_percent(abs(change))
     if rounded == "0":
-        return f" Spending was about the same as in {compared_month}."
-    direction = "higher" if change > 0 else "lower"
-    return f" Spending was {rounded}% {direction} than in {compared_month}."
+        return " " + _("Spending was about the same as in %(month)s.") % {"month": compared_month}
+    if change > 0:
+        return " " + _("Spending was %(percent)s%% higher than in %(month)s.") % {
+            "percent": rounded,
+            "month": compared_month,
+        }
+    return " " + _("Spending was %(percent)s%% lower than in %(month)s.") % {
+        "percent": rounded,
+        "month": compared_month,
+    }
 
 
+@in_user_language
 def send_monthly_summary(user, preferences: NotificationPreference, today: date) -> None:
     """Last month's spending and income, compared with the month before. Skipped for a month
     without transactions (e.g. before the user signed up)."""
@@ -239,19 +286,23 @@ def send_monthly_summary(user, preferences: NotificationPreference, today: date)
     before = analytics.get_month_summary(user, *analytics.previous_month(year, month))
 
     currency = user.base_currency
-    month_name = calendar.month_name[month]
+    month_name = str(MONTHS[month])
     spent = format_money(summary["total_expenses"], currency)
     if summary["total_income"]:
-        text = f"You spent {spent} and earned {format_money(summary['total_income'], currency)} in {month_name}."
+        text = _("You spent %(spent)s and earned %(earned)s in %(month)s.") % {
+            "spent": spent,
+            "earned": format_money(summary["total_income"], currency),
+            "month": month_name,
+        }
     else:
-        text = f"You spent {spent} in {month_name}."
+        text = _("You spent %(spent)s in %(month)s.") % {"spent": spent, "month": month_name}
     change = analytics.percentage_change(before["total_expenses"], summary["total_expenses"])
-    text += _spending_change_sentence(change, calendar.month_name[before["month"]])
+    text += _spending_change_sentence(change, str(MONTHS[before["month"]]))
 
     notify(
         user,
         NotificationKind.MONTHLY_SUMMARY,
-        title=f"Your {month_name} summary",
+        title=_("Your %(month)s summary") % {"month": month_name},
         body=text,
         dedupe_key=dedupe_key,
         data={"screen": "dashboard", "year": year, "month": month},
@@ -263,6 +314,7 @@ def is_important_insight(insight) -> bool:
     return insight.severity == Severity.ALERT and insight.type not in _BUDGET_INSIGHT_TYPES
 
 
+@in_user_language
 def send_insight_notifications(user, preferences: NotificationPreference, today: date) -> None:
     if not preferences.insights:
         return
@@ -272,7 +324,7 @@ def send_insight_notifications(user, preferences: NotificationPreference, today:
         notify(
             user,
             NotificationKind.INSIGHT,
-            title="Financial insight",
+            title=_("Financial insight"),
             body=insight.message,
             # Once per insight per month, however often the scheduled job runs.
             dedupe_key=f"insight:{insight.id}:{today:%Y-%m}",

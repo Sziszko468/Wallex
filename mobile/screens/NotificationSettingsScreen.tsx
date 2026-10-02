@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { AppState, Linking, Pressable, StyleSheet, Switch, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
+import { BUDGET_NEAR_LIMIT_PERCENT } from "../config/budget";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { Button } from "../components/Button";
 import { ErrorBanner } from "../components/ErrorBanner";
@@ -22,34 +24,6 @@ import type { NotificationPreferences, NotificationPreferencesUpdate } from "../
 
 type PreferenceToggle = Exclude<keyof NotificationPreferences, "recurring_reminder_days" | "updated_at">;
 
-// Only labels live here: when to notify, and what the notification says, is decided by the backend.
-const TOGGLES: { field: PreferenceToggle; label: string; hint: string }[] = [
-  { field: "budget_warnings", label: "Budget almost used", hint: "When a budget reaches 80%." },
-  { field: "budget_exceeded", label: "Budget exceeded", hint: "When you spend more than a budget." },
-  {
-    field: "subscription_reminders",
-    label: "Subscription payments",
-    hint: "Before a subscription is charged.",
-  },
-  {
-    field: "recurring_reminders",
-    label: "Other recurring payments",
-    hint: "Before rent, bills and other recurring expenses are due.",
-  },
-  { field: "savings_goals", label: "Savings goals", hint: "Milestones on the way to a goal." },
-  {
-    field: "unusual_spending",
-    label: "Unusual spending",
-    hint: "When a category costs clearly more than usual.",
-  },
-  { field: "monthly_summary", label: "Monthly summary", hint: "Last month's spending, early in the month." },
-  {
-    field: "insights",
-    label: "Important insights",
-    hint: "For example when expenses exceed income.",
-  },
-];
-
 const REMINDER_DAY_OPTIONS = [1, 2, 3, 7];
 
 export function NotificationSettingsScreen() {
@@ -63,6 +37,7 @@ export function NotificationSettingsScreen() {
 
 /** Push on *this* device: OS permission + registration with the backend. */
 function DeviceSection() {
+  const { t } = useTranslation();
   const [status, setStatus] = useState<PushStatus | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -100,8 +75,8 @@ function DeviceSection() {
   if (!isPushSupportedPlatform) {
     return (
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>This device</Text>
-        <Text style={styles.hint}>Push notifications are available in the iOS and Android app.</Text>
+        <Text style={styles.cardTitle}>{t("settings.notificationSettings.device.title")}</Text>
+        <Text style={styles.hint}>{t("settings.notificationSettings.device.unsupportedPlatform")}</Text>
       </View>
     );
   }
@@ -111,12 +86,12 @@ function DeviceSection() {
 
   return (
     <View style={styles.card}>
-      <Text style={styles.cardTitle}>This device</Text>
+      <Text style={styles.cardTitle}>{t("settings.notificationSettings.device.title")}</Text>
       <ErrorBanner message={error ?? (status?.state === "error" ? status.message : null)} />
 
       <ToggleRow
-        label="Push notifications"
-        hint="Receive Spendly alerts on this phone."
+        label={t("settings.notificationSettings.device.push")}
+        hint={t("settings.notificationSettings.device.pushHint")}
         value={isEnabled}
         onChange={handleToggle}
         disabled={!canToggle}
@@ -126,11 +101,11 @@ function DeviceSection() {
         <View style={styles.notice}>
           <Text style={styles.hint}>
             {status.canAskAgain
-              ? "Notifications aren't allowed yet. Turn the switch on to allow them."
-              : "Notifications are turned off for Spendly in your device settings."}
+              ? t("settings.notificationSettings.device.canAskAgain")
+              : t("settings.notificationSettings.device.blocked")}
           </Text>
           {!status.canAskAgain && (
-            <Button title="Open device settings" variant="secondary" onPress={() => void Linking.openSettings()} />
+            <Button title={t("settings.notificationSettings.device.openSettings")} variant="secondary" onPress={() => void Linking.openSettings()} />
           )}
         </View>
       )}
@@ -141,6 +116,7 @@ function DeviceSection() {
 
 /** What to be notified about — stored on the backend, applies to all devices. */
 function PreferencesSection() {
+  const { t } = useTranslation();
   const loaded = useAsyncData(useCallback(() => getNotificationPreferences(), []));
   const [preferences, setPreferences] = useState<NotificationPreferences | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -148,6 +124,50 @@ function PreferencesSection() {
   useEffect(() => {
     if (loaded.data) setPreferences(loaded.data);
   }, [loaded.data]);
+
+  // Only labels live here: when to notify, and what the notification says, is decided by the backend.
+  const toggles: { field: PreferenceToggle; label: string; hint: string }[] = [
+    {
+      field: "budget_warnings",
+      label: t("settings.notificationSettings.toggles.budget_warnings.label"),
+      hint: t("settings.notificationSettings.toggles.budget_warnings.hint", { percent: BUDGET_NEAR_LIMIT_PERCENT }),
+    },
+    {
+      field: "budget_exceeded",
+      label: t("settings.notificationSettings.toggles.budget_exceeded.label"),
+      hint: t("settings.notificationSettings.toggles.budget_exceeded.hint"),
+    },
+    {
+      field: "subscription_reminders",
+      label: t("settings.notificationSettings.toggles.subscription_reminders.label"),
+      hint: t("settings.notificationSettings.toggles.subscription_reminders.hint"),
+    },
+    {
+      field: "recurring_reminders",
+      label: t("settings.notificationSettings.toggles.recurring_reminders.label"),
+      hint: t("settings.notificationSettings.toggles.recurring_reminders.hint"),
+    },
+    {
+      field: "savings_goals",
+      label: t("settings.notificationSettings.toggles.savings_goals.label"),
+      hint: t("settings.notificationSettings.toggles.savings_goals.hint"),
+    },
+    {
+      field: "unusual_spending",
+      label: t("settings.notificationSettings.toggles.unusual_spending.label"),
+      hint: t("settings.notificationSettings.toggles.unusual_spending.hint"),
+    },
+    {
+      field: "monthly_summary",
+      label: t("settings.notificationSettings.toggles.monthly_summary.label"),
+      hint: t("settings.notificationSettings.toggles.monthly_summary.hint"),
+    },
+    {
+      field: "insights",
+      label: t("settings.notificationSettings.toggles.insights.label"),
+      hint: t("settings.notificationSettings.toggles.insights.hint"),
+    },
+  ];
 
   async function update(patch: NotificationPreferencesUpdate) {
     if (!preferences) return;
@@ -164,13 +184,13 @@ function PreferencesSection() {
 
   return (
     <View style={styles.card}>
-      <Text style={styles.cardTitle}>Notify me about</Text>
-      <Text style={[styles.hint, styles.subtitle]}>Applies to all your devices.</Text>
+      <Text style={styles.cardTitle}>{t("settings.notificationSettings.preferences.title")}</Text>
+      <Text style={[styles.hint, styles.subtitle]}>{t("settings.notificationSettings.preferences.subtitle")}</Text>
       <SectionState isLoading={loaded.isLoading} error={loaded.error} onRetry={loaded.refetch}>
         {preferences && (
           <>
             <ErrorBanner message={error} />
-            {TOGGLES.map(({ field, label, hint }) => (
+            {toggles.map(({ field, label, hint }) => (
               <ToggleRow
                 key={field}
                 label={label}
@@ -182,7 +202,7 @@ function PreferencesSection() {
 
             {(preferences.subscription_reminders || preferences.recurring_reminders) && (
               <View style={styles.daysRow}>
-                <Text style={styles.label}>Remind me</Text>
+                <Text style={styles.label}>{t("settings.notificationSettings.preferences.remind")}</Text>
                 <View style={styles.chips}>
                   {REMINDER_DAY_OPTIONS.map((days) => {
                     const selected = preferences.recurring_reminder_days === days;
@@ -191,18 +211,18 @@ function PreferencesSection() {
                         key={days}
                         accessibilityRole="radio"
                         accessibilityState={{ selected }}
-                        accessibilityLabel={`${days} ${days === 1 ? "day" : "days"} before`}
+                        accessibilityLabel={t("settings.notificationSettings.preferences.daysBefore", { count: days })}
                         onPress={() => void update({ recurring_reminder_days: days })}
                         style={[styles.chip, selected && styles.chipSelected]}
                       >
                         <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
-                          {days === 1 ? "1 day" : `${days} days`}
+                          {t("settings.notificationSettings.preferences.days", { count: days })}
                         </Text>
                       </Pressable>
                     );
                   })}
                 </View>
-                <Text style={styles.hint}>before a subscription or other recurring payment is due.</Text>
+                <Text style={styles.hint}>{t("settings.notificationSettings.preferences.after")}</Text>
               </View>
             )}
           </>

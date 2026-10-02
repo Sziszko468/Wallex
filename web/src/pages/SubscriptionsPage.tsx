@@ -1,4 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { EXCHANGE_RATE_MAX_AGE_DAYS, UPCOMING_PAYMENT_DAYS } from "../config/subscriptions";
 import { deleteSubscription, getSubscriptionSummary, listSubscriptions } from "../services/subscriptionsService";
 import { listCategories } from "../services/categoriesService";
 import { useAsyncData } from "../hooks/useAsyncData";
@@ -33,7 +35,8 @@ interface FormModalState {
 }
 
 export function SubscriptionsPage() {
-  usePageTitle("Subscriptions");
+  const { t } = useTranslation();
+  usePageTitle(t("subscriptions.title"));
   const baseCurrency = useBaseCurrency();
   const toast = useToast();
 
@@ -75,7 +78,7 @@ export function SubscriptionsPage() {
   }
 
   function handleSaved() {
-    toast.success(formModal.subscription ? "Changes saved" : "Subscription added");
+    toast.success(formModal.subscription ? t("subscriptions.toast.saved") : t("subscriptions.toast.added"));
     closeFormModal();
     reload();
   }
@@ -91,7 +94,7 @@ export function SubscriptionsPage() {
     try {
       await deleteSubscription(deleteTarget.id);
       setDeleteTarget(null);
-      toast.success("Subscription deleted");
+      toast.success(t("subscriptions.toast.deleted"));
       reload();
     } catch (error) {
       setActionError(extractErrorMessage(error));
@@ -112,11 +115,11 @@ export function SubscriptionsPage() {
       return (
         <EmptyState
           icon="subscriptions"
-          title="No subscriptions yet"
-          message="Add Netflix, Spotify, your gym or phone plan to see what they really cost over a year."
+          title={t("subscriptions.empty.title")}
+          message={t("subscriptions.empty.message")}
           action={
             <Button leadingIcon="plus" onClick={openCreate}>
-              Add subscription
+              {t("subscriptions.add")}
             </Button>
           }
         />
@@ -135,11 +138,11 @@ export function SubscriptionsPage() {
   return (
     <div className={pageStyles.page}>
       <PageHeader
-        title="Subscriptions"
-        description="What you pay for regularly, and what it adds up to."
+        title={t("subscriptions.title")}
+        description={t("subscriptions.description")}
         actions={
           <Button type="button" leadingIcon="plus" onClick={openCreate}>
-            Add subscription
+            {t("subscriptions.add")}
           </Button>
         }
       />
@@ -152,19 +155,21 @@ export function SubscriptionsPage() {
         <SummaryStrip
           items={[
             {
-              label: "Monthly subscriptions",
+              label: t("subscriptions.summary.monthly"),
               value: summary.data ? formatCurrency(summary.data.monthly_total, baseCurrency) : undefined,
               isLoading: summary.isLoading,
             },
             {
-              label: "Yearly projection",
+              label: t("subscriptions.summary.yearly"),
               value: summary.data ? formatCurrency(summary.data.yearly_total, baseCurrency) : undefined,
               isLoading: summary.isLoading,
             },
             {
-              label: "Active subscriptions",
+              label: t("subscriptions.summary.active"),
               value: summary.data
-                ? `${summary.data.active_count}${summary.data.paused_count ? ` · ${summary.data.paused_count} paused` : ""}`
+                ? summary.data.paused_count
+                  ? t("subscriptions.summary.activeWithPaused", { active: summary.data.active_count, paused: summary.data.paused_count })
+                  : String(summary.data.active_count)
                 : undefined,
               isLoading: summary.isLoading,
             },
@@ -174,8 +179,7 @@ export function SubscriptionsPage() {
 
       {unconverted.length > 0 && (
         <Notice tone="warning">
-          Not included in the totals: subscriptions billed in {unconverted.join(", ")} — no exchange rate from the
-          last 7 days.
+          {t("subscriptions.summary.unconverted", { currencies: unconverted.join(", "), days: EXCHANGE_RATE_MAX_AGE_DAYS })}
         </Notice>
       )}
 
@@ -183,10 +187,10 @@ export function SubscriptionsPage() {
 
       {summary.data && (
         <div className={styles.cardsRow}>
-          <DashboardCard title="Next 30 days">
+          <DashboardCard title={t("subscriptions.cards.upcoming", { days: UPCOMING_PAYMENT_DAYS })}>
             <UpcomingPaymentsList payments={summary.data.upcoming} baseCurrency={baseCurrency} />
           </DashboardCard>
-          <DashboardCard title="Monthly cost by category">
+          <DashboardCard title={t("subscriptions.cards.byCategory")}>
             <SubscriptionCategoryList
               categories={summary.data.by_category}
               baseCurrency={baseCurrency}
@@ -206,9 +210,9 @@ export function SubscriptionsPage() {
 
       <ConfirmDialog
         isOpen={deleteTarget !== null}
-        title="Delete subscription"
-        message={`Delete "${deleteTarget?.name ?? ""}"? Payments you already recorded stay in your transactions. To keep its history, set a last payment date instead.`}
-        confirmLabel="Delete"
+        title={t("subscriptions.delete.title")}
+        message={t("subscriptions.delete.message", { name: deleteTarget?.name ?? "" })}
+        confirmLabel={t("common.actions.delete")}
         isConfirming={isDeleting}
         onConfirm={confirmDelete}
         onClose={() => setDeleteTarget(null)}

@@ -17,11 +17,11 @@ BACKEND_DIR = Path(settings.BASE_DIR)
 
 VALID_PROD_ENV = {
     "DJANGO_SETTINGS_MODULE": "config.settings.prod",
-    "DJANGO_ALLOWED_HOSTS": "api.spendly.example",
+    "DJANGO_ALLOWED_HOSTS": "api.wallex.example",
     "DJANGO_SECRET_KEY": "q3v!8Zp@1Lw#9Rm$4Tx%7Ky^2Ns&6Hd*0Fb(5Gc)8Jv+3Qe=1Wa-9Ur_7Io~4Pz",
     # Test-only values, never used outside these subprocesses.
     "FIELD_ENCRYPTION_KEY": "Xk2#9vQ!mL7@pR4$wT8%zN1^cB6&hJ3*dF5(gS0)yU2+eA7=oI9-rK4_tP6~qW8",
-    "CORS_ALLOWED_ORIGINS": "https://app.spendly.example",
+    "CORS_ALLOWED_ORIGINS": "https://app.wallex.example",
     "DJANGO_DEBUG": "True",  # must be ignored in production
 }
 
@@ -42,7 +42,11 @@ def _run_without(names: set[str], code: str) -> subprocess.CompletedProcess:
     env = {key: value for key, value in {**os.environ, **VALID_PROD_ENV}.items() if key not in names}
     return subprocess.run(
         [sys.executable, "-c", "import environ; environ.Env.read_env = lambda *a, **k: None;" + code],
-        cwd=BACKEND_DIR, env=env, capture_output=True, text=True, timeout=60,
+        cwd=BACKEND_DIR,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
     )
 
 
@@ -59,7 +63,16 @@ def test_valid_production_settings_load_with_secure_defaults():
     # CORS credentials are allowed (the web refresh-token cookie), but only for the explicit https
     # origins — never all origins.
     assert result.stdout.split() == [
-        "False", "True", "True", "True", "True", "DENY", "True", "same-origin", "False", "True",
+        "False",
+        "True",
+        "True",
+        "True",
+        "True",
+        "DENY",
+        "True",
+        "same-origin",
+        "False",
+        "True",
     ]
 
 
@@ -87,7 +100,7 @@ def test_production_refuses_a_weak_or_placeholder_secret_key(secret):
 
 
 def test_production_refuses_plain_http_cors_origins():
-    result = _import_prod(CORS_ALLOWED_ORIGINS="http://app.spendly.example")
+    result = _import_prod(CORS_ALLOWED_ORIGINS="http://app.wallex.example")
     assert result.returncode != 0
     assert "CORS_ALLOWED_ORIGINS" in result.stderr
 
@@ -139,7 +152,7 @@ def test_production_needs_no_cors_origins_by_default():
 
 
 def test_only_postgresql_is_accepted():
-    result = _import_prod(DATABASE_URL="sqlite:////tmp/spendly.sqlite3")
+    result = _import_prod(DATABASE_URL="sqlite:////tmp/wallex.sqlite3")
     assert result.returncode != 0
     assert "PostgreSQL" in result.stderr
 
@@ -148,10 +161,10 @@ def test_a_managed_database_url_is_used_with_its_ssl_mode():
     result = _run(
         "import config.settings.prod as s; d = s.DATABASES['default'];"
         "print(d['HOST'], d['NAME'], d['OPTIONS']['sslmode'], d['CONN_MAX_AGE'], d['CONN_HEALTH_CHECKS'])",
-        DATABASE_URL="postgres://spendly:pw@db.example.com:5432/spendly?sslmode=require",
+        DATABASE_URL="postgres://wallex:pw@db.example.com:5432/wallex?sslmode=require",
     )
     assert result.returncode == 0, result.stderr
-    assert result.stdout.split() == ["db.example.com", "spendly", "require", "60", "True"]
+    assert result.stdout.split() == ["db.example.com", "wallex", "require", "60", "True"]
 
 
 def test_static_files_are_served_by_whitenoise_right_after_the_security_middleware():
@@ -170,7 +183,7 @@ def test_rate_limit_counters_use_a_cache_shared_by_every_worker():
         "import config.settings.prod as s; c = s.CACHES['default']; print(c['BACKEND'], c['LOCATION'])",
     )
     assert result.returncode == 0, result.stderr
-    assert result.stdout.split() == ["django.core.cache.backends.db.DatabaseCache", "spendly_cache"]
+    assert result.stdout.split() == ["django.core.cache.backends.db.DatabaseCache", "wallex_cache"]
 
 
 def test_production_api_renders_json_only_and_keeps_the_other_defaults():
@@ -196,7 +209,7 @@ def test_production_logs_go_to_stdout():
 def test_api_docs_are_opt_in_in_production():
     code = (
         "import django; django.setup(); from django.conf import settings; from django.test import Client;"
-        "c = Client(HTTP_HOST='api.spendly.example');"
+        "c = Client(HTTP_HOST='api.wallex.example');"
         "print(settings.API_DOCS_ENABLED, c.get('/api/docs/', secure=True).status_code,"
         " c.get('/api/schema/', secure=True).status_code)"
     )
@@ -214,7 +227,7 @@ def test_api_docs_are_opt_in_in_production():
 def test_health_probes_skip_the_https_redirect_but_the_api_does_not():
     """Docker and load-balancer probes speak plain HTTP to the container."""
     result = _run(
-        "import django; django.setup(); from django.test import Client; c = Client(HTTP_HOST='api.spendly.example');"
+        "import django; django.setup(); from django.test import Client; c = Client(HTTP_HOST='api.wallex.example');"
         "print(c.get('/api/health/').status_code, c.get('/api/transactions/').status_code)"
     )
     assert result.returncode == 0, result.stderr
@@ -222,7 +235,8 @@ def test_health_probes_skip_the_https_redirect_but_the_api_does_not():
 
 
 SECRET_ASSIGNMENT = re.compile(
-    r"^\s*[\"']?(\w*(?:SECRET|PASSWORD|TOKEN|SIGNING_KEY|API_KEY|ENCRYPTION_KEY)\w*)[\"']?\s*[:=]\s*[\"']([^\"']+)[\"']", re.M
+    r"^\s*[\"']?(\w*(?:SECRET|PASSWORD|TOKEN|SIGNING_KEY|API_KEY|ENCRYPTION_KEY)\w*)[\"']?\s*[:=]\s*[\"']([^\"']+)[\"']",
+    re.M,
 )
 # Dotted import paths (e.g. a serializer class) are configuration, not secrets.
 IMPORT_PATH = re.compile(r"^[a-z_][\w]*(\.[\w]+)+$")
@@ -254,7 +268,7 @@ def test_production_dependencies_exclude_test_tools():
 
 
 def test_env_files_are_not_committed():
-    gitignore = (BACKEND_DIR.parent / ".gitignore")
+    gitignore = BACKEND_DIR.parent / ".gitignore"
     if not gitignore.exists():  # the backend container only mounts backend/
         pytest.skip("repository root not available in this environment")
     assert re.search(r"^\.env$", gitignore.read_text(encoding="utf-8"), re.M)

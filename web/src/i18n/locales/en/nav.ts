@@ -1,0 +1,25 @@
+export const nav = {
+  primary: "Primary",
+  more: "More",
+  moreDestinations: "More destinations",
+  newTransaction: "New transaction",
+  groups: {
+    overview: "Overview",
+    money: "Money",
+    library: "Library",
+  },
+  items: {
+    dashboard: "Dashboard",
+    assistant: "Assistant",
+    transactions: "Transactions",
+    budgets: "Budgets",
+    goals: "Goals",
+    subscriptions: "Subscriptions",
+    recurring: "Recurring",
+    categories: "Categories",
+    import: "Import",
+    achievements: "Achievements",
+    settings: "Settings",
+    security: "Security",
+  },
+} as const;

@@ -1,5 +1,6 @@
 import { useState } from "react";
-import type { Insight, InsightSeverity, InsightType } from "../../types/dashboard";
+import { useTranslation } from "react-i18next";
+import type { Insight, InsightSeverity } from "../../types/dashboard";
 import { formatCurrency } from "../../utils/format";
 import { useBaseCurrency } from "../../hooks/useBaseCurrency";
 import { Button } from "../Button";
@@ -7,19 +8,6 @@ import { EmptyState } from "../EmptyState";
 import { Icon } from "../icons/Icon";
 import type { IconName } from "../icons/iconPaths";
 import styles from "./InsightsList.module.scss";
-
-// What the backend-computed `amount` means for each insight type — a label only,
-// the value itself is displayed exactly as received.
-const AMOUNT_LABELS: Record<InsightType, string> = {
-  top_category: "spent",
-  category_increase: "more",
-  category_decrease: "less",
-  budget_exceeded: "over budget",
-  budget_warning: "left",
-  recurring_share: "recurring per month",
-  overspending: "more than earned",
-  savings: "saved",
-};
 
 // Severity is told three ways: the colour, the icon's shape, and the order (most urgent first).
 const SEVERITY_ICONS: Record<InsightSeverity, IconName> = {
@@ -37,16 +25,12 @@ interface InsightsListProps {
 }
 
 export function InsightsList({ insights }: InsightsListProps) {
+  const { t } = useTranslation();
   const baseCurrency = useBaseCurrency();
   const [isExpanded, setIsExpanded] = useState(false);
 
   if (insights.length === 0) {
-    return (
-      <EmptyState
-        icon="assistant"
-        message="No insights for this month yet — add some transactions to get started."
-      />
-    );
+    return <EmptyState icon="assistant" message={t("dashboard.insights.empty")} />;
   }
 
   const hiddenCount = insights.length - COLLAPSED_COUNT;
@@ -64,7 +48,8 @@ export function InsightsList({ insights }: InsightsListProps) {
               <p className={styles.message}>{insight.message}</p>
               {insight.amount !== null && (
                 <p className={styles.detail}>
-                  {formatCurrency(insight.amount, baseCurrency)} {AMOUNT_LABELS[insight.type]}
+                  {/* What the amount means depends on the insight type; the value is shown as received. */}
+                  {t(`dashboard.insights.amount.${insight.type}`, { amount: formatCurrency(insight.amount, baseCurrency) })}
                 </p>
               )}
             </div>
@@ -73,7 +58,7 @@ export function InsightsList({ insights }: InsightsListProps) {
       </ul>
       {hiddenCount > 0 && (
         <Button variant="ghost" size="sm" trailingIcon={isExpanded ? "chevron-up" : "chevron-down"} onClick={() => setIsExpanded((open) => !open)}>
-          {isExpanded ? "Show fewer" : `Show ${hiddenCount} more`}
+          {isExpanded ? t("dashboard.insights.showFewer") : t("dashboard.insights.showMore", { count: hiddenCount })}
         </Button>
       )}
     </div>

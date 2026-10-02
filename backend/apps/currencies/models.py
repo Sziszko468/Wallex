@@ -2,7 +2,7 @@ from django.db import models
 
 
 class Currency(models.TextChoices):
-    """The currencies Spendly supports (ISO 4217 codes)."""
+    """The currencies WALLEX supports (ISO 4217 codes)."""
 
     EUR = "EUR", "Euro"
     HUF = "HUF", "Hungarian forint"

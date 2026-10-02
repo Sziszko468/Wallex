@@ -1,8 +1,9 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
-import { afterAll, afterEach, beforeAll } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach } from "vitest";
 import { server } from "./server";
 import { clearTokens } from "../utils/tokenStorage";
+import { i18n } from "../i18n";
 
 // Recharts measures its container; jsdom has no layout engine.
 class ResizeObserverStub {
@@ -17,6 +18,8 @@ window.scrollTo = () => undefined;
 
 // Any request without a handler is a test bug — fail loudly instead of hitting a real server.
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
+// The machine running the tests may be set to any language: tests start in English.
+beforeEach(() => i18n.changeLanguage("en"));
 afterEach(() => {
   cleanup();
   server.resetHandlers();

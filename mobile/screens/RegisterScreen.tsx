@@ -1,16 +1,22 @@
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Link } from "expo-router";
+import { useTranslation } from "react-i18next";
+import { APP_NAME } from "../config/app";
 import { useAuth } from "../hooks/useAuth";
+import { useLanguage } from "../hooks/useLanguage";
 import { extractErrorMessage, extractFieldErrors, type FieldErrors } from "../utils/errors";
 import { Button } from "../components/Button";
+import { LanguageSelector } from "../components/LanguageSelector";
 import { TextField } from "../components/TextField";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { Screen } from "../components/Screen";
 import { colors, fontSize, spacing } from "../utils/theme";
 
 export function RegisterScreen() {
+  const { t } = useTranslation();
   const { register } = useAuth();
+  const { language } = useLanguage();
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -32,6 +38,7 @@ export function RegisterScreen() {
         password_confirm: passwordConfirm,
         first_name: firstName,
         last_name: lastName,
+        language,
       });
       // No manual navigation: register() logs the user in, and the root
       // layout's guard switches to the (app) group automatically.
@@ -45,14 +52,14 @@ export function RegisterScreen() {
 
   return (
     <Screen scroll>
-      <Text style={styles.brand}>Spendly</Text>
-      <Text style={styles.heading}>Create your account</Text>
+      <Text style={styles.brand}>{APP_NAME}</Text>
+      <Text style={styles.heading}>{t("auth.register.title")}</Text>
       <ErrorBanner message={errorMessage} />
 
-      <TextField label="First name" autoComplete="name-given" value={firstName} onChangeText={setFirstName} error={fieldErrors.first_name} />
-      <TextField label="Last name" autoComplete="name-family" value={lastName} onChangeText={setLastName} error={fieldErrors.last_name} />
+      <TextField label={t("auth.fields.firstName")} autoComplete="name-given" value={firstName} onChangeText={setFirstName} error={fieldErrors.first_name} />
+      <TextField label={t("auth.fields.lastName")} autoComplete="name-family" value={lastName} onChangeText={setLastName} error={fieldErrors.last_name} />
       <TextField
-        label="Email"
+        label={t("auth.fields.email")}
         keyboardType="email-address"
         textContentType="emailAddress"
         autoComplete="email"
@@ -61,7 +68,7 @@ export function RegisterScreen() {
         error={fieldErrors.email}
       />
       <TextField
-        label="Password"
+        label={t("auth.fields.password")}
         secureTextEntry
         textContentType="newPassword"
         autoComplete="password-new"
@@ -70,7 +77,7 @@ export function RegisterScreen() {
         error={fieldErrors.password}
       />
       <TextField
-        label="Confirm password"
+        label={t("auth.fields.confirmPassword")}
         secureTextEntry
         textContentType="newPassword"
         autoComplete="password-new"
@@ -78,13 +85,17 @@ export function RegisterScreen() {
         onChangeText={setPasswordConfirm}
         error={fieldErrors.password_confirm}
       />
-      <Button title="Register" onPress={handleSubmit} isLoading={isSubmitting} />
+      <Button title={t("auth.register.submit")} onPress={handleSubmit} isLoading={isSubmitting} />
 
       <View style={styles.footer}>
-        <Text style={styles.footerText}>Already have an account? </Text>
+        <Text style={styles.footerText}>{t("auth.register.haveAccount")} </Text>
         <Link href="/login" style={styles.link}>
-          Log in
+          {t("auth.register.loginLink")}
         </Link>
+      </View>
+
+      <View style={styles.language}>
+        <LanguageSelector />
       </View>
     </Screen>
   );
@@ -112,6 +123,9 @@ const styles = StyleSheet.create({
   footerText: {
     color: colors.textMuted,
     fontSize: fontSize.sm,
+  },
+  language: {
+    marginTop: spacing.lg,
   },
   link: {
     color: colors.primary,

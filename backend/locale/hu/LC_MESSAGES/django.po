@@ -1,0 +1,803 @@
+# Hungarian translation of the WALLEX API.
+# Every text the server writes is translated here; see docs/i18n.md.
+msgid ""
+msgstr ""
+"Project-Id-Version: WALLEX\n"
+"Report-Msgid-Bugs-To: \n"
+"Language: hu\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: apps/analytics/achievement_texts.py:12
+msgid "First Transaction"
+msgstr "Első tranzakció"
+
+#: apps/analytics/achievement_texts.py:13
+msgid "Record your first transaction."
+msgstr "Rögzítsd az első tranzakciódat."
+
+#: apps/analytics/achievement_texts.py:14
+msgid "7 Day Tracking Streak"
+msgstr "7 napos követési sorozat"
+
+#: apps/analytics/achievement_texts.py:15
+msgid "Record transactions on 7 days in a row."
+msgstr "Rögzíts tranzakciókat 7 egymást követő napon."
+
+#: apps/analytics/achievement_texts.py:16
+msgid "30 Day Tracking Streak"
+msgstr "30 napos követési sorozat"
+
+#: apps/analytics/achievement_texts.py:17
+msgid "Record transactions on 30 days in a row."
+msgstr "Rögzíts tranzakciókat 30 egymást követő napon."
+
+#: apps/analytics/achievement_texts.py:18
+msgid "First €100 Saved"
+msgstr "Az első 100 € megtakarítva"
+
+#: apps/analytics/achievement_texts.py:19
+msgid "Have €100 in your savings goals."
+msgstr "Legyen 100 € a megtakarítási céljaidban."
+
+#: apps/analytics/achievement_texts.py:20
+msgid "€1,000 Saved"
+msgstr "1 000 € megtakarítva"
+
+#: apps/analytics/achievement_texts.py:21
+msgid "Have €1,000 in your savings goals."
+msgstr "Legyen 1 000 € a megtakarítási céljaidban."
+
+#: apps/analytics/achievement_texts.py:22
+msgid "Completed Savings Goal"
+msgstr "Teljesített megtakarítási cél"
+
+#: apps/analytics/achievement_texts.py:23
+msgid "Reach the target of a savings goal."
+msgstr "Érd el egy megtakarítási cél célösszegét."
+
+#: apps/analytics/achievement_texts.py:24
+msgid "Stayed Under Budget"
+msgstr "Költségkereten belül maradtál"
+
+#: apps/analytics/achievement_texts.py:25
+msgid "Finish a month without going over a budget."
+msgstr "Zárj le egy hónapot úgy, hogy nem lépsz túl egy költségkeretet sem."
+
+#: apps/analytics/achievements.py:246
+#, python-format
+msgid "Stayed Under %(category)s Budget"
+msgstr "%(category)s költségkeret betartva"
+
+#: apps/analytics/assistant/client.py:26
+msgid "The assistant is temporarily unavailable. Please try again in a moment."
+msgstr "Az asszisztens átmenetileg nem érhető el. Kérjük, próbáld újra egy pillanat múlva."
+
+#: apps/analytics/assistant/client.py:27
+msgid "The assistant is busy right now. Please try again in a minute."
+msgstr "Az asszisztens most elfoglalt. Kérjük, próbáld újra egy perc múlva."
+
+#: apps/analytics/assistant/engine.py:23
+msgid "Sorry, I can't help with that. I can answer questions about your spending, budgets, subscriptions and savings goals in WALLEX."
+msgstr "Sajnos ebben nem tudok segíteni. A WALLEX-ben a kiadásaidról, költségkereteidről, előfizetéseidről és megtakarítási céljaidról tudok válaszolni."
+
+#: apps/analytics/assistant/engine.py:26
+msgid "The assistant couldn't finish this answer. Please try again."
+msgstr "Az asszisztens nem tudta befejezni ezt a választ. Kérjük, próbáld újra."
+
+#: apps/analytics/assistant/engine.py:27
+msgid "The answer took too long. Please try again."
+msgstr "A válasz túl sokáig tartott. Kérjük, próbáld újra."
+
+#: apps/analytics/assistant/prompts.py:18
+msgid "There isn't enough data available."
+msgstr "Nem áll rendelkezésre elegendő adat."
+
+#: apps/analytics/assistant/suggestions.py:22
+msgid "What did I spend the most on this month?"
+msgstr "Mire költöttem a legtöbbet ebben a hónapban?"
+
+#: apps/analytics/assistant/suggestions.py:23
+msgid "Where did I spend more than last month?"
+msgstr "Mire költöttem többet, mint előző hónapban?"
+
+#: apps/analytics/assistant/suggestions.py:24
+msgid "Which of my subscriptions costs the most?"
+msgstr "Melyik előfizetésem kerül a legtöbbe?"
+
+#: apps/analytics/assistant/suggestions.py:25
+msgid "Am I staying within my budgets this month?"
+msgstr "Tartom a költségkereteimet ebben a hónapban?"
+
+#: apps/analytics/assistant/suggestions.py:41
+msgid "Why did my spending change compared to last month?"
+msgstr "Miért változtak a kiadásaim az előző hónaphoz képest?"
+
+#: apps/analytics/assistant/suggestions.py:43
+#, python-format
+msgid "How much did I spend on %(category)s this month?"
+msgstr "Mennyit költöttem ebben a hónapban erre: %(category)s?"
+
+#: apps/analytics/assistant/suggestions.py:48
+#, python-format
+msgid "How am I doing with my %(goal)s savings goal?"
+msgstr "Hogy állok a(z) %(goal)s megtakarítási céllal?"
+
+#: apps/analytics/assistant/tools.py:480
+msgid "Monthly spending"
+msgstr "Havi kiadások"
+
+#: apps/analytics/assistant/tools.py:493
+msgid "Spending by category"
+msgstr "Kiadások kategóriánként"
+
+#: apps/analytics/assistant/tools.py:510
+msgid "Spending by merchant"
+msgstr "Kiadások kereskedőnként"
+
+#: apps/analytics/assistant/tools.py:526
+msgid "Budgets"
+msgstr "Költségkeretek"
+
+#: apps/analytics/assistant/tools.py:540
+msgid "Subscriptions"
+msgstr "Előfizetések"
+
+#: apps/analytics/assistant/tools.py:554
+msgid "Savings goals"
+msgstr "Megtakarítási célok"
+
+#: apps/analytics/assistant/tools.py:573
+msgid "Month comparison"
+msgstr "Hónapok összehasonlítása"
+
+#: apps/analytics/assistant/tools.py:644
+#, python-format
+msgid "%(period)s vs %(compared)s"
+msgstr "%(period)s és %(compared)s"
+
+#: apps/analytics/assistant/views.py:20
+msgid "The AI assistant isn't set up on this server."
+msgstr "Az AI asszisztens még nincs beállítva ezen a szerveren."
+
+#: apps/analytics/assistant/views.py:95
+msgid "This conversation is full. Start a new conversation to ask more."
+msgstr "Ez a beszélgetés megtelt. Indíts egy újat, ha további kérdéseket szeretnél feltenni."
+
+#: apps/analytics/insights.py:135
+#, python-format
+msgid "Highest spending category is %(name)s (%(percent)s%% of this month's expenses)."
+msgstr "A legnagyobb kiadási kategória: %(name)s (az e havi kiadások %(percent)s%%-a)."
+
+#: apps/analytics/insights.py:189
+#, python-format
+msgid "Total spending exceeded the overall monthly budget by %(percent)s%%."
+msgstr "Az összes kiadás %(percent)s%%-kal meghaladta az összesített havi költségkeretet."
+
+#: apps/analytics/insights.py:191
+#, python-format
+msgid "%(name)s exceeded its budget by %(percent)s%%."
+msgstr "A(z) %(name)s kiadás %(percent)s%%-kal meghaladta a költségkeretét."
+
+#: apps/analytics/insights.py:207
+#, python-format
+msgid "You have used %(percent)s%% of your overall budget."
+msgstr "Az összesített költségkereted %(percent)s%%-át felhasználtad."
+
+#: apps/analytics/insights.py:209
+#, python-format
+msgid "You have used %(percent)s%% of the %(name)s budget."
+msgstr "A(z) %(name)s költségkeret %(percent)s%%-át felhasználtad."
+
+#: apps/analytics/insights.py:235
+#, python-format
+msgid "Recurring expenses represent %(percent)s%% of income."
+msgstr "Az ismétlődő kiadások a bevétel %(percent)s%%-át teszik ki."
+
+#: apps/analytics/insights.py:255
+#, python-format
+msgid "Expenses exceeded income by %(percent)s%% this month."
+msgstr "Ebben a hónapban a kiadások %(percent)s%%-kal meghaladták a bevételt."
+
+#: apps/analytics/insights.py:267
+#, python-format
+msgid "You saved %(percent)s%% of your income this month."
+msgstr "Ebben a hónapban a bevételed %(percent)s%%-át megtakarítottad."
+
+#: apps/analytics/insights.py:277
+#, python-format
+msgid "%(name)s spending increased by %(percent)s%% compared to the same period last month."
+msgstr "A(z) %(name)s kiadások %(percent)s%%-kal nőttek az előző hónap azonos időszakához képest."
+
+#: apps/analytics/insights.py:278
+#, python-format
+msgid "%(name)s spending increased by %(percent)s%% compared to last month."
+msgstr "A(z) %(name)s kiadások %(percent)s%%-kal nőttek az előző hónaphoz képest."
+
+#: apps/analytics/insights.py:279
+#, python-format
+msgid "%(name)s spending decreased by %(percent)s%% compared to the same period last month."
+msgstr "A(z) %(name)s kiadások %(percent)s%%-kal csökkentek az előző hónap azonos időszakához képest."
+
+#: apps/analytics/insights.py:280
+#, python-format
+msgid "%(name)s spending decreased by %(percent)s%% compared to last month."
+msgstr "A(z) %(name)s kiadások %(percent)s%%-kal csökkentek az előző hónaphoz képest."
+
+#: apps/budgets/savings.py:122
+msgid "This goal is archived. Restore it to add or remove money."
+msgstr "Ez a cél archiválva van. Állítsd vissza, hogy pénzt adhass hozzá vagy vonhass le belőle."
+
+#: apps/budgets/savings.py:125
+#, python-format
+msgid "You can't remove more than the %(amount)s %(currency)s saved."
+msgstr "Legfeljebb a megtakarított összeget (%(amount)s %(currency)s) vonhatod le."
+
+#: apps/budgets/savings.py:131
+msgid "This would make the saved amount too large."
+msgstr "Ettől a megtakarított összeg túl nagy lenne."
+
+#: apps/budgets/serializers.py:76
+msgid "Budgets can only be set for expense categories."
+msgstr "Költségkeret csak kiadási kategóriákhoz állítható be."
+
+#: apps/budgets/serializers.py:85
+msgid "A budget for this category and month already exists."
+msgstr "Ehhez a kategóriához és hónaphoz már van költségkeret."
+
+#: apps/budgets/serializers.py:174
+msgid "A goal is completed automatically when the saved amount reaches the target."
+msgstr "A cél automatikusan teljesül, amint a megtakarított összeg eléri a célösszeget."
+
+#: apps/budgets/serializers.py:181
+msgid "The target date can't be in the past."
+msgstr "A céldátum nem lehet a múltban."
+
+#: apps/budgets/serializers.py:191
+msgid "The currency can't change once money is saved in the goal."
+msgstr "A pénznem nem módosítható, ha már van megtakarított pénz a célban."
+
+#: apps/budgets/serializers.py:196 apps/budgets/serializers.py:233
+#: apps/currencies/serializers.py:14 apps/transactions/services.py:184
+#, python-format
+msgid "%(currency)s amounts can't have decimals."
+msgstr "%(currency)s összegben nem lehetnek tizedesjegyek."
+
+#: apps/categories/defaults.py:11
+msgid "Housing"
+msgstr "Lakhatás"
+
+#: apps/categories/defaults.py:12
+msgid "Food"
+msgstr "Élelmiszer"
+
+#: apps/categories/defaults.py:13
+msgid "Transport"
+msgstr "Közlekedés"
+
+#: apps/categories/defaults.py:14
+msgid "Shopping"
+msgstr "Vásárlás"
+
+#: apps/categories/defaults.py:15
+msgid "Entertainment"
+msgstr "Szórakozás"
+
+#: apps/categories/defaults.py:16
+msgid "Health"
+msgstr "Egészség"
+
+#: apps/categories/defaults.py:17
+msgid "Bills"
+msgstr "Számlák"
+
+#: apps/categories/defaults.py:18
+msgid "Travel"
+msgstr "Utazás"
+
+#: apps/categories/defaults.py:19
+msgid "Salary"
+msgstr "Fizetés"
+
+#: apps/categories/defaults.py:20
+msgid "Other"
+msgstr "Egyéb"
+
+#: apps/categories/defaults.py:24
+msgid "Overall"
+msgstr "Összesen"
+
+#: apps/categories/models.py:14
+msgid "Color must be a hex code, e.g. #6366F1."
+msgstr "A színnek hexadecimális kódnak kell lennie, pl. #6366F1."
+
+#: apps/categories/serializers.py:40
+msgid "This category is already in use, so its type can't change. Create a new category instead."
+msgstr "Ez a kategória már használatban van, ezért a típusa nem módosítható. Hozz létre inkább egy új kategóriát."
+
+#: apps/categories/serializers.py:53
+msgid "You already have a category with this name and type."
+msgstr "Már van ilyen nevű és típusú kategóriád."
+
+#: apps/categories/views.py:37
+msgid "This category is used by existing transactions and cannot be deleted."
+msgstr "Ezt a kategóriát meglévő tranzakciók használják, ezért nem törölhető."
+
+#: apps/common/concurrency.py:93
+msgid "This item was changed on another device after you loaded it. Nothing was saved; review the current version and try again."
+msgstr "Ezt az elemet egy másik eszközön módosították, miután betöltötted. Semmi sem lett mentve; nézd meg az aktuális változatot, és próbáld újra."
+
+#: apps/common/uploads.py:31 apps/receipts/services.py:45
+#, python-format
+msgid "The photo is too large (max %(limit)s MB)."
+msgstr "A fotó túl nagy (legfeljebb %(limit)s MB)."
+
+#: apps/common/uploads.py:33
+#, python-format
+msgid "The file is too large (max %(limit)s MB)."
+msgstr "A fájl túl nagy (legfeljebb %(limit)s MB)."
+
+#: apps/currencies/rates.py:47
+#, python-format
+msgid "No %(currency)s exchange rate is available for %(date)s."
+msgstr "%(date)s napra nincs elérhető %(currency)s árfolyam."
+
+#: apps/currencies/services.py:82
+#, python-format
+msgid "A transaction of %(amount)s %(currency)s is too large to express in %(base)s."
+msgstr "Egy %(amount)s %(currency)s összegű tranzakció túl nagy ahhoz, hogy %(base)s pénznemben kifejezhető legyen."
+
+#: apps/currencies/services.py:92
+#, python-format
+msgid "A budget would be too large in %(base)s."
+msgstr "Egy költségkeret túl nagy lenne %(base)s pénznemben."
+
+#: apps/notifications/rules.py:85
+msgid "Budget exceeded"
+msgstr "Költségkeret túllépve"
+
+#: apps/notifications/rules.py:87
+#, python-format
+msgid "You've spent %(percent)s%% of your overall budget for %(month)s."
+msgstr "%(month)s hónapban az összesített költségkereted %(percent)s%%-át elköltötted."
+
+#: apps/notifications/rules.py:90
+#, python-format
+msgid "You've spent %(percent)s%% of your %(name)s budget for %(month)s."
+msgstr "%(month)s hónapban a(z) %(name)s költségkereted %(percent)s%%-át elköltötted."
+
+#: apps/notifications/rules.py:102
+msgid "Budget almost used"
+msgstr "A költségkeret majdnem elfogyott"
+
+#: apps/notifications/rules.py:104
+#, python-format
+msgid "You've used %(percent)s%% of your overall budget for %(month)s."
+msgstr "%(month)s hónapban az összesített költségkereted %(percent)s%%-át felhasználtad."
+
+#: apps/notifications/rules.py:107
+#, python-format
+msgid "You've used %(percent)s%% of your %(name)s budget for %(month)s."
+msgstr "%(month)s hónapban a(z) %(name)s költségkereted %(percent)s%%-át felhasználtad."
+
+#: apps/notifications/rules.py:134
+msgid "Savings goal reached"
+msgstr "Megtakarítási cél elérve"
+
+#: apps/notifications/rules.py:135
+#, python-format
+msgid "You reached your %(goal)s goal of %(amount)s."
+msgstr "Elérted a(z) %(goal)s célodat: %(amount)s."
+
+#: apps/notifications/rules.py:141
+msgid "Savings goal progress"
+msgstr "Megtakarítási cél előrehaladása"
+
+#: apps/notifications/rules.py:143
+#, python-format
+msgid "You are %(remaining)s away from your %(goal)s goal (%(percent)s%% saved)."
+msgstr "Még %(remaining)s hiányzik a(z) %(goal)s célodhoz (%(percent)s%% megtakarítva)."
+
+#: apps/notifications/rules.py:164
+#, python-format
+msgid "%(name)s payment expected today."
+msgstr "A(z) %(name)s fizetése ma várható."
+
+#: apps/notifications/rules.py:166
+#, python-format
+msgid "%(name)s payment expected tomorrow."
+msgstr "A(z) %(name)s fizetése holnap várható."
+
+#: apps/notifications/rules.py:168
+#, python-format
+msgid "%(name)s payment expected in %(days)d day."
+msgid_plural "%(name)s payment expected in %(days)d days."
+msgstr[0] "A(z) %(name)s fizetése %(days)d nap múlva várható."
+msgstr[1] "A(z) %(name)s fizetése %(days)d nap múlva várható."
+
+#: apps/notifications/rules.py:176
+#, python-format
+msgid "%(name)s is due today."
+msgstr "A(z) %(name)s ma esedékes."
+
+#: apps/notifications/rules.py:178
+#, python-format
+msgid "%(name)s is due tomorrow."
+msgstr "A(z) %(name)s holnap esedékes."
+
+#: apps/notifications/rules.py:180
+#, python-format
+msgid "%(name)s is due in %(days)d day."
+msgid_plural "%(name)s is due in %(days)d days."
+msgstr[0] "A(z) %(name)s %(days)d nap múlva esedékes."
+msgstr[1] "A(z) %(name)s %(days)d nap múlva esedékes."
+
+#: apps/notifications/rules.py:209
+msgid "Subscription payment"
+msgstr "Előfizetés kifizetése"
+
+#: apps/notifications/rules.py:220
+msgid "Upcoming payment"
+msgstr "Közelgő fizetés"
+
+#: apps/notifications/rules.py:242
+msgid "Unusual spending"
+msgstr "Szokatlan költés"
+
+#: apps/notifications/rules.py:244
+#, python-format
+msgid "Your %(name)s expenses increased by %(percent)s%% compared to your usual spending so far this month."
+msgstr "A(z) %(name)s kiadásaid %(percent)s%%-kal nőttek a megszokott költéshez képest a hónap eddigi részében."
+
+#: apps/notifications/rules.py:261
+#, python-format
+msgid "Spending was about the same as in %(month)s."
+msgstr "A költés nagyjából ugyanannyi volt, mint %(month)s hónapban."
+
+#: apps/notifications/rules.py:263
+#, python-format
+msgid "Spending was %(percent)s%% higher than in %(month)s."
+msgstr "A költés %(percent)s%%-kal magasabb volt, mint %(month)s hónapban."
+
+#: apps/notifications/rules.py:264
+#, python-format
+msgid "Spending was %(percent)s%% lower than in %(month)s."
+msgstr "A költés %(percent)s%%-kal alacsonyabb volt, mint %(month)s hónapban."
+
+#: apps/notifications/rules.py:287
+#, python-format
+msgid "You spent %(spent)s and earned %(earned)s in %(month)s."
+msgstr "%(month)s: költés %(spent)s, bevétel %(earned)s."
+
+#: apps/notifications/rules.py:293
+#, python-format
+msgid "You spent %(spent)s in %(month)s."
+msgstr "%(month)s: költés %(spent)s."
+
+#: apps/notifications/rules.py:300
+#, python-format
+msgid "Your %(month)s summary"
+msgstr "Összefoglaló – %(month)s"
+
+#: apps/notifications/rules.py:322
+msgid "Financial insight"
+msgstr "Pénzügyi meglátás"
+
+#: apps/notifications/serializers.py:30
+msgid "Not a valid Expo push token."
+msgstr "Érvénytelen Expo push token."
+
+#: apps/receipts/services.py:50
+msgid "Please upload a JPEG or PNG photo."
+msgstr "Kérjük, JPEG vagy PNG fotót tölts fel."
+
+#: apps/receipts/services.py:52
+msgid "The photo's resolution is too high."
+msgstr "A fotó felbontása túl nagy."
+
+#: apps/receipts/services.py:55
+msgid "The file is not a readable image."
+msgstr "A fájl nem olvasható kép."
+
+#: apps/receipts/services.py:71
+msgid "The photo could not be processed. Please try another one."
+msgstr "A fotót nem sikerült feldolgozni. Kérjük, próbálj meg egy másikat."
+
+#: apps/receipts/views.py:45 apps/transactions/views.py:106
+#: apps/users/views.py:178
+msgid "This field is required."
+msgstr "Ez a mező kötelező."
+
+#: apps/receipts/views.py:54
+msgid "Receipt scanning is temporarily unavailable. Please add the transaction manually."
+msgstr "A blokk beolvasása átmenetileg nem érhető el. Kérjük, add hozzá kézzel a tranzakciót."
+
+#: apps/subscriptions/serializers.py:98
+msgid "Subscriptions are expenses: choose an expense category."
+msgstr "Az előfizetések kiadások: válassz kiadási kategóriát."
+
+#: apps/transactions/models.py:75 apps/transactions/serializers.py:87
+msgid "Transaction type must match the selected category's type."
+msgstr "A tranzakció típusának egyeznie kell a kiválasztott kategória típusával."
+
+#: apps/transactions/models.py:138 apps/transactions/serializers.py:215
+msgid "Recurring transaction type must match the selected category's type."
+msgstr "Az ismétlődő tranzakció típusának egyeznie kell a kiválasztott kategória típusával."
+
+#: apps/transactions/models.py:141 apps/transactions/serializers.py:218
+msgid "Subscriptions are always expenses."
+msgstr "Az előfizetések mindig kiadások."
+
+#: apps/transactions/serializers.py:108
+msgid "Must be 1 when the currency is your base currency."
+msgstr "1-nek kell lennie, ha a pénznem az alap pénznemed."
+
+#: apps/transactions/serializers.py:117
+#, python-format
+msgid "%(error)s Enter the rate manually or try again later."
+msgstr "%(error)s Add meg az árfolyamot kézzel, vagy próbáld újra később."
+
+#: apps/transactions/serializers.py:122
+msgid "This amount is too large to convert to your base currency."
+msgstr "Ez az összeg túl nagy ahhoz, hogy átváltható legyen az alap pénznemedre."
+
+#: apps/transactions/serializers.py:142
+msgid "End date must be on or after the start date."
+msgstr "A befejező dátum nem lehet a kezdő dátum előtt."
+
+#: apps/transactions/services.py:68
+#, python-format
+msgid "This file is not valid CSV (%(error)s)."
+msgstr "Ez a fájl nem érvényes CSV (%(error)s)."
+
+#: apps/transactions/services.py:74
+msgid "The uploaded file is empty."
+msgstr "A feltöltött fájl üres."
+
+#: apps/transactions/services.py:76
+msgid "This doesn't look like a CSV file (it contains binary data)."
+msgstr "Ez nem tűnik CSV-fájlnak (bináris adatot tartalmaz)."
+
+#: apps/transactions/services.py:82
+msgid "Could not read this file as text (unsupported encoding)."
+msgstr "A fájlt nem sikerült szövegként beolvasni (nem támogatott kódolás)."
+
+#: apps/transactions/services.py:93
+#, python-format
+msgid "Unrecognized date '%(value)s' (expected YYYY-MM-DD or DD/MM/YYYY)."
+msgstr "Ismeretlen dátum: „%(value)s” (várható: ÉÉÉÉ-HH-NN vagy NN/HH/ÉÉÉÉ)."
+
+#: apps/transactions/services.py:102
+msgid "Amount is empty."
+msgstr "Az összeg üres."
+
+#: apps/transactions/services.py:106
+#, python-format
+msgid "Unrecognized amount '%(value)s'."
+msgstr "Ismeretlen összeg: „%(value)s”."
+
+#: apps/transactions/services.py:108
+msgid "Amount cannot be zero."
+msgstr "Az összeg nem lehet nulla."
+
+#: apps/transactions/services.py:124
+msgid "Could not read this file as CSV."
+msgstr "A fájlt nem sikerült CSV-ként beolvasni."
+
+#: apps/transactions/services.py:130
+#, python-format
+msgid "Missing required column(s): %(columns)s."
+msgstr "Hiányzó kötelező oszlop(ok): %(columns)s."
+
+#: apps/transactions/services.py:155
+#, python-format
+msgid "Too many rows — at most %(max_rows)s per import."
+msgstr "Túl sok sor – importálásonként legfeljebb %(max_rows)s engedélyezett."
+
+#: apps/transactions/services.py:162
+msgid "Missing date, description, or amount."
+msgstr "Hiányzik a dátum, a leírás vagy az összeg."
+
+#: apps/transactions/services.py:193
+#, python-format
+msgid "Description is too long (max %(max)s characters)."
+msgstr "A leírás túl hosszú (legfeljebb %(max)s karakter)."
+
+#: apps/transactions/services.py:204
+msgid "Duplicate of an existing transaction."
+msgstr "Egy meglévő tranzakció másolata."
+
+#: apps/transactions/services.py:220
+#, python-format
+msgid "Could not detect a category for '%(description)s'."
+msgstr "Nem sikerült kategóriát találni ehhez: „%(description)s”."
+
+#: apps/transactions/views.py:111
+msgid "Please upload a .csv file."
+msgstr "Kérjük, .csv fájlt tölts fel."
+
+#: apps/users/account_views.py:92
+msgid "Password changed. Your other devices were signed out."
+msgstr "A jelszó módosítva. A többi eszközödet kijelentkeztettük."
+
+#: apps/users/account_views.py:141 apps/users/account_views.py:158
+#: apps/users/mfa.py:169
+msgid "Two-factor authentication is off."
+msgstr "A kétlépcsős azonosítás ki van kapcsolva."
+
+#: apps/users/account_views.py:144
+msgid "That code isn't right."
+msgstr "Ez a kód nem helyes."
+
+#: apps/users/account_views.py:196
+#, python-format
+msgid "\"%(category)s\" is not one of: %(choices)s."
+msgstr "A(z) „%(category)s” nem egyike ezeknek: %(choices)s."
+
+#: apps/users/authentication.py:29
+msgid "Token is not tied to a session. Please sign in again."
+msgstr "A token nem tartozik munkamenethez. Kérjük, jelentkezz be újra."
+
+#: apps/users/authentication.py:37
+msgid "This session has ended. Please sign in again."
+msgstr "Ez a munkamenet véget ért. Kérjük, jelentkezz be újra."
+
+#: apps/users/authentication.py:39
+msgid "User is inactive"
+msgstr "A felhasználó inaktív."
+
+#: apps/users/mfa.py:137
+msgid "Two-factor authentication is already on. Turn it off first to set up a new authenticator."
+msgstr "A kétlépcsős azonosítás már be van kapcsolva. Kapcsold ki előbb, ha új hitelesítőt szeretnél beállítani."
+
+#: apps/users/mfa.py:150
+msgid "Start the setup first."
+msgstr "Előbb indítsd el a beállítást."
+
+#: apps/users/mfa.py:153
+msgid "That code isn't right. Check the time on your phone and try the newest code."
+msgstr "Ez a kód nem helyes. Ellenőrizd a telefonod idejét, és próbáld a legújabb kódot."
+
+#: apps/users/models.py:93
+msgid "Account created"
+msgstr "Fiók létrehozva"
+
+#: apps/users/models.py:94
+msgid "Signed in"
+msgstr "Bejelentkezés"
+
+#: apps/users/models.py:95
+msgid "Wrong email or password"
+msgstr "Hibás e-mail-cím vagy jelszó"
+
+#: apps/users/models.py:96
+msgid "Sign-in blocked after too many failures"
+msgstr "Bejelentkezés letiltva túl sok sikertelen kísérlet után"
+
+#: apps/users/models.py:97
+msgid "Wrong two-factor code"
+msgstr "Hibás kétlépcsős kód"
+
+#: apps/users/models.py:98
+msgid "Signed out"
+msgstr "Kijelentkezés"
+
+#: apps/users/models.py:99
+msgid "Signed out everywhere"
+msgstr "Kijelentkezés mindenhonnan"
+
+#: apps/users/models.py:100
+msgid "Device signed out"
+msgstr "Eszköz kijelentkeztetve"
+
+#: apps/users/models.py:101
+msgid "Stolen session blocked"
+msgstr "Ellopott munkamenet blokkolva"
+
+#: apps/users/models.py:102
+msgid "Password changed"
+msgstr "Jelszó módosítva"
+
+#: apps/users/models.py:103
+msgid "Two-factor authentication turned on"
+msgstr "Kétlépcsős azonosítás bekapcsolva"
+
+#: apps/users/models.py:104
+msgid "Two-factor authentication turned off"
+msgstr "Kétlépcsős azonosítás kikapcsolva"
+
+#: apps/users/models.py:105
+msgid "Recovery code used"
+msgstr "Helyreállítási kód felhasználva"
+
+#: apps/users/models.py:106
+msgid "New recovery codes"
+msgstr "Új helyreállítási kódok"
+
+#: apps/users/models.py:107
+msgid "Base currency changed"
+msgstr "Alap pénznem módosítva"
+
+#: apps/users/models.py:108
+msgid "Transactions imported"
+msgstr "Tranzakciók importálva"
+
+#: apps/users/models.py:109
+msgid "Deleted"
+msgstr "Törölve"
+
+#: apps/users/models.py:113
+msgid "Sign-in attempts"
+msgstr "Bejelentkezési kísérletek"
+
+#: apps/users/models.py:114
+msgid "Account and security changes"
+msgstr "Fiók- és biztonsági módosítások"
+
+#: apps/users/models.py:115
+msgid "Bulk and destructive data changes"
+msgstr "Tömeges és törlő jellegű adatmódosítások"
+
+#: apps/users/serializers.py:47
+msgid "A user with this email already exists."
+msgstr "Ezzel az e-mail-címmel már létezik felhasználó."
+
+#: apps/users/serializers.py:52
+msgid "Passwords do not match."
+msgstr "A jelszavak nem egyeznek."
+
+#: apps/users/serializers.py:153 apps/users/serializers.py:173
+#: tests/test_translation_catalog.py:169 tests/test_translation_catalog.py:171
+msgid "Wrong password."
+msgstr "Hibás jelszó."
+
+#: apps/users/serializers.py:162
+msgid "Choose a password you haven't used here."
+msgstr "Válassz olyan jelszót, amelyet még nem használtál itt."
+
+#: apps/users/sessions.py:44
+msgid "Your session has ended. Please sign in again."
+msgstr "A munkameneted véget ért. Kérjük, jelentkezz be újra."
+
+#: apps/users/validators.py:18
+#, python-format
+msgid "This password is too long. It must contain at most %(max_length)s characters."
+msgstr "Ez a jelszó túl hosszú. Legfeljebb %(max_length)s karakterből állhat."
+
+#: apps/users/validators.py:24
+#, python-format
+msgid "Your password must contain at most %(max_length)s characters."
+msgstr "A jelszavad legfeljebb %(max_length)s karakterből állhat."
+
+#: apps/users/views.py:35
+msgid "No active account found with the given credentials"
+msgstr "Nem található aktív fiók a megadott hitelesítő adatokkal."
+
+#: apps/users/views.py:48
+#, python-format
+msgid "Too many failed sign-in attempts. Try again in %(minutes)d minute."
+msgid_plural "Too many failed sign-in attempts. Try again in %(minutes)d minutes."
+msgstr[0] "Túl sok sikertelen bejelentkezési kísérlet. Próbáld újra %(minutes)d perc múlva."
+msgstr[1] "Túl sok sikertelen bejelentkezési kísérlet. Próbáld újra %(minutes)d perc múlva."
+
+#: apps/users/views.py:139
+msgid "This sign-in attempt has expired. Enter your password again."
+msgstr "Ez a bejelentkezési kísérlet lejárt. Add meg újra a jelszavadat."
+
+#: apps/users/views.py:153
+msgid "That code isn't right. Try the newest code from your authenticator app."
+msgstr "Ez a kód nem helyes. Próbáld a hitelesítő alkalmazásod legújabb kódját."
+
+#: apps/users/views.py:176
+msgid "You are not signed in."
+msgstr "Nem vagy bejelentkezve."
+
+#: apps/users/views.py:220 apps/users/views.py:223
+msgid "Invalid or expired refresh token."
+msgstr "Érvénytelen vagy lejárt frissítési token."
+
+#: apps/users/views.py:229
+msgid "Logged out successfully."
+msgstr "Sikeres kijelentkezés."

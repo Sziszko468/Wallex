@@ -5,7 +5,7 @@
 // The storage key and values must match src/hooks/useTheme.tsx.
 (function () {
   try {
-    var saved = localStorage.getItem("spendly-theme");
+    var saved = localStorage.getItem("wallex-theme");
     var root = document.documentElement;
     if (saved === "light" || saved === "dark") root.setAttribute("data-theme", saved);
 

@@ -17,8 +17,15 @@ D = Decimal
 
 def _tx(user, category, amount, day, description="", currency="EUR", rate="1", **extra):
     return Transaction.objects.create(
-        user=user, category=category, type=category.type, amount=D(amount), date=day,
-        description=description, currency=currency, exchange_rate=D(rate), **extra,
+        user=user,
+        category=category,
+        type=category.type,
+        amount=D(amount),
+        date=day,
+        description=description,
+        currency=currency,
+        exchange_rate=D(rate),
+        **extra,
     )
 
 
@@ -40,7 +47,9 @@ def test_monthly_trend_crosses_the_year_boundary(user, food_category, salary_cat
     result = trends.get_trends(user, 2026, 3, months=3)
 
     assert [(m["year"], m["month"], m["expenses"]) for m in result["months"]] == [
-        (2026, 1, D("200.00")), (2026, 2, D("0.00")), (2026, 3, D("300.00")),
+        (2026, 1, D("200.00")),
+        (2026, 2, D("0.00")),
+        (2026, 3, D("300.00")),
     ]
     assert [m["expenses_change_percentage"] for m in result["months"]] == [D("100.00"), D("-100.00"), None]
     assert result["months"][2]["income"] == D("1000.00")
@@ -106,8 +115,13 @@ def test_trends_endpoint(auth_client, user, other_user, food_category):
 
     assert len(data["months"]) == 6  # default window
     assert data["months"][-1] == {
-        "year": 2026, "month": 9, "month_name": "September", "income": "0.00",
-        "expenses": "320.00", "balance": "-320.00", "expenses_change_percentage": None,
+        "year": 2026,
+        "month": 9,
+        "month_name": "September",
+        "income": "0.00",
+        "expenses": "320.00",
+        "balance": "-320.00",
+        "expenses_change_percentage": None,
     }
     assert data["categories"][0]["amounts"] == ["0.00"] * 5 + ["320.00"]  # money stays a string
 
@@ -140,8 +154,12 @@ def test_year_over_year_comparison(auth_client, user, food_category):
     assert data["percentage_difference"]["total_expenses"] == 50.0
     assert data["categories"] == [
         {
-            "category_id": food_category.id, "category_name": "Food", "current_amount": "150.00",
-            "previous_amount": "100.00", "change_amount": "50.00", "change_percentage": 50.0,
+            "category_id": food_category.id,
+            "category_name": "Food",
+            "current_amount": "150.00",
+            "previous_amount": "100.00",
+            "change_amount": "50.00",
+            "change_percentage": 50.0,
         }
     ]
 
@@ -175,8 +193,12 @@ def test_unknown_comparison_is_rejected(auth_client):
 @pytest.fixture
 def shopping_month(user, food_category, transport_category, salary_category):
     """September: Albert Heijn 420 (4×, three spellings), Jumbo 210, Shell 180, 90 without a description."""
-    for amount, spelling in [("100.00", "Albert Heijn"), ("120.00", "Albert Heijn"),
-                             ("100.00", " ALBERT HEIJN "), ("100.00", "albert heijn")]:
+    for amount, spelling in [
+        ("100.00", "Albert Heijn"),
+        ("120.00", "Albert Heijn"),
+        ("100.00", " ALBERT HEIJN "),
+        ("100.00", "albert heijn"),
+    ]:
         _tx(user, food_category, amount, date(2026, 9, 5), description=spelling)
     _tx(user, food_category, "210.00", date(2026, 9, 12), description="Jumbo")
     _tx(user, transport_category, "180.00", date(2026, 9, 20), description="Shell")
@@ -191,7 +213,9 @@ def test_merchants_are_grouped_ignoring_case_and_spaces(user, shopping_month):
 
     assert result["total_expenses"] == D("900.00")
     assert [(m["merchant"], m["total"]) for m in result["merchants"]] == [
-        ("Albert Heijn", D("420.00")), ("Jumbo", D("210.00")), ("Shell", D("180.00")),
+        ("Albert Heijn", D("420.00")),
+        ("Jumbo", D("210.00")),
+        ("Shell", D("180.00")),
     ]
     heijn = result["merchants"][0]
     assert (heijn["transaction_count"], heijn["average"], heijn["share_percentage"]) == (4, D("105.00"), D("46.67"))
@@ -269,7 +293,12 @@ def test_average_daily_and_weekday_spending(user, food_category, transport_categ
     assert result["total_expenses"] == D("90.00")
     assert result["average_daily_spending"] == D("3.00")
     monday, tuesday, *_, sunday = result["weekdays"]
-    assert (monday["name"], monday["total"], monday["transaction_count"], monday["days"]) == ("Monday", D("60.00"), 2, 4)
+    assert (monday["name"], monday["total"], monday["transaction_count"], monday["days"]) == (
+        "Monday",
+        D("60.00"),
+        2,
+        4,
+    )
     assert monday["average_per_day"] == D("15.00")
     assert (tuesday["total"], tuesday["days"], tuesday["average_per_day"]) == (D("30.00"), 5, D("6.00"))
     assert (sunday["total"], sunday["average_per_day"]) == (D("0.00"), D("0.00"))
@@ -299,12 +328,24 @@ def test_a_future_month_has_no_days_yet(user, django_assert_num_queries):
 @pytest.mark.django_db
 def test_fixed_expenses_are_the_ones_a_recurring_template_accounts_for(user, food_category, housing):
     rent = RecurringTransaction.objects.create(
-        user=user, category=housing, name="Rent", type=TransactionType.EXPENSE, amount=D("600.00"),
-        frequency=Frequency.MONTHLY, start_date=date(2026, 1, 1), next_occurrence_date=date(2026, 1, 1),
+        user=user,
+        category=housing,
+        name="Rent",
+        type=TransactionType.EXPENSE,
+        amount=D("600.00"),
+        frequency=Frequency.MONTHLY,
+        start_date=date(2026, 1, 1),
+        next_occurrence_date=date(2026, 1, 1),
     )
     RecurringTransaction.objects.create(  # ended before September: matches nothing
-        user=user, category=food_category, name="Meal kit", type=TransactionType.EXPENSE, amount=D("45.00"),
-        frequency=Frequency.WEEKLY, start_date=date(2026, 1, 1), end_date=date(2026, 8, 31),
+        user=user,
+        category=food_category,
+        name="Meal kit",
+        type=TransactionType.EXPENSE,
+        amount=D("45.00"),
+        frequency=Frequency.WEEKLY,
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 8, 31),
         next_occurrence_date=date(2026, 1, 1),
     )
     _tx(user, housing, "600.00", date(2026, 9, 3))  # same category and amount: fixed
@@ -324,8 +365,14 @@ def test_fixed_expenses_are_the_ones_a_recurring_template_accounts_for(user, foo
 @pytest.mark.django_db
 def test_patterns_are_two_queries_whatever_the_volume(user, food_category, housing, django_assert_num_queries):
     RecurringTransaction.objects.create(
-        user=user, category=housing, name="Rent", type=TransactionType.EXPENSE, amount=D("600.00"),
-        frequency=Frequency.MONTHLY, start_date=date(2026, 1, 1), next_occurrence_date=date(2026, 1, 1),
+        user=user,
+        category=housing,
+        name="Rent",
+        type=TransactionType.EXPENSE,
+        amount=D("600.00"),
+        frequency=Frequency.MONTHLY,
+        start_date=date(2026, 1, 1),
+        next_occurrence_date=date(2026, 1, 1),
     )
     for day in range(1, 31):
         _tx(user, food_category, "10.00", date(2026, 9, day))
@@ -344,7 +391,12 @@ def test_spending_patterns_endpoint(auth_client, user, food_category):
     assert data["average_daily_spending"] == "1.29"
     assert [weekday["weekday"] for weekday in data["weekdays"]] == [1, 2, 3, 4, 5, 6, 7]
     assert data["weekdays"][0] == {
-        "weekday": 1, "name": "Monday", "total": "40.00", "transaction_count": 1, "days": 5, "average_per_day": "8.00",
+        "weekday": 1,
+        "name": "Monday",
+        "total": "40.00",
+        "transaction_count": 1,
+        "days": 5,
+        "average_per_day": "8.00",
     }
 
 
@@ -354,7 +406,11 @@ def test_spending_patterns_endpoint(auth_client, user, food_category):
 @pytest.mark.django_db
 @pytest.mark.parametrize(
     ("spent", "expected_status", "variance"),
-    [("120.00", "on_track", D("-60.00")), ("200.00", "ahead_of_pace", D("-33.33")), ("320.00", "over_budget", D("6.67"))],
+    [
+        ("120.00", "on_track", D("-60.00")),
+        ("200.00", "ahead_of_pace", D("-33.33")),
+        ("320.00", "over_budget", D("6.67")),
+    ],
 )
 def test_budget_variance_keeps_pace_with_the_month(user, food_category, spent, expected_status, variance):
     Budget.objects.create(user=user, category=food_category, amount=D("300.00"), year=2026, month=9)

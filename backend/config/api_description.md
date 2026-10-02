@@ -1,4 +1,4 @@
-REST API behind the Spendly web and mobile apps. Every business rule — validation,
+REST API behind the WALLEX web and mobile apps. Every business rule — validation,
 ownership, money arithmetic, analytics, insights — lives here; clients only display
 what the API returns.
 
@@ -46,6 +46,7 @@ JSON Web Tokens, sent as `Authorization: Bearer <access token>`.
 | Topic | Rule |
 |---|---|
 | Base path | Everything is under `/api/`. URLs end with a slash. |
+| Language | Send `Accept-Language: en` or `hu`. Every text the API writes for a person — error messages, insights, achievements, default category names, month names — comes back in that language (English for anything else); the response carries `Content-Language`. Notifications are written once, in the language saved on the account (`language` in `GET /api/auth/me/`, changed with `PATCH`). Field names, `code`s, enum values and money formats never change with the language. |
 | Content type | `application/json`, except the two uploads (`multipart/form-data`). |
 | Money | Decimal **strings** with two decimals: `"1234.50"`. Send strings (numbers are accepted); never do money arithmetic with floats on the client — the API returns every total. |
 | Currencies | EUR, HUF, USD, GBP, JPY, CHF (whole numbers for HUF and JPY). A transaction keeps `amount` in its own `currency`; its `base_amount` is the same value in the user's **base currency** (`GET /api/auth/me/` → `base_currency`). Every total — analytics, budgets, recurring amounts — is in the base currency. Conversions use ECB reference rates, fixed when the transaction is saved. |

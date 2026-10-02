@@ -29,6 +29,7 @@ from .serializers import (
     UserSerializer,
 )
 
+
 class SessionJWTScheme(SimpleJWTScheme):
     """Same `jwtAuth` bearer scheme as plain simplejwt: the session check is invisible to clients."""
 
@@ -145,7 +146,12 @@ REGISTER_SCHEMA = extend_schema(
             ("Invalid email", {"email": ["Enter a valid email address."]}),
             (
                 "Weak password",
-                {"password": ["This password is too short. It must contain at least 12 characters.", "This password is too common."]},
+                {
+                    "password": [
+                        "This password is too short. It must contain at least 12 characters.",
+                        "This password is too common.",
+                    ]
+                },
             ),
             ("Passwords differ", {"password_confirm": ["Passwords do not match."]}),
             ("Missing fields", {"email": ["This field is required."], "password": ["This field is required."]}),
@@ -202,7 +208,9 @@ LOGIN_SCHEMA = extend_schema(
         429: _LOCKED,
     },
     examples=[
-        OpenApiExample("Sign in", request_only=True, value={"email": "ada@example.com", "password": "a-long-passphrase"}),
+        OpenApiExample(
+            "Sign in", request_only=True, value={"email": "ada@example.com", "password": "a-long-passphrase"}
+        ),
         OpenApiExample(
             "Two-factor needed",
             response_only=True,
@@ -232,11 +240,17 @@ MFA_LOGIN_SCHEMA = extend_schema(
             "Wrong code, or the challenge expired or was tampered with (then enter the password again).",
             (
                 "Wrong code",
-                {"detail": "That code is not right. Try the newest code from your authenticator app.", "code": "mfa_code_invalid"},
+                {
+                    "detail": "That code is not right. Try the newest code from your authenticator app.",
+                    "code": "mfa_code_invalid",
+                },
             ),
             (
                 "Challenge expired",
-                {"detail": "This sign-in attempt has expired. Enter your password again.", "code": "mfa_challenge_invalid"},
+                {
+                    "detail": "This sign-in attempt has expired. Enter your password again.",
+                    "code": "mfa_challenge_invalid",
+                },
             ),
         ),
         429: _LOCKED,
@@ -386,7 +400,8 @@ PASSWORD_CHANGE_SCHEMA = extend_schema(
             ),
             examples=[
                 OpenApiExample(
-                    "Changed", value={"detail": "Password changed. Your other devices were signed out.", "revoked_sessions": 2}
+                    "Changed",
+                    value={"detail": "Password changed. Your other devices were signed out.", "revoked_sessions": 2},
                 )
             ],
         ),
@@ -410,7 +425,11 @@ MFA_STATUS_SCHEMA = extend_schema(
                     "recovery_codes_left": serializers.IntegerField(),
                 },
             ),
-            examples=[OpenApiExample("On", value={"enabled": True, "enabled_at": "2026-09-28T09:12:00Z", "recovery_codes_left": 9})],
+            examples=[
+                OpenApiExample(
+                    "On", value={"enabled": True, "enabled_at": "2026-09-28T09:12:00Z", "recovery_codes_left": 9}
+                )
+            ],
         )
     },
 )
@@ -435,14 +454,21 @@ MFA_SETUP_SCHEMA = extend_schema(
                     "Secret",
                     value={
                         "secret": "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP",
-                        "otpauth_uri": "otpauth://totp/Spendly:ada%40example.com?secret=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP&issuer=Spendly&algorithm=SHA1&digits=6&period=30",
+                        "otpauth_uri": "otpauth://totp/WALLEX:ada%40example.com?secret=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP&issuer=WALLEX&algorithm=SHA1&digits=6&period=30",
                     },
                 )
             ],
         ),
         400: validation_error(
             ("Wrong password", {"password": ["Wrong password."]}),
-            ("Already on", {"non_field_errors": ["Two-factor authentication is already on. Turn it off first to set up a new authenticator."]}),
+            (
+                "Already on",
+                {
+                    "non_field_errors": [
+                        "Two-factor authentication is already on. Turn it off first to set up a new authenticator."
+                    ]
+                },
+            ),
         ),
     },
 )

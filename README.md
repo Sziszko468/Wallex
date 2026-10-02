@@ -1,4 +1,4 @@
-# Spendly – Personal Finance Platform
+# WALLEX – Personal Finance Platform
 
 **Track spending, set budgets and understand your money — on the web, iOS and Android, backed by one API.**
 
@@ -13,10 +13,10 @@
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/web-dashboard-dark.png" />
-  <img src="docs/screenshots/web-dashboard.png" alt="Spendly web dashboard" />
+  <img src="docs/screenshots/web-dashboard.png" alt="WALLEX web dashboard" />
 </picture>
 
-Spendly is a full-stack personal finance app built as a production-style portfolio project.
+WALLEX is a full-stack personal finance app built as a production-style portfolio project.
 
 - **One backend for every client.** A Django REST API holds all business logic, validation
   and financial calculations.
@@ -137,6 +137,10 @@ Design goals:
   reference rate of its date. Every total is in the base currency, and changing the base
   currency converts the whole history at historical rates.
 
+- **Two languages:** English and Hungarian, switchable in the app (web and mobile). The
+  choice is saved to the account; numbers, money and dates follow it. See
+  [docs/i18n.md](docs/i18n.md).
+
 ### Web only
 
 - **CSV import** of bank exports:
@@ -169,6 +173,10 @@ Design goals:
   <img src="docs/screenshots/web-dashboard.png" width="49%" alt="Dashboard in the light theme: balance, income and expenses, insights and charts" />
   <img src="docs/screenshots/web-dashboard-dark.png" width="49%" alt="The same dashboard in the dark theme" />
 </p>
+
+**Web: the same dashboard in Hungarian** (every text, the insights, category names, month names and number formats follow the language; see [docs/i18n.md](docs/i18n.md))
+
+![The dashboard in Hungarian](docs/screenshots/web-dashboard-hu.png)
 
 **Web: transactions and budgets**
 
@@ -230,11 +238,11 @@ flowchart TB
 
 | Layer | Technologies |
 |---|---|
-| **Backend** | Python 3.13, Django 5.2 LTS, Django REST Framework 3.18, SimpleJWT (rotation + blacklist), django-filter, drf-spectacular (OpenAPI), Pillow + Tesseract 5 (OCR), gunicorn, WhiteNoise |
+| **Backend** | Python 3.13, Django 5.2 LTS, Django REST Framework 3.18, SimpleJWT (rotation + blacklist), django-filter, drf-spectacular (OpenAPI), Pillow + Tesseract 5 (OCR), gunicorn, WhiteNoise, Django i18n / gettext (English, Hungarian) |
 | **Database** | PostgreSQL 16 |
-| **Web** | React 19, TypeScript (strict), Vite 8, React Router 7, Axios, Recharts 3, SCSS modules |
-| **Mobile** | React Native 0.86, Expo SDK 57, Expo Router, expo-secure-store, expo-local-authentication, expo-notifications, expo-image-picker, AsyncStorage |
-| **Testing** | pytest + pytest-django, Vitest + React Testing Library + MSW, Jest (jest-expo) + React Native Testing Library, jsonschema contract tests |
+| **Web** | React 19, TypeScript (strict), Vite 8, React Router 7, Axios, Recharts 3, SCSS modules, i18next + react-i18next |
+| **Mobile** | React Native 0.86, Expo SDK 57, Expo Router, expo-secure-store, expo-local-authentication, expo-notifications, expo-image-picker, AsyncStorage, i18next + expo-localization |
+| **Testing** | pytest + pytest-django, Vitest + React Testing Library + MSW, Jest (jest-expo) + React Native Testing Library, jsonschema contract tests, ruff (lint + format, backend), oxlint (web) |
 | **Infrastructure** | Docker, Docker Compose, nginx (unprivileged), EAS Build / Submit |
 
 ## Web application
@@ -454,9 +462,9 @@ Production images:
 
 | Suite | Tools | Tests |
 |---|---|---|
-| Backend | pytest, pytest-django | **637** |
-| Web | Vitest, React Testing Library, MSW | **49** |
-| Mobile | Jest (jest-expo), React Native Testing Library | **92** |
+| Backend | pytest, pytest-django | **1,474** |
+| Web | Vitest, React Testing Library, MSW | **226** |
+| Mobile | Jest (jest-expo), React Native Testing Library | **183** |
 
 The testing is risk-based rather than aimed at a coverage number
 ([strategy](docs/testing-strategy.md)). Highlights:
@@ -470,10 +478,15 @@ The testing is risk-based rather than aimed at a coverage number
 - **Offline sync:** queued transactions are never lost or duplicated.
 - **Production config:** unsafe settings (weak secret, `*` hosts, http CORS, non-Postgres
   database) refuse to start.
+- **Two languages:** every text the server writes has a Hungarian translation (a test reads the
+  source and the catalog), notifications follow the account's language, and the API never lets
+  the language change a code, a field name or a figure.
+- **Ordering:** every list's default and requested order, including ties and pages of tied rows.
 
 ```bash
 docker compose exec backend pytest             # backend
-cd web && npm test && npx tsc -b               # web (tests + strict type check)
+docker compose exec backend ruff check .       # backend lint (ruff format --check . for the formatting)
+cd web && npm test && npx tsc -b && npm run lint   # web (tests, strict type check, lint)
 cd mobile && npm test && npx tsc --noEmit      # mobile
 ```
 
@@ -485,7 +498,7 @@ Expo Go or a development build, on the same Wi-Fi as your computer.
 **1. Backend + database**
 
 ```bash
-git clone <repository-url> spendly && cd spendly
+git clone <repository-url> wallex && cd wallex
 cp backend/.env.example backend/.env          # set DJANGO_SECRET_KEY and POSTGRES_PASSWORD
 docker compose up -d --build
 docker compose exec backend python manage.py migrate
@@ -572,7 +585,7 @@ fixed. The details are in [docs/security-audit.md](docs/security-audit.md). High
 ## Project structure
 
 ```
-spendly/
+wallex/
 ├── backend/                 Django REST API
 │   ├── apps/                users · categories · transactions · budgets · analytics
 │   │                        notifications · receipts · common
@@ -596,6 +609,7 @@ spendly/
 | [docs/testing-strategy.md](docs/testing-strategy.md) | What is tested, where and why |
 | [docs/design-system.md](docs/design-system.md) | The web app's design tokens, light/dark/system theming, components, patterns and accessibility rules |
 | [docs/code-review.md](docs/code-review.md) | Senior code review: findings by severity, fixes, production & portfolio readiness checklists |
+| [docs/i18n.md](docs/i18n.md) | Languages: how one is chosen, where the texts live, rules for code, adding a language |
 | [docs/api-contract.md](docs/api-contract.md) | How the web and mobile clients consume the API |
 | [backend/openapi.yaml](backend/openapi.yaml) | Complete OpenAPI 3 reference (also served at `/api/docs/`) |
 
@@ -631,4 +645,4 @@ spendly/
   progress indicator); streaming it word by word needs SSE on the server and a streaming HTTP
   client on React Native. An eval set of real questions would also help tune the prompt and
   the `effort` setting against the actual model.
-- **UX:** proper tab-bar icons, dark mode, Hungarian localisation.
+- **UX:** proper tab-bar icons, dark mode.

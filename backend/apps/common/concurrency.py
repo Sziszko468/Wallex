@@ -17,6 +17,7 @@ from datetime import datetime
 
 from django.db import transaction
 from django.utils.dateparse import parse_datetime
+from django.utils.translation import gettext_lazy as _
 from rest_framework import status
 from rest_framework.exceptions import APIException, ErrorDetail
 
@@ -89,8 +90,9 @@ class ConditionalWriteMixin:
         if not precondition_holds(if_match, current):
             latest = self.get_object()
             raise PreconditionFailed(
-                f"This {model._meta.verbose_name} was changed on another device after you loaded it. "
-                "Nothing was saved; review the current version and try again.",
+                _(
+                    "This item was changed on another device after you loaded it. Nothing was saved; review the current version and try again."
+                ),
                 current=self.get_serializer(latest).data,
             )
 

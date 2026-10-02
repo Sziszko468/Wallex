@@ -7,8 +7,11 @@ from its declared Content-Length first — call them before touching
 `request.FILES` / `request.data`.
 """
 
+from django.utils.translation import gettext
 from rest_framework import status
 from rest_framework.response import Response
+
+from .constants import BYTES_PER_MEGABYTE
 
 # Room for multipart boundaries and headers around the file itself.
 MULTIPART_OVERHEAD_BYTES = 64 * 1024
@@ -22,9 +25,14 @@ def declared_body_exceeds(request, limit_bytes: int) -> bool:
     return declared > limit_bytes + MULTIPART_OVERHEAD_BYTES
 
 
-def file_too_large(field: str, limit_bytes: int, noun: str = "file") -> Response:
-    limit_mb = max(limit_bytes // (1024 * 1024), 1)
+def file_too_large(field: str, limit_bytes: int, *, photo: bool = False) -> Response:
+    limit_mb = max(limit_bytes // BYTES_PER_MEGABYTE, 1)
+    message = (
+        gettext("The photo is too large (max %(limit)s MB).")
+        if photo
+        else gettext("The file is too large (max %(limit)s MB).")
+    )
     return Response(
-        {field: [f"The {noun} is too large (max {limit_mb} MB)."]},
+        {field: [message % {"limit": limit_mb}]},
         status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
     )

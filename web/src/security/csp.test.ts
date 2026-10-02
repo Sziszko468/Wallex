@@ -11,7 +11,7 @@ function directives(policy: string): Record<string, string[]> {
 }
 
 describe("Content-Security-Policy", () => {
-  const policy = directives(buildContentSecurityPolicy("https://api.spendly.example/api"));
+  const policy = directives(buildContentSecurityPolicy("https://api.wallex.example/api"));
 
   it("only runs the app's own scripts — no inline or eval'd code", () => {
     expect(policy["script-src"]).toEqual(["'self'"]);
@@ -19,7 +19,7 @@ describe("Content-Security-Policy", () => {
   });
 
   it("lets the page talk only to itself and the API origin (tokens can't be sent elsewhere)", () => {
-    expect(policy["connect-src"]).toEqual(["'self'", "https://api.spendly.example"]);
+    expect(policy["connect-src"]).toEqual(["'self'", "https://api.wallex.example"]);
   });
 
   it("allows only the page's own origin when the API is same-origin (relative base URL)", () => {

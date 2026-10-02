@@ -1,4 +1,5 @@
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Trans, useTranslation } from "react-i18next";
 import type { Trends } from "../../types/dashboard";
 import { useBaseCurrency } from "../../hooks/useBaseCurrency";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
@@ -16,12 +17,13 @@ interface SpendingTrendProps {
 
 /** Income and expenses over the last months, with each month's change — all computed by the API. */
 export function SpendingTrend({ trends }: SpendingTrendProps) {
+  const { t } = useTranslation();
   const baseCurrency = useBaseCurrency();
   const reduceMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
   const { months } = trends;
   const hasActivity = months.some((point) => point.income !== "0.00" || point.expenses !== "0.00");
   if (!hasActivity) {
-    return <EmptyState icon="trending-up" message="No transactions in these months yet." />;
+    return <EmptyState icon="trending-up" message={t("dashboard.trend.empty")} />;
   }
 
   const crossesYear = months[0]?.year !== months[months.length - 1]?.year;
@@ -29,18 +31,18 @@ export function SpendingTrend({ trends }: SpendingTrendProps) {
   const chartData = months.map((point) => ({
     name: formatShortMonth(point.year, point.month, crossesYear),
     fullName: formatMonthYear(point.year, point.month),
-    Expenses: Number(point.expenses),
-    Income: Number(point.income),
+    expenses: Number(point.expenses),
+    income: Number(point.income),
   }));
   const fullNames = new Map(chartData.map((point) => [point.name, point.fullName]));
 
   return (
     <div className={styles.trend}>
       <ChartContainer
-        label="Income and expenses over the last months"
+        label={t("dashboard.trend.chart")}
         legend={[
-          { label: "Expenses", color: CHART_COLORS.expense },
-          { label: "Income", color: CHART_COLORS.income },
+          { label: t("common.labels.expenses"), color: CHART_COLORS.expense },
+          { label: t("common.labels.income"), color: CHART_COLORS.income },
         ]}
       >
         <ResponsiveContainer width="100%" height={210}>
@@ -58,7 +60,8 @@ export function SpendingTrend({ trends }: SpendingTrendProps) {
             />
             <Line
               type="monotone"
-              dataKey="Expenses"
+              dataKey="expenses"
+              name={t("common.labels.expenses")}
               stroke={CHART_COLORS.expense}
               strokeWidth={2.5}
               dot={{ r: 3, strokeWidth: 0, fill: CHART_COLORS.expense }}
@@ -67,7 +70,8 @@ export function SpendingTrend({ trends }: SpendingTrendProps) {
             />
             <Line
               type="monotone"
-              dataKey="Income"
+              dataKey="income"
+              name={t("common.labels.income")}
               stroke={CHART_COLORS.income}
               strokeWidth={2.5}
               dot={{ r: 3, strokeWidth: 0, fill: CHART_COLORS.income }}
@@ -79,10 +83,14 @@ export function SpendingTrend({ trends }: SpendingTrendProps) {
       </ChartContainer>
 
       <p className={styles.average}>
-        Average spending: <strong>{formatCurrency(trends.average_monthly_expenses, baseCurrency)}</strong> / month
+        <Trans
+          i18nKey="dashboard.trend.average"
+          values={{ amount: formatCurrency(trends.average_monthly_expenses, baseCurrency) }}
+          components={{ strong: <strong /> }}
+        />
       </p>
 
-      <ul className={styles.months} aria-label="Expenses per month">
+      <ul className={styles.months} aria-label={t("dashboard.trend.monthsList")}>
         {months.map((point) => (
           <li key={`${point.year}-${point.month}`} className={styles.month}>
             <span className={styles.monthName}>{formatShortMonth(point.year, point.month, crossesYear)}</span>

@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 from rest_framework import mixins, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound
@@ -16,7 +17,7 @@ from .client import AssistantError
 from .openapi import ASSISTANT_CONVERSATION_SCHEMA, ASSISTANT_STATUS_SCHEMA
 from .serializers import ConversationDetailSerializer, ConversationSerializer, ExchangeSerializer, QuestionSerializer
 
-NOT_CONFIGURED = "The AI assistant isn't set up on this server."
+NOT_CONFIGURED = _("The AI assistant isn't set up on this server.")
 
 
 @ASSISTANT_STATUS_SCHEMA
@@ -91,11 +92,11 @@ class AssistantConversationViewSet(
             exchange = conversations.ask(request.user, question.validated_data["message"], conversation)
         except conversations.ConversationFullError:
             return Response(
-                {"non_field_errors": ["This conversation is full. Start a new conversation to ask more."]},
+                {"non_field_errors": [_("This conversation is full. Start a new conversation to ask more.")]},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except conversations.ConversationGoneError:
-            raise NotFound
+            raise NotFound from None
         except AssistantError as error:
             return Response(
                 {"detail": str(error), "code": "assistant_unavailable"}, status=status.HTTP_503_SERVICE_UNAVAILABLE

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Modal } from "./Modal";
 import { Button } from "./Button";
 import formStyles from "./form.module.scss";
@@ -17,20 +18,21 @@ export function ConfirmDialog({
   isOpen,
   title,
   message,
-  confirmLabel = "Confirm",
+  confirmLabel,
   isConfirming = false,
   onConfirm,
   onClose,
 }: ConfirmDialogProps) {
+  const { t } = useTranslation();
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={title} size="sm">
       <p className={styles.message}>{message}</p>
       <div className={formStyles.actions}>
         <Button type="button" variant="secondary" onClick={onClose} disabled={isConfirming}>
-          Cancel
+          {t("common.actions.cancel")}
         </Button>
         <Button type="button" variant="danger" onClick={onConfirm} isLoading={isConfirming}>
-          {confirmLabel}
+          {confirmLabel ?? t("common.actions.confirm")}
         </Button>
       </div>
     </Modal>

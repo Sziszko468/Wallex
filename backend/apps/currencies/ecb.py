@@ -39,7 +39,7 @@ class EcbRate:
 
 
 def download(url: str) -> bytes:
-    request = urllib.request.Request(url, headers={"Accept": "application/xml", "User-Agent": "Spendly"})
+    request = urllib.request.Request(url, headers={"Accept": "application/xml", "User-Agent": "WALLEX"})
     try:
         with urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT_SECONDS) as response:
             body = response.read(MAX_RESPONSE_BYTES + 1)

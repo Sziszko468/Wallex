@@ -6,10 +6,12 @@ logs question or answer text: only status codes, request ids and token counts.
 """
 
 import logging
+from http import HTTPStatus
 
 import anthropic
 from django.conf import settings
 from django.utils.module_loading import import_string
+from django.utils.translation import gettext_lazy as _
 
 logger = logging.getLogger(__name__)
 
@@ -21,8 +23,8 @@ class AssistantError(Exception):
     """No answer this time. The message is safe to show to the user."""
 
 
-UNAVAILABLE = "The assistant is temporarily unavailable. Please try again in a moment."
-BUSY = "The assistant is busy right now. Please try again in a minute."
+UNAVAILABLE = _("The assistant is temporarily unavailable. Please try again in a moment.")
+BUSY = _("The assistant is busy right now. Please try again in a minute.")
 
 
 def anthropic_client() -> anthropic.Anthropic:
@@ -34,7 +36,9 @@ def get_client():
     return import_string(settings.AI_ASSISTANT["CLIENT"])()
 
 
-def create_message(client, *, system: list[dict], messages: list[dict], tools: list[dict], allow_tools: bool, timeout: float):
+def create_message(
+    client, *, system: list[dict], messages: list[dict], tools: list[dict], allow_tools: bool, timeout: float
+):
     """One model call. Returns the SDK's message; raises AssistantError on any API failure."""
     config = settings.AI_ASSISTANT
     params = {
@@ -62,7 +66,7 @@ def create_message(client, *, system: list[dict], messages: list[dict], tools: l
     except anthropic.APIStatusError as error:
         # 5xx / overloaded are Anthropic's side and pass; any other 4xx is a problem of ours
         # (key, model name, request shape) that needs fixing.
-        level = logging.WARNING if error.status_code >= 500 else logging.ERROR
+        level = logging.WARNING if error.status_code >= HTTPStatus.INTERNAL_SERVER_ERROR else logging.ERROR
         logger.log(level, "Assistant: model API answered %s (request id %s)", error.status_code, error.request_id)
         raise AssistantError(UNAVAILABLE) from error
     except anthropic.APIConnectionError as error:  # network failure or timeout

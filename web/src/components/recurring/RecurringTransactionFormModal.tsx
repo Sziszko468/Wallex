@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useTranslation } from "react-i18next";
 import type { Category, TransactionType } from "../../types/category";
 import type { CurrencyCode } from "../../types/currency";
 import type {
@@ -23,11 +24,7 @@ import { Checkbox } from "../Checkbox";
 import formStyles from "../form.module.scss";
 import { CurrencySelect } from "../CurrencySelect";
 
-const FREQUENCY_OPTIONS: { value: RecurringFrequency; label: string }[] = [
-  { value: "weekly", label: "Weekly" },
-  { value: "monthly", label: "Monthly" },
-  { value: "yearly", label: "Yearly" },
-];
+const FREQUENCIES: readonly RecurringFrequency[] = ["weekly", "monthly", "yearly"];
 
 interface RecurringTransactionFormModalProps {
   isOpen: boolean;
@@ -44,6 +41,7 @@ export function RecurringTransactionFormModal({
   onClose,
   onSaved,
 }: RecurringTransactionFormModalProps) {
+  const { t } = useTranslation();
   // An amount is billed in its own currency (default: the base currency) and never converted.
   const baseCurrency = useBaseCurrency();
   const [name, setName] = useState("");
@@ -101,21 +99,21 @@ export function RecurringTransactionFormModal({
 
   function validate(): FieldErrors {
     const errors: FieldErrors = {};
-    if (!name.trim()) errors.name = "Name is required.";
+    if (!name.trim()) errors.name = t("common.validation.nameRequired");
 
     const numericAmount = Number(amount);
     if (!amount.trim()) {
-      errors.amount = "Amount is required.";
+      errors.amount = t("common.validation.amountRequired");
     } else if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
-      errors.amount = "Amount must be greater than 0.";
+      errors.amount = t("common.validation.amountPositive");
     } else if (!hasValidPrecision(amount, currency)) {
-      errors.amount = `${currency} amounts can't have decimals.`;
+      errors.amount = t("common.validation.noDecimals", { currency });
     }
 
-    if (!categoryId) errors.category = "Choose a category.";
-    if (!startDate) errors.start_date = "Start date is required.";
+    if (!categoryId) errors.category = t("common.validation.categoryRequired");
+    if (!startDate) errors.start_date = t("recurring.form.errors.startRequired");
     if (endDate && startDate && endDate < startDate) {
-      errors.end_date = "End date must be on or after the start date.";
+      errors.end_date = t("recurring.form.errors.endBeforeStart");
     }
 
     return errors;
@@ -160,7 +158,7 @@ export function RecurringTransactionFormModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={item ? "Edit recurring transaction" : "Add recurring transaction"}
+      title={item ? t("recurring.form.editTitle") : t("recurring.form.addTitle")}
     >
       <form onSubmit={handleSubmit} className={formStyles.stack} noValidate>
         <ErrorBanner message={errorMessage} />
@@ -168,8 +166,8 @@ export function RecurringTransactionFormModal({
         <TypeToggle value={type} onChange={handleTypeChange} />
 
         <TextField
-          label="Name"
-          placeholder="e.g. Rent, Netflix, Spotify"
+          label={t("common.form.name")}
+          placeholder={t("recurring.form.namePlaceholder")}
           value={name}
           onChange={(event) => setName(event.target.value)}
           error={fieldErrors.name}
@@ -177,7 +175,7 @@ export function RecurringTransactionFormModal({
 
         <div className={formStyles.amountRow}>
           <TextField
-            label="Amount"
+            label={t("common.form.amount")}
             type="number"
             inputMode="decimal"
             step={amountStep(currency)}
@@ -192,8 +190,8 @@ export function RecurringTransactionFormModal({
 
         <div className={formStyles.row}>
           <Select
-            label="Category"
-            placeholder="Select a category"
+            label={t("common.form.category")}
+            placeholder={t("common.form.selectCategory")}
             value={categoryId}
             onChange={(event) => setCategoryId(event.target.value)}
             options={availableCategories.map((category) => ({
@@ -204,23 +202,23 @@ export function RecurringTransactionFormModal({
           />
 
           <Select
-            label="Frequency"
+            label={t("recurring.form.frequency")}
             value={frequency}
             onChange={(event) => setFrequency(event.target.value as RecurringFrequency)}
-            options={FREQUENCY_OPTIONS}
+            options={FREQUENCIES.map((value) => ({ value, label: t(`recurring.frequency.${value}`) }))}
           />
         </div>
 
         <div className={formStyles.row}>
           <TextField
-            label="Start date"
+            label={t("recurring.form.startDate")}
             type="date"
             value={startDate}
             onChange={(event) => setStartDate(event.target.value)}
             error={fieldErrors.start_date}
           />
           <TextField
-            label="End date (optional)"
+            label={t("recurring.form.endDate")}
             type="date"
             value={endDate}
             onChange={(event) => setEndDate(event.target.value)}
@@ -229,25 +227,25 @@ export function RecurringTransactionFormModal({
         </div>
 
         <TextField
-          label="Description (optional)"
-          placeholder="e.g. Apartment on Main St."
+          label={t("common.form.descriptionOptional")}
+          placeholder={t("recurring.form.descriptionPlaceholder")}
           value={description}
           onChange={(event) => setDescription(event.target.value)}
         />
 
         <Checkbox
-          label="Active"
-          hint="Paused items get no payment reminders."
+          label={t("recurring.form.active")}
+          hint={t("recurring.form.activeHint")}
           checked={isActive}
           onChange={(event) => setIsActive(event.target.checked)}
         />
 
         <div className={formStyles.actions}>
           <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
-            Cancel
+            {t("common.actions.cancel")}
           </Button>
           <Button type="submit" isLoading={isSubmitting}>
-            {item ? "Save changes" : "Add recurring transaction"}
+            {item ? t("recurring.form.submitSave") : t("recurring.form.submitAdd")}
           </Button>
         </div>
       </form>

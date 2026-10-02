@@ -1,5 +1,7 @@
+import { useTranslation } from "react-i18next";
 import type { Category } from "../../types/category";
 import type { BudgetStatus } from "../../types/dashboard";
+import { FULL_PERCENT } from "../../config/budget";
 import { formatCurrency, formatPercentage } from "../../utils/format";
 import { useBaseCurrency } from "../../hooks/useBaseCurrency";
 import { Badge, type BadgeTone } from "../Badge";
@@ -14,13 +16,6 @@ import styles from "./BudgetRow.module.scss";
  * list doesn't, so it classifies by usage: "near_limit" from 80%, "over_budget" above 100%.
  */
 export type BudgetRowStatus = BudgetStatus | "near_limit";
-
-const BUDGET_STATUS_LABELS: Record<BudgetRowStatus, string> = {
-  on_track: "On track",
-  ahead_of_pace: "Ahead of pace",
-  near_limit: "Near limit",
-  over_budget: "Over budget",
-};
 
 const STATUS_BADGE: Record<BudgetRowStatus, { tone: BadgeTone; icon: IconName }> = {
   on_track: { tone: "success", icon: "check" },
@@ -72,11 +67,12 @@ export function BudgetRow({
   expectedToDate,
   card = false,
 }: BudgetRowProps) {
+  const { t } = useTranslation();
   const baseCurrency = useBaseCurrency();
   const badge = STATUS_BADGE[status];
   const isOver = Number(remaining) < 0;
   // Only the tick's position needs a number; nothing derived is shown.
-  const pacePosition = expectedToDate !== undefined && Number(budget) > 0 ? (Number(expectedToDate) / Number(budget)) * 100 : undefined;
+  const pacePosition = expectedToDate !== undefined && Number(budget) > 0 ? (Number(expectedToDate) / Number(budget)) * FULL_PERCENT : undefined;
 
   return (
     <li className={card ? `${styles.row} ${styles.card}` : styles.row}>
@@ -91,17 +87,17 @@ export function BudgetRow({
         <div className={styles.title}>
           <span className={styles.name}>{name}</span>
           <span className={styles.amounts}>
-            {formatCurrency(spent, baseCurrency)} of {formatCurrency(budget, baseCurrency)}
+            {t("budgets.row.amounts", { spent: formatCurrency(spent, baseCurrency), budget: formatCurrency(budget, baseCurrency) })}
           </span>
         </div>
         <Badge tone={badge.tone} icon={badge.icon}>
-          {BUDGET_STATUS_LABELS[status]}
+          {t(`budgets.status.${status}`)}
         </Badge>
       </div>
 
       <ProgressBar
         percentage={usagePercentage}
-        label={`${name} budget used`}
+        label={t("budgets.row.used", { name })}
         tone={BAR_TONE[status]}
         marker={pacePosition}
       />
@@ -109,15 +105,15 @@ export function BudgetRow({
       <div className={styles.footer}>
         <span className={isOver ? `${styles.remaining} ${styles.over}` : styles.remaining}>
           {isOver
-            ? `${formatCurrency(Math.abs(Number(remaining)), baseCurrency)} over`
-            : `${formatCurrency(remaining, baseCurrency)} left`}
+            ? t("budgets.row.over", { amount: formatCurrency(Math.abs(Number(remaining)), baseCurrency) })
+            : t("budgets.row.left", { amount: formatCurrency(remaining, baseCurrency) })}
         </span>
         <span className={styles.usage}>
           {variancePercentage === undefined
-            ? `${formatPercentage(usagePercentage)} used`
+            ? t("budgets.row.usage", { percentage: formatPercentage(usagePercentage) })
             : variancePercentage > 0
-              ? `${formatPercentage(variancePercentage)} over budget`
-              : `${formatPercentage(Math.abs(variancePercentage))} under budget`}
+              ? t("budgets.row.overBudget", { percentage: formatPercentage(variancePercentage) })
+              : t("budgets.row.underBudget", { percentage: formatPercentage(Math.abs(variancePercentage)) })}
         </span>
       </div>
     </li>

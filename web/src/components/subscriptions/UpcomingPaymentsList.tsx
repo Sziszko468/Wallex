@@ -1,7 +1,9 @@
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import type { CurrencyCode } from "../../types/currency";
 import type { UpcomingSubscriptionPayment } from "../../types/subscription";
-import { formatCurrency, formatDate } from "../../utils/format";
+import { UPCOMING_PAYMENT_DAYS } from "../../config/subscriptions";
+import { formatCurrency, formatDate, formatMonthName } from "../../utils/format";
 import { EmptyState } from "../EmptyState";
 import styles from "./SubscriptionLists.module.scss";
 
@@ -14,13 +16,14 @@ interface UpcomingPaymentsListProps {
 function dateParts(isoDate: string): { day: string; month: string } {
   const [year, month, day] = isoDate.split("-").map(Number);
   const date = new Date(year ?? 0, (month ?? 1) - 1, day ?? 1);
-  return { day: String(date.getDate()), month: date.toLocaleDateString(undefined, { month: "short" }) };
+  return { day: String(date.getDate()), month: formatMonthName(date.getMonth() + 1, "short") };
 }
 
-/** The next 30 days' payments, as the API lists them (soonest first). */
+/** The next UPCOMING_PAYMENT_DAYS days' payments, as the API lists them (soonest first). */
 export function UpcomingPaymentsList({ payments, baseCurrency }: UpcomingPaymentsListProps) {
+  const { t } = useTranslation();
   if (payments.length === 0) {
-    return <EmptyState icon="calendar" message="No payments due in the next 30 days." />;
+    return <EmptyState icon="calendar" message={t("subscriptions.upcomingList.empty", { days: UPCOMING_PAYMENT_DAYS })} />;
   }
 
   return (

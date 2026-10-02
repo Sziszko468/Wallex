@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import { TextField } from "./TextField";
 import { toIsoDate } from "../utils/date";
 import { colors, fontSize, radius, spacing } from "../utils/theme";
@@ -19,22 +20,23 @@ function daysAgoIso(days: number): string {
  * the text field below covers everything else without a native date-picker
  * dependency (see the explanation for why one wasn't added). */
 export function QuickDateField({ value, onChange, error }: QuickDateFieldProps) {
+  const { t } = useTranslation();
   const today = daysAgoIso(0);
   const yesterday = daysAgoIso(1);
 
   return (
     <View>
       <View style={styles.chipRow}>
-        <QuickChip label="Today" isActive={value === today} onPress={() => onChange(today)} />
+        <QuickChip label={t("common.dates.today")} isActive={value === today} onPress={() => onChange(today)} />
         <QuickChip
-          label="Yesterday"
+          label={t("common.dates.yesterday")}
           isActive={value === yesterday}
           onPress={() => onChange(yesterday)}
         />
       </View>
       <TextField
-        label="Date"
-        placeholder="YYYY-MM-DD"
+        label={t("common.form.date")}
+        placeholder={t("common.form.datePlaceholder")}
         value={value}
         onChangeText={onChange}
         error={error}

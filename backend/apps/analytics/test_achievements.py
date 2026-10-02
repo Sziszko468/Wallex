@@ -1,7 +1,6 @@
 """Achievements: the catalog, each rule, and how evaluate() stores progress and unlocks."""
 
-from datetime import date, datetime, time, timedelta
-from datetime import timezone as dt_timezone
+from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
 
 import pytest
@@ -23,12 +22,14 @@ def _recorded(user, category, on: date, *, booked: date | None = None, amount="1
     tx = Transaction.objects.create(
         user=user, category=category, type=category.type, amount=D(amount), date=booked or on
     )
-    Transaction.objects.filter(pk=tx.pk).update(created_at=datetime.combine(on, time(12), tzinfo=dt_timezone.utc))
+    Transaction.objects.filter(pk=tx.pk).update(created_at=datetime.combine(on, time(12), tzinfo=UTC))
     return tx
 
 
 def _goal(user, current, target="3000.00", **fields):
-    goal = SavingsGoal(user=user, name=fields.pop("name", "Japan trip"), target_amount=D(target), current_amount=D(current), **fields)
+    goal = SavingsGoal(
+        user=user, name=fields.pop("name", "Japan trip"), target_amount=D(target), current_amount=D(current), **fields
+    )
     goal.sync_status()
     goal.save()
     return goal
@@ -44,7 +45,13 @@ def _evaluate(user, today=TODAY) -> dict[str, UserAchievement]:
 @pytest.mark.django_db
 def test_the_catalog_has_the_seven_achievements_in_order():
     assert list(Achievement.objects.values_list("code", flat=True)) == [
-        "first_transaction", "streak_7", "streak_30", "saved_100", "saved_1000", "goal_completed", "stayed_under_budget",
+        "first_transaction",
+        "streak_7",
+        "streak_30",
+        "saved_100",
+        "saved_1000",
+        "goal_completed",
+        "stayed_under_budget",
     ]
 
 

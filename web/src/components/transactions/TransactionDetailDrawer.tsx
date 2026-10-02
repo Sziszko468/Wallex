@@ -1,7 +1,8 @@
+import { useTranslation } from "react-i18next";
 import type { Category } from "../../types/category";
 import type { Transaction } from "../../types/transaction";
 import { useBaseCurrency } from "../../hooks/useBaseCurrency";
-import { formatCurrency, formatDate, formatDateTime } from "../../utils/format";
+import { formatCurrency, formatDate, formatDateTime, formatRate } from "../../utils/format";
 import { Badge } from "../Badge";
 import { Button } from "../Button";
 import { CategoryMark } from "../CategoryMark";
@@ -19,49 +20,52 @@ interface TransactionDetailDrawerProps {
   onDelete: (transaction: Transaction) => void;
 }
 
-const rateFormatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 6 });
-
 /**
  * One transaction in full: a drawer on desktop, a bottom sheet on phones. The amount leads;
  * the facts follow; Edit and Delete sit at the end. Only fields the API actually has are shown.
  */
 export function TransactionDetailDrawer({ transaction, category, onClose, onEdit, onDelete }: TransactionDetailDrawerProps) {
+  const { t } = useTranslation();
   const baseCurrency = useBaseCurrency();
   if (!transaction) return null;
 
   const isIncome = transaction.type === "income";
   const isForeign = transaction.currency !== baseCurrency;
-  const name = transaction.description || category?.name || "Transaction";
+  const name = transaction.description || category?.name || t("transactions.fallbackName");
 
   const items = [
     {
-      label: "Type",
+      label: t("transactions.detail.type"),
       value: (
         <Badge tone={isIncome ? "success" : "neutral"} icon={isIncome ? "arrow-down-left" : "arrow-up-right"}>
-          {isIncome ? "Income" : "Expense"}
+          {isIncome ? t("common.transactionType.income") : t("common.transactionType.expense")}
         </Badge>
       ),
     },
-    { label: "Category", value: category?.name ?? "—" },
-    { label: "Date", value: formatDate(transaction.date) },
-    { label: "Paid in", value: transaction.currency },
+    { label: t("transactions.detail.category"), value: category?.name ?? t("common.states.notAvailable") },
+    { label: t("transactions.detail.date"), value: formatDate(transaction.date) },
+    { label: t("transactions.detail.paidIn"), value: transaction.currency },
     ...(isForeign
       ? [
-          { label: "In your currency", value: formatCurrency(transaction.base_amount, baseCurrency) },
+          { label: t("transactions.detail.inYourCurrency"), value: formatCurrency(transaction.base_amount, baseCurrency) },
           {
-            label: "Exchange rate",
-            value: `1 ${transaction.currency} = ${rateFormatter.format(Number(transaction.exchange_rate))} ${baseCurrency}`,
+            label: t("transactions.detail.exchangeRate"),
+            value: t("transactions.detail.rate", {
+              currency: transaction.currency,
+              rate: formatRate(transaction.exchange_rate),
+              base: baseCurrency,
+            }),
           },
         ]
       : []),
-    { label: "Added", value: formatDateTime(transaction.created_at) },
+    { label: t("transactions.detail.added"), value: formatDateTime(transaction.created_at) },
     ...(transaction.updated_at !== transaction.created_at
-      ? [{ label: "Last changed", value: formatDateTime(transaction.updated_at) }]
+      ? [{ label: t("transactions.detail.lastChanged"), value: formatDateTime(transaction.updated_at) }]
       : []),
   ];
 
   return (
-    <Modal isOpen onClose={onClose} title="Transaction" placement="right">
+    <Modal isOpen onClose={onClose} title={t("transactions.detail.title")} placement="right">
       <div className={styles.content}>
         <div className={styles.summary}>
           <CategoryMark category={category} size="lg" />
@@ -77,10 +81,10 @@ export function TransactionDetailDrawer({ transaction, category, onClose, onEdit
 
         <div className={styles.actions}>
           <Button variant="secondary" leadingIcon="pencil" onClick={() => onEdit(transaction)}>
-            Edit
+            {t("transactions.detail.edit")}
           </Button>
           <Button variant="danger-quiet" leadingIcon="trash" onClick={() => onDelete(transaction)}>
-            Delete
+            {t("transactions.detail.delete")}
           </Button>
         </div>
       </div>

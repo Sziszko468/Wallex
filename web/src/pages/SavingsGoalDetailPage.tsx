@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router-dom";
 import { deleteSavingsGoal, getSavingsGoal, updateSavingsGoal } from "../services/savingsGoalsService";
 import { useAsyncData } from "../hooks/useAsyncData";
@@ -26,9 +27,8 @@ import { describeDaysLeft, goalTone } from "../utils/savingsGoals";
 import pageStyles from "../components/page.module.scss";
 import styles from "./SavingsGoalDetailPage.module.scss";
 
-const BACK_LINK = { to: "/goals", label: "All goals" };
-
 export function SavingsGoalDetailPage() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
@@ -36,7 +36,7 @@ export function SavingsGoalDetailPage() {
 
   const fetchGoal = useCallback(() => getSavingsGoal(goalId), [goalId]);
   const goal = useAsyncData(fetchGoal);
-  usePageTitle(goal.data?.name ?? "Goal");
+  usePageTitle(goal.data?.name ?? t("goals.detail.fallbackTitle"));
 
   // Snapshot taken when Edit is pressed: a background reload must not re-seed the open form.
   const [editing, setEditing] = useState<SavingsGoal | null>(null);
@@ -46,7 +46,7 @@ export function SavingsGoalDetailPage() {
   const [actionError, setActionError] = useState<string | null>(null);
 
   function handleSaved() {
-    toast.success(editing ? "Goal updated" : "Savings updated");
+    toast.success(editing ? t("goals.toast.updated") : t("goals.toast.savingsUpdated"));
     setEditing(null);
     setMoneyDirection(null);
     goal.refetch();
@@ -69,7 +69,7 @@ export function SavingsGoalDetailPage() {
     setIsBusy(true);
     try {
       await deleteSavingsGoal(goalId);
-      toast.success("Goal deleted");
+      toast.success(t("goals.toast.deleted"));
       navigate("/goals", { replace: true });
     } catch (error) {
       setActionError(extractErrorMessage(error));
@@ -90,21 +90,21 @@ export function SavingsGoalDetailPage() {
   return (
     <div className={pageStyles.page}>
       <PageHeader
-        backTo={BACK_LINK}
+        backTo={{ to: "/goals", label: t("goals.detail.backLink") }}
         title={
           data ? (
             <span className={styles.title}>
               {data.name} <GoalStatusBadge status={data.status} />
             </span>
           ) : (
-            "Goal"
+            t("goals.detail.fallbackTitle")
           )
         }
         actions={
           data && (
             <>
               <Button type="button" leadingIcon="plus" onClick={() => setMoneyDirection("deposit")} disabled={isArchived}>
-                Add money
+                {t("goals.card.addMoney")}
               </Button>
               <Button
                 type="button"
@@ -113,16 +113,16 @@ export function SavingsGoalDetailPage() {
                 onClick={() => setMoneyDirection("withdraw")}
                 disabled={isArchived}
               >
-                Remove money
+                {t("goals.detail.removeMoney")}
               </Button>
               <Button type="button" variant="secondary" leadingIcon="pencil" onClick={() => setEditing(data)}>
-                Edit
+                {t("common.actions.edit")}
               </Button>
               <Button type="button" variant="ghost" onClick={() => toggleArchived(data)} disabled={isBusy}>
-                {isArchived ? "Restore" : "Archive"}
+                {isArchived ? t("goals.detail.restore") : t("goals.detail.archive")}
               </Button>
               <Button type="button" variant="danger-quiet" leadingIcon="trash" onClick={() => setIsConfirmingDelete(true)}>
-                Delete
+                {t("common.actions.delete")}
               </Button>
             </>
           )
@@ -144,9 +144,9 @@ export function SavingsGoalDetailPage() {
 
       <ConfirmDialog
         isOpen={isConfirmingDelete}
-        title="Delete goal"
-        message={`Delete "${data?.name ?? ""}"? Its progress is lost. To keep it, archive it instead.`}
-        confirmLabel="Delete"
+        title={t("goals.delete.title")}
+        message={t("goals.delete.message", { name: data?.name ?? "" })}
+        confirmLabel={t("common.actions.delete")}
         isConfirming={isBusy}
         onConfirm={confirmDelete}
         onClose={() => setIsConfirmingDelete(false)}
@@ -156,6 +156,7 @@ export function SavingsGoalDetailPage() {
 }
 
 function GoalDetails({ goal }: { goal: SavingsGoal }) {
+  const { t } = useTranslation();
   const baseCurrency = useBaseCurrency();
   const isForeign = goal.currency !== baseCurrency;
 
@@ -169,9 +170,9 @@ function GoalDetails({ goal }: { goal: SavingsGoal }) {
   const timeline =
     goal.target_date && goal.days_left !== null
       ? [
-          { label: "Target date", value: formatDate(goal.target_date) },
+          { label: t("goals.detail.targetDateCard"), value: formatDate(goal.target_date) },
           {
-            label: "Time left",
+            label: t("goals.detail.timeLeft"),
             value: (
               <span className={goal.days_left < 0 && goal.status === "active" ? styles.overdue : undefined}>
                 {describeDaysLeft(goal.days_left)}
@@ -179,24 +180,24 @@ function GoalDetails({ goal }: { goal: SavingsGoal }) {
             ),
           },
           ...(goal.monthly_needed !== null
-            ? [{ label: "To reach it", value: `save ${formatCurrency(goal.monthly_needed, goal.currency)} a month` }]
+            ? [{ label: t("goals.detail.toReach"), value: t("goals.detail.monthlySave", { amount: formatCurrency(goal.monthly_needed, goal.currency) }) }]
             : []),
         ]
       : null;
 
   return (
     <>
-      <Card as="section" tone="tinted" padding="lg" aria-label="Progress">
+      <Card as="section" tone="tinted" padding="lg" aria-label={t("goals.detail.progress")}>
         <div className={styles.progress}>
           <div className={styles.progressHeader}>
             <span className={styles.progressValue}>{formatPercentage(goal.progress_percentage)}</span>
             <span className={styles.muted}>
-              {formatCurrency(goal.current_amount, goal.currency)} of {formatCurrency(goal.target_amount, goal.currency)}
+              {t("goals.detail.amountOf", { saved: formatCurrency(goal.current_amount, goal.currency), target: formatCurrency(goal.target_amount, goal.currency) })}
             </span>
           </div>
           <ProgressBar
             percentage={goal.progress_percentage}
-            label={`${goal.name} progress`}
+            label={t("goals.card.progress", { name: goal.name })}
             tone={goalTone(goal.status)}
             size="large"
           />
@@ -205,17 +206,17 @@ function GoalDetails({ goal }: { goal: SavingsGoal }) {
 
       <SummaryStrip
         items={[
-          { label: "Saved", value: amount(goal.current_amount, goal.base_current_amount), tone: "positive" },
-          { label: "Target", value: amount(goal.target_amount, goal.base_target_amount) },
-          { label: "Still to save", value: formatCurrency(goal.remaining_amount, goal.currency) },
+          { label: t("goals.detail.saved"), value: amount(goal.current_amount, goal.base_current_amount), tone: "positive" },
+          { label: t("goals.detail.target"), value: amount(goal.target_amount, goal.base_target_amount) },
+          { label: t("goals.detail.stillToSave"), value: formatCurrency(goal.remaining_amount, goal.currency) },
         ]}
       />
 
-      <DashboardCard title="Target date">
+      <DashboardCard title={t("goals.detail.targetDateCard")}>
         {timeline ? (
           <DetailList items={timeline} />
         ) : (
-          <p className={styles.muted}>No target date. Add one to see how much to save each month.</p>
+          <p className={styles.muted}>{t("goals.detail.noTargetDate")}</p>
         )}
       </DashboardCard>
     </>

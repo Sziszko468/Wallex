@@ -1,14 +1,8 @@
 import { Image, StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import { Button } from "../Button";
 import { colors, fontSize, radius, spacing } from "../../utils/theme";
 import type { ProblemAction, ScanProblem } from "../../utils/receiptProblems";
-
-const ACTION_TITLES: Record<ProblemAction, string> = {
-  retake: "Retake photo",
-  library: "Choose another photo",
-  review: "Enter the details anyway",
-  manual: "Add manually",
-};
 
 interface ScanProblemPanelProps {
   problem: ScanProblem;
@@ -18,6 +12,7 @@ interface ScanProblemPanelProps {
 
 /** Why the scan didn't produce something to review, and the ways forward. Nothing was saved. */
 export function ScanProblemPanel({ problem, photoUri, onAction }: ScanProblemPanelProps) {
+  const { t } = useTranslation();
   return (
     <View accessibilityRole="alert">
       {photoUri && <Image source={{ uri: photoUri }} style={styles.thumbnail} resizeMode="contain" />}
@@ -26,7 +21,7 @@ export function ScanProblemPanel({ problem, photoUri, onAction }: ScanProblemPan
       {problem.actions.map((action, index) => (
         <View key={action} style={styles.action}>
           <Button
-            title={ACTION_TITLES[action]}
+            title={t(`receipts.problems.actions.${action}`)}
             variant={index === 0 ? "primary" : "secondary"}
             size={index === 0 ? "large" : "medium"}
             onPress={() => onAction(action)}

@@ -48,9 +48,7 @@ def _send_batch(messages: list[dict]) -> list[PushTicket]:
     headers = {"Accept": "application/json", "Content-Type": "application/json"}
     if settings.EXPO_PUSH_ACCESS_TOKEN:
         headers["Authorization"] = f"Bearer {settings.EXPO_PUSH_ACCESS_TOKEN}"
-    request = urllib.request.Request(
-        EXPO_PUSH_URL, data=json.dumps(messages).encode(), headers=headers, method="POST"
-    )
+    request = urllib.request.Request(EXPO_PUSH_URL, data=json.dumps(messages).encode(), headers=headers, method="POST")
 
     try:
         with urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT_SECONDS) as response:

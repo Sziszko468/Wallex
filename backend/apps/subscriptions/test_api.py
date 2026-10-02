@@ -44,9 +44,26 @@ def test_create_returns_the_subscription_with_its_costs(auth_client, body, user)
     assert response.status_code == status.HTTP_201_CREATED
     data = response.json()
     assert set(data) == {
-        "id", "name", "merchant", "amount", "currency", "category", "frequency", "start_date", "end_date",
-        "next_payment_date", "active", "status", "upcoming_payments", "monthly_cost", "yearly_cost",
-        "base_monthly_cost", "base_yearly_cost", "description", "created_at", "updated_at",
+        "id",
+        "name",
+        "merchant",
+        "amount",
+        "currency",
+        "category",
+        "frequency",
+        "start_date",
+        "end_date",
+        "next_payment_date",
+        "active",
+        "status",
+        "upcoming_payments",
+        "monthly_cost",
+        "yearly_cost",
+        "base_monthly_cost",
+        "base_yearly_cost",
+        "description",
+        "created_at",
+        "updated_at",
     }
     assert (data["currency"], data["active"], data["status"]) == ("EUR", True, "active")
     assert (data["monthly_cost"], data["yearly_cost"]) == ("17.99", "215.88")
@@ -140,18 +157,31 @@ def test_required_fields(auth_client):
 
 
 @pytest.mark.django_db
-def test_list_shows_only_own_subscriptions_active_paused_ended(auth_client, make_subscription, user, other_user, entertainment):
+def test_list_shows_only_own_subscriptions_active_paused_ended(
+    auth_client, make_subscription, user, other_user, entertainment
+):
     make_subscription("Spotify")
     make_subscription("Adobe", is_active=False)
     make_subscription("Netflix")
     make_subscription("Deezer", start_date=date(2025, 1, 1), end_date=date(2025, 6, 1))  # ended
     RecurringTransaction.objects.create(  # a plain recurring expense is not a subscription
-        user=user, category=entertainment, name="Rent", type=TransactionType.EXPENSE, amount=D("600.00"),
-        frequency=Frequency.MONTHLY, start_date=date(2026, 1, 1), next_occurrence_date=date(2026, 1, 1),
+        user=user,
+        category=entertainment,
+        name="Rent",
+        type=TransactionType.EXPENSE,
+        amount=D("600.00"),
+        frequency=Frequency.MONTHLY,
+        start_date=date(2026, 1, 1),
+        next_occurrence_date=date(2026, 1, 1),
     )
     Subscription.objects.create(
-        user=other_user, category=entertainment, name="Theirs", amount=D("1.00"),
-        frequency=Frequency.MONTHLY, start_date=date(2026, 1, 1), next_occurrence_date=date(2026, 1, 1),
+        user=other_user,
+        category=entertainment,
+        name="Theirs",
+        amount=D("1.00"),
+        frequency=Frequency.MONTHLY,
+        start_date=date(2026, 1, 1),
+        next_occurrence_date=date(2026, 1, 1),
     )
 
     response = auth_client.get(LIST)
@@ -182,8 +212,13 @@ def test_detail(auth_client, make_subscription):
 @pytest.mark.django_db
 def test_other_users_subscription_is_not_found(auth_client, other_user, entertainment):
     theirs = Subscription.objects.create(
-        user=other_user, category=entertainment, name="Theirs", amount=D("1.00"),
-        frequency=Frequency.MONTHLY, start_date=date(2026, 1, 1), next_occurrence_date=date(2026, 1, 1),
+        user=other_user,
+        category=entertainment,
+        name="Theirs",
+        amount=D("1.00"),
+        frequency=Frequency.MONTHLY,
+        start_date=date(2026, 1, 1),
+        next_occurrence_date=date(2026, 1, 1),
     )
 
     assert auth_client.get(_detail(theirs)).status_code == status.HTTP_404_NOT_FOUND
@@ -194,8 +229,14 @@ def test_other_users_subscription_is_not_found(auth_client, other_user, entertai
 @pytest.mark.django_db
 def test_a_plain_recurring_transaction_is_not_reachable_as_a_subscription(auth_client, user, entertainment):
     rent = RecurringTransaction.objects.create(
-        user=user, category=entertainment, name="Rent", type=TransactionType.EXPENSE, amount=D("600.00"),
-        frequency=Frequency.MONTHLY, start_date=date(2026, 1, 1), next_occurrence_date=date(2026, 1, 1),
+        user=user,
+        category=entertainment,
+        name="Rent",
+        type=TransactionType.EXPENSE,
+        amount=D("600.00"),
+        frequency=Frequency.MONTHLY,
+        start_date=date(2026, 1, 1),
+        next_occurrence_date=date(2026, 1, 1),
     )
 
     assert auth_client.get(reverse("subscription-detail", args=[rent.pk])).status_code == 404
@@ -211,7 +252,10 @@ def test_pausing_stops_the_payments(auth_client, make_subscription):
     data = auth_client.patch(_detail(netflix), {"active": False}, format="json").json()
 
     assert (data["active"], data["status"], data["next_payment_date"], data["upcoming_payments"]) == (
-        False, "paused", None, []
+        False,
+        "paused",
+        None,
+        [],
     )
     netflix.refresh_from_db()
     assert netflix.is_active is False
@@ -221,9 +265,7 @@ def test_pausing_stops_the_payments(auth_client, make_subscription):
 def test_price_change_and_new_start_date(auth_client, make_subscription):
     netflix = make_subscription(start_date=date(2026, 1, 5))
 
-    data = auth_client.patch(
-        _detail(netflix), {"amount": "19.99", "start_date": "2026-02-10"}, format="json"
-    ).json()
+    data = auth_client.patch(_detail(netflix), {"amount": "19.99", "start_date": "2026-02-10"}, format="json").json()
 
     assert (data["amount"], data["yearly_cost"]) == ("19.99", "239.88")
     netflix.refresh_from_db()
@@ -250,8 +292,12 @@ def test_put_is_not_supported(auth_client, make_subscription, body):
 def test_delete_keeps_the_recorded_payments(auth_client, user, make_subscription, entertainment):
     netflix = make_subscription()
     payment = Transaction.objects.create(
-        user=user, category=entertainment, type=TransactionType.EXPENSE, amount=D("9.99"),
-        date=date(2026, 9, 5), recurring_transaction=netflix,
+        user=user,
+        category=entertainment,
+        type=TransactionType.EXPENSE,
+        amount=D("9.99"),
+        date=date(2026, 9, 5),
+        recurring_transaction=netflix,
     )
 
     assert auth_client.delete(_detail(netflix)).status_code == status.HTTP_204_NO_CONTENT
@@ -283,7 +329,10 @@ def test_summary_endpoint(auth_client, make_subscription, bills):
         "subscription_count": 4,
         "percentage": 66.65,
     }
-    assert all(set(payment) == {"subscription_id", "name", "date", "amount", "currency", "base_amount"} for payment in data["upcoming"])
+    assert all(
+        set(payment) == {"subscription_id", "name", "date", "amount", "currency", "base_amount"}
+        for payment in data["upcoming"]
+    )
     assert data["unconverted_currencies"] == []
 
 
@@ -305,7 +354,10 @@ def test_subscriptions_are_listed_as_recurring_transactions(auth_client, make_su
     [item] = auth_client.get(reverse("recurringtransaction-list")).json()
 
     assert (item["name"], item["is_subscription"], item["type"], item["merchant"]) == (
-        "Netflix", True, "expense", "Netflix International B.V."
+        "Netflix",
+        True,
+        "expense",
+        "Netflix International B.V.",
     )
 
 
@@ -324,8 +376,15 @@ def test_the_recurring_endpoint_cannot_turn_a_subscription_into_income(auth_clie
 def test_recurring_transactions_are_not_subscriptions_by_default(auth_client, entertainment):
     created = auth_client.post(
         reverse("recurringtransaction-list"),
-        {"name": "Rent", "category": entertainment.id, "type": "expense", "amount": "600.00",
-         "frequency": "monthly", "start_date": "2026-01-01", "is_subscription": True},
+        {
+            "name": "Rent",
+            "category": entertainment.id,
+            "type": "expense",
+            "amount": "600.00",
+            "frequency": "monthly",
+            "start_date": "2026-01-01",
+            "is_subscription": True,
+        },
         format="json",
     ).json()
 

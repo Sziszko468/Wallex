@@ -26,6 +26,7 @@ export const user: User = {
   last_name: "Kovács",
   date_joined: "2026-09-01T10:00:00Z",
   base_currency: "EUR",
+  language: "en",
 };
 
 const timestamps = { created_at: "2026-09-01T10:00:00Z", updated_at: "2026-09-01T10:00:00Z" };

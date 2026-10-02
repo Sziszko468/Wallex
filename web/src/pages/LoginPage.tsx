@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
+import { MFA_CODE_LENGTH } from "../config/security";
 import { useAuth } from "../hooks/useAuth";
 import { usePageTitle } from "../hooks/usePageTitle";
 import { extractErrorMessage } from "../utils/errors";
@@ -9,6 +11,7 @@ import { ErrorBanner } from "../components/ErrorBanner";
 import styles from "./AuthPages.module.scss";
 
 export function LoginPage() {
+  const { t } = useTranslation();
   const { login, verifyMfa } = useAuth();
   const navigate = useNavigate();
 
@@ -20,7 +23,7 @@ export function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  usePageTitle(mfaToken ? "Two-factor authentication" : "Log in");
+  usePageTitle(mfaToken ? t("auth.mfa.title") : t("auth.login.title"));
 
   async function run(step: () => Promise<void>) {
     setErrorMessage(null);
@@ -66,15 +69,13 @@ export function LoginPage() {
     return (
       <>
         <div className={styles.header}>
-          <h1 className={styles.title}>Two-factor authentication</h1>
-          <p className={styles.subtitle}>
-            Enter the 6-digit code from your authenticator app, or one of your recovery codes.
-          </p>
+          <h1 className={styles.title}>{t("auth.mfa.title")}</h1>
+          <p className={styles.subtitle}>{t("auth.mfa.subtitle", { digits: MFA_CODE_LENGTH })}</p>
         </div>
         <ErrorBanner message={errorMessage} />
         <form onSubmit={handleCode} noValidate className={styles.stack}>
           <TextField
-            label="Authentication code"
+            label={t("auth.mfa.code")}
             name="code"
             inputMode="numeric"
             autoComplete="one-time-code"
@@ -84,10 +85,10 @@ export function LoginPage() {
             required
           />
           <Button type="submit" size="lg" fullWidth isLoading={isSubmitting}>
-            Verify
+            {t("auth.mfa.verify")}
           </Button>
           <Button type="button" variant="ghost" fullWidth onClick={startOver}>
-            Use a different account
+            {t("auth.mfa.differentAccount")}
           </Button>
         </form>
       </>
@@ -97,13 +98,13 @@ export function LoginPage() {
   return (
     <>
       <div className={styles.header}>
-        <h1 className={styles.title}>Log in</h1>
-        <p className={styles.subtitle}>Welcome back. Pick up where you left off.</p>
+        <h1 className={styles.title}>{t("auth.login.title")}</h1>
+        <p className={styles.subtitle}>{t("auth.login.subtitle")}</p>
       </div>
       <ErrorBanner message={errorMessage} />
       <form onSubmit={handlePassword} noValidate className={styles.stack}>
         <TextField
-          label="Email"
+          label={t("auth.fields.email")}
           type="email"
           name="email"
           autoComplete="email"
@@ -112,7 +113,7 @@ export function LoginPage() {
           required
         />
         <TextField
-          label="Password"
+          label={t("auth.fields.password")}
           type="password"
           name="password"
           autoComplete="current-password"
@@ -121,11 +122,11 @@ export function LoginPage() {
           required
         />
         <Button type="submit" size="lg" fullWidth isLoading={isSubmitting}>
-          Log in
+          {t("auth.login.submit")}
         </Button>
       </form>
       <p className={styles.switch}>
-        Don&apos;t have an account? <Link to="/register">Register</Link>
+        {t("auth.login.noAccount")} <Link to="/register">{t("auth.login.registerLink")}</Link>
       </p>
     </>
   );

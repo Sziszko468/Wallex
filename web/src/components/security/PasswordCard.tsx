@@ -1,4 +1,6 @@
 import { useState, type FormEvent } from "react";
+import { useTranslation } from "react-i18next";
+import { PASSWORD_MIN_LENGTH } from "../../config/security";
 import { changePassword } from "../../services/securityService";
 import { extractErrorMessage, extractFieldErrors, type FieldErrors } from "../../utils/errors";
 import { Button } from "../Button";
@@ -11,6 +13,7 @@ import styles from "./SecurityCards.module.scss";
 
 /** The server checks the password policy; the form only makes sure both new entries match. */
 export function PasswordCard() {
+  const { t } = useTranslation();
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirmation, setConfirmation] = useState("");
@@ -24,7 +27,7 @@ export function PasswordCard() {
     setError(null);
     setNotice(null);
     if (next !== confirmation) {
-      setFieldErrors({ confirmation: "The new passwords don't match." });
+      setFieldErrors({ confirmation: t("security.password.mismatch") });
       return;
     }
     setFieldErrors({});
@@ -35,9 +38,7 @@ export function PasswordCard() {
       setNext("");
       setConfirmation("");
       setNotice(
-        signedOut === 0
-          ? "Password changed."
-          : `Password changed. ${signedOut} other device${signedOut === 1 ? " was" : "s were"} signed out.`
+        signedOut === 0 ? t("security.password.changed") : t("security.password.changedSignedOut", { count: signedOut })
       );
     } catch (saveError) {
       const errors = extractFieldErrors(saveError);
@@ -50,16 +51,13 @@ export function PasswordCard() {
 
   return (
     <Card padding="lg" className={styles.card}>
-      <h2 className={styles.title}>Password</h2>
-      <p className={styles.hint}>
-        At least 12 characters — a few unrelated words make a strong, memorable passphrase. Changing it signs
-        out your other devices.
-      </p>
+      <h2 className={styles.title}>{t("security.password.title")}</h2>
+      <p className={styles.hint}>{t("security.password.hint", { count: PASSWORD_MIN_LENGTH })}</p>
       <ErrorBanner message={error} />
       {notice && <Notice tone="success">{notice}</Notice>}
       <form onSubmit={handleSubmit} noValidate className={formStyles.stack}>
         <TextField
-          label="Current password"
+          label={t("security.password.current")}
           type="password"
           autoComplete="current-password"
           value={current}
@@ -68,7 +66,7 @@ export function PasswordCard() {
           required
         />
         <TextField
-          label="New password"
+          label={t("security.password.new")}
           type="password"
           autoComplete="new-password"
           value={next}
@@ -77,7 +75,7 @@ export function PasswordCard() {
           required
         />
         <TextField
-          label="Repeat the new password"
+          label={t("security.password.repeat")}
           type="password"
           autoComplete="new-password"
           value={confirmation}
@@ -86,7 +84,7 @@ export function PasswordCard() {
           required
         />
         <Button type="submit" isLoading={isSaving} className={styles.submit}>
-          Change password
+          {t("security.password.submit")}
         </Button>
       </form>
     </Card>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useTranslation } from "react-i18next";
 import type { Category } from "../../types/category";
 import type { CurrencyCode } from "../../types/currency";
 import type { RecurringFrequency } from "../../types/recurringTransaction";
@@ -7,7 +8,6 @@ import { createSubscription, updateSubscription } from "../../services/subscript
 import { extractErrorMessage, extractFieldErrors, type FieldErrors } from "../../utils/errors";
 import { toIsoDate } from "../../utils/date";
 import { amountStep, hasValidPrecision } from "../../utils/currency";
-import { FREQUENCY_LABELS } from "../../utils/subscriptions";
 import { useBaseCurrency } from "../../hooks/useBaseCurrency";
 import { Modal } from "../Modal";
 import { Button } from "../Button";
@@ -18,10 +18,7 @@ import { CurrencySelect } from "../CurrencySelect";
 import { Checkbox } from "../Checkbox";
 import formStyles from "../form.module.scss";
 
-const FREQUENCY_OPTIONS = (Object.keys(FREQUENCY_LABELS) as RecurringFrequency[]).map((value) => ({
-  value,
-  label: FREQUENCY_LABELS[value],
-}));
+const FREQUENCIES: readonly RecurringFrequency[] = ["weekly", "monthly", "yearly"];
 
 interface SubscriptionFormModalProps {
   isOpen: boolean;
@@ -39,6 +36,7 @@ export function SubscriptionFormModal({
   onClose,
   onSaved,
 }: SubscriptionFormModalProps) {
+  const { t } = useTranslation();
   const baseCurrency = useBaseCurrency();
   const [name, setName] = useState("");
   const [merchant, setMerchant] = useState("");
@@ -81,21 +79,21 @@ export function SubscriptionFormModal({
 
   function validate(): FieldErrors {
     const errors: FieldErrors = {};
-    if (!name.trim()) errors.name = "Name is required.";
+    if (!name.trim()) errors.name = t("common.validation.nameRequired");
 
     const numericAmount = Number(amount);
     if (!amount.trim()) {
-      errors.amount = "Amount is required.";
+      errors.amount = t("common.validation.amountRequired");
     } else if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
-      errors.amount = "Amount must be greater than 0.";
+      errors.amount = t("common.validation.amountPositive");
     } else if (!hasValidPrecision(amount, currency)) {
-      errors.amount = `${currency} amounts can't have decimals.`;
+      errors.amount = t("common.validation.noDecimals", { currency });
     }
 
-    if (!categoryId) errors.category = "Choose a category.";
-    if (!startDate) errors.start_date = "Start date is required.";
+    if (!categoryId) errors.category = t("common.validation.categoryRequired");
+    if (!startDate) errors.start_date = t("recurring.form.errors.startRequired");
     if (endDate && startDate && endDate < startDate) {
-      errors.end_date = "End date must be on or after the start date.";
+      errors.end_date = t("recurring.form.errors.endBeforeStart");
     }
     return errors;
   }
@@ -134,21 +132,21 @@ export function SubscriptionFormModal({
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={subscription ? "Edit subscription" : "Add subscription"}>
+    <Modal isOpen={isOpen} onClose={onClose} title={subscription ? t("subscriptions.form.editTitle") : t("subscriptions.form.addTitle")}>
       <form onSubmit={handleSubmit} className={formStyles.stack} noValidate>
         <ErrorBanner message={errorMessage} />
 
         <TextField
-          label="Name"
-          placeholder="e.g. Netflix, Spotify, Gym"
+          label={t("common.form.name")}
+          placeholder={t("subscriptions.form.namePlaceholder")}
           value={name}
           onChange={(event) => setName(event.target.value)}
           error={fieldErrors.name}
         />
 
         <TextField
-          label="Merchant (optional)"
-          placeholder="e.g. Netflix International B.V."
+          label={t("subscriptions.form.merchant")}
+          placeholder={t("subscriptions.form.merchantPlaceholder")}
           value={merchant}
           onChange={(event) => setMerchant(event.target.value)}
           error={fieldErrors.merchant}
@@ -156,7 +154,7 @@ export function SubscriptionFormModal({
 
         <div className={formStyles.amountRow}>
           <TextField
-            label="Price per payment"
+            label={t("subscriptions.form.price")}
             type="number"
             inputMode="decimal"
             step={amountStep(currency)}
@@ -171,15 +169,15 @@ export function SubscriptionFormModal({
 
         <div className={formStyles.row}>
           <Select
-            label="Billing"
+            label={t("subscriptions.form.billing")}
             value={frequency}
             onChange={(event) => setFrequency(event.target.value as RecurringFrequency)}
-            options={FREQUENCY_OPTIONS}
+            options={FREQUENCIES.map((value) => ({ value, label: t(`recurring.frequency.${value}`) }))}
             error={fieldErrors.frequency}
           />
           <Select
-            label="Category"
-            placeholder="Select a category"
+            label={t("common.form.category")}
+            placeholder={t("common.form.selectCategory")}
             value={categoryId}
             onChange={(event) => setCategoryId(event.target.value)}
             options={categoryOptions}
@@ -189,14 +187,14 @@ export function SubscriptionFormModal({
 
         <div className={formStyles.row}>
           <TextField
-            label="First payment"
+            label={t("subscriptions.form.firstPayment")}
             type="date"
             value={startDate}
             onChange={(event) => setStartDate(event.target.value)}
             error={fieldErrors.start_date}
           />
           <TextField
-            label="Last payment (optional)"
+            label={t("subscriptions.form.lastPayment")}
             type="date"
             value={endDate}
             onChange={(event) => setEndDate(event.target.value)}
@@ -205,26 +203,26 @@ export function SubscriptionFormModal({
         </div>
 
         <TextField
-          label="Notes (optional)"
-          placeholder="e.g. Family plan, shared with Anna"
+          label={t("subscriptions.form.notes")}
+          placeholder={t("subscriptions.form.notesPlaceholder")}
           value={description}
           onChange={(event) => setDescription(event.target.value)}
           error={fieldErrors.description}
         />
 
         <Checkbox
-          label="Active"
-          hint="Paused subscriptions are left out of the totals."
+          label={t("subscriptions.form.active")}
+          hint={t("subscriptions.form.activeHint")}
           checked={active}
           onChange={(event) => setActive(event.target.checked)}
         />
 
         <div className={formStyles.actions}>
           <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
-            Cancel
+            {t("common.actions.cancel")}
           </Button>
           <Button type="submit" isLoading={isSubmitting}>
-            {subscription ? "Save changes" : "Add subscription"}
+            {subscription ? t("subscriptions.form.submitSave") : t("subscriptions.form.submitAdd")}
           </Button>
         </div>
       </form>

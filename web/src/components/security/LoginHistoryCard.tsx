@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useAsyncData } from "../../hooks/useAsyncData";
 import { listSecurityEvents } from "../../services/securityService";
 import { formatDateTime } from "../../utils/format";
@@ -11,14 +12,13 @@ const FAILED = new Set(["login_failed", "login_blocked", "mfa_failed"]);
 
 /** The latest sign-in attempts on the account — also failed ones, from anywhere. */
 export function LoginHistoryCard() {
+  const { t } = useTranslation();
   const history = useAsyncData(useCallback(() => listSecurityEvents("login"), []));
 
   return (
     <Card padding="lg" className={styles.card}>
-      <h2 className={styles.title}>Recent sign-ins</h2>
-      <p className={styles.hint}>
-        Attempts you don&apos;t recognise? Change your password and turn on two-factor authentication.
-      </p>
+      <h2 className={styles.title}>{t("security.history.title")}</h2>
+      <p className={styles.hint}>{t("security.history.hint")}</p>
       {history.isLoading ? (
         <Skeleton height={64} />
       ) : history.error ? (
@@ -39,7 +39,7 @@ export function LoginHistoryCard() {
           ))}
         </ul>
       ) : (
-        <p className={styles.meta}>No sign-ins recorded yet.</p>
+        <p className={styles.meta}>{t("security.history.empty")}</p>
       )}
     </Card>
   );

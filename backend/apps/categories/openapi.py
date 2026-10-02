@@ -13,7 +13,10 @@ _SYSTEM_CATEGORY = error_response(
 
 _VALIDATION = validation_error(
     ("Duplicate name", {"name": ["You already have a category with this name and type."]}),
-    ("Type change while in use", {"type": ["This category is already in use, so its type can't change. Create a new category instead."]}),
+    (
+        "Type change while in use",
+        {"type": ["This category is already in use, so its type can't change. Create a new category instead."]},
+    ),
     ("Invalid colour", {"color": ["Color must be a hex code, e.g. #6366F1."]}),
     ("Invalid type", {"type": ['"other" is not a valid choice.']}),
     ("Missing fields", {"name": ["This field is required."], "type": ["This field is required."]}),
@@ -90,8 +93,7 @@ CATEGORY_VIEWSET_SCHEMA = extend_schema_view(
             204: OpenApiResponse(description="Deleted."),
             403: _SYSTEM_CATEGORY,
             409: error_response(
-                "The category is still used by transactions or recurring transactions. "
-                "Move or delete those first.",
+                "The category is still used by transactions or recurring transactions. Move or delete those first.",
                 ("In use", {"detail": "This category is used by existing transactions and cannot be deleted."}),
             ),
         },

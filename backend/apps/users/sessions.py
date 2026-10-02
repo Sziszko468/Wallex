@@ -19,6 +19,7 @@ from datetime import timedelta
 
 from django.db import transaction
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -40,7 +41,7 @@ class SessionRejected(Exception):
         self.code = code
 
 
-_ENDED = "Your session has ended. Please sign in again."
+_ENDED = _("Your session has ended. Please sign in again.")
 
 
 def platform_of(request) -> str:
@@ -73,7 +74,7 @@ def start_session(user, request=None) -> tuple[UserSession, RefreshToken]:
     return session, refresh
 
 
-def _problem(session: UserSession | None, token: RefreshToken) -> str | None:
+def _problem(session: UserSession | None, token: RefreshToken) -> str | None:  # noqa: PLR0911 - a flat chain of guards
     now = timezone.now()
     if session is None or str(session.user_id) != str(token.get("user_id")):
         return "unknown"
@@ -114,9 +115,7 @@ def rotate(raw_refresh: str, request=None) -> tuple[UserSession, RefreshToken]:
             return session, refresh
         if problem == "reused":
             revoke(session, RevokeReason.TOKEN_REUSE)
-            audit.record(
-                AuditAction.REFRESH_TOKEN_REUSED, request=request, user=session.user, session_key=session.key
-            )
+            audit.record(AuditAction.REFRESH_TOKEN_REUSED, request=request, user=session.user, session_key=session.key)
         elif problem == "expired":
             revoke(session, RevokeReason.EXPIRED)
     # Raised after the block, so the revocation above is committed.

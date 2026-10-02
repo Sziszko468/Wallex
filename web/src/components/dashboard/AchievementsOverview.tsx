@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import type { Achievement } from "../../types/achievement";
 import { describeProgress, nextUp, recentlyUnlocked } from "../../utils/achievements";
 import { formatDate } from "../../utils/format";
@@ -14,6 +15,7 @@ interface AchievementsOverviewProps {
 
 /** The latest unlocks and the next milestone — a quiet nudge, not a scoreboard. */
 export function AchievementsOverview({ achievements }: AchievementsOverviewProps) {
+  const { t } = useTranslation();
   const recent = recentlyUnlocked(achievements).slice(0, RECENT_SHOWN);
   const next = nextUp(achievements);
   const unlockedCount = achievements.filter((achievement) => achievement.unlocked).length;
@@ -29,7 +31,7 @@ export function AchievementsOverview({ achievements }: AchievementsOverviewProps
               </span>
               <span className={styles.title}>{achievement.title}</span>
               {achievement.is_new ? (
-                <Badge tone="primary">New</Badge>
+                <Badge tone="primary">{t("dashboard.achievements.isNew")}</Badge>
               ) : (
                 <span className={styles.meta}>{achievement.unlocked_at && formatDate(achievement.unlocked_at)}</span>
               )}
@@ -37,25 +39,25 @@ export function AchievementsOverview({ achievements }: AchievementsOverviewProps
           ))}
         </ul>
       ) : (
-        <p className={styles.meta}>Record your first transaction to earn your first achievement.</p>
+        <p className={styles.meta}>{t("dashboard.achievements.empty")}</p>
       )}
 
       {next && (
         <div className={styles.next}>
           <span className={styles.nextLabel}>
-            Next up: {next.icon} {next.title}
+            {t("dashboard.achievements.nextUp", { icon: next.icon, title: next.title })}
           </span>
-          <ProgressBar percentage={next.progress_percentage} label={`${next.title} progress`} />
+          <ProgressBar percentage={next.progress_percentage} label={t("dashboard.achievements.progress", { title: next.title })} />
           <span className={styles.meta}>{describeProgress(next)}</span>
         </div>
       )}
 
       <div className={styles.footer}>
         <span className={styles.meta}>
-          {unlockedCount} of {achievements.length} unlocked
+          {t("dashboard.achievements.unlocked", { unlocked: unlockedCount, total: achievements.length })}
         </span>
         <Link to="/achievements" className={styles.link}>
-          All achievements
+          {t("dashboard.achievements.all")}
         </Link>
       </div>
     </div>

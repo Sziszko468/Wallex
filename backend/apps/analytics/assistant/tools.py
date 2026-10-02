@@ -12,7 +12,6 @@ aggregated figures as JSON:
 Tools only read. Adding one = a runner, an argument serializer and an entry in TOOLS.
 """
 
-import calendar
 import json
 import logging
 from collections.abc import Callable
@@ -21,10 +20,14 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
+from django.utils.dates import MONTHS
+from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy
 from rest_framework import serializers
 
 from apps.budgets import savings
 from apps.budgets.models import SavingsGoal
+from apps.categories.defaults import display_name
 from apps.categories.models import Category, TransactionType
 from apps.categories.rules import normalize_text
 from apps.currencies.rates import Converter
@@ -52,7 +55,7 @@ def _percent(value: Decimal | None) -> float | None:
 
 
 def month_label(year: int, month: int) -> str:
-    return f"{calendar.month_name[month]} {year}"
+    return f"{MONTHS[month]} {year}"
 
 
 def _period(year: int, month: int, today: date) -> dict:
@@ -74,7 +77,9 @@ def _no_data(note: str, **fields) -> dict:
 
 
 def _future(period: dict, currency: str) -> dict:
-    return _no_data(f"{period['label']} hasn't started yet, so there is no data for it.", period=period, currency=currency)
+    return _no_data(
+        f"{period['label']} hasn't started yet, so there is no data for it.", period=period, currency=currency
+    )
 
 
 def _matches(query: str, name: str) -> bool:
@@ -129,7 +134,11 @@ def _month_schema(**extra: dict) -> dict:
 
 
 def _category_row(row: dict) -> dict:
-    return {"category": row["category_name"], "amount": _money(row["amount"]), "share_percentage": _percent(row["percentage"])}
+    return {
+        "category": row["category_name"],
+        "amount": _money(row["amount"]),
+        "share_percentage": _percent(row["percentage"]),
+    }
 
 
 def monthly_spending(user, args: dict, today: date) -> dict:
@@ -163,7 +172,9 @@ def category_spending(user, args: dict, today: date) -> dict:
 
     rows = [_category_row(row) for row in services.get_category_breakdown(user, year, month)]
     spent_in = {row["category"] for row in rows}
-    all_expense_categories = Category.objects.filter(user=user, type=TransactionType.EXPENSE).values_list("name", flat=True)
+    all_expense_categories = Category.objects.filter(user=user, type=TransactionType.EXPENSE).values_list(
+        "name", flat=True
+    )
     without_spending = sorted(set(all_expense_categories) - spent_in)
 
     result = {
@@ -238,7 +249,9 @@ def merchant_spending(user, args: dict, today: date) -> dict:
         result["merchants"] = [row for row in rows if _matches(requested, row["merchant"])]
         if not result["merchants"]:
             result["has_data"] = False
-            result["note"] = f'No merchant matching "{requested}" among the {len(rows)} largest merchants of {period["label"]}.'
+            result["note"] = (
+                f'No merchant matching "{requested}" among the {len(rows)} largest merchants of {period["label"]}.'
+            )
     return result
 
 
@@ -287,13 +300,18 @@ def subscription_costs(user, args: dict, today: date) -> dict:
         next_payment = subscription_services.next_payment_date(subscription, today)
         # Active first, then the most expensive; costs that can't be converted last.
         base_monthly = cost.base_monthly
-        sort_key = (status != subscription_services.Status.ACTIVE, base_monthly is None, -(base_monthly or 0), subscription.name)
+        sort_key = (
+            status != subscription_services.Status.ACTIVE,
+            base_monthly is None,
+            -(base_monthly or 0),
+            subscription.name,
+        )
         rows.append(
             (
                 sort_key,
                 {
                     "name": subscription.name,
-                    "category": subscription.category.name,
+                    "category": display_name(subscription.category.name),
                     "status": status,
                     "price": _money(subscription.amount),
                     "currency": subscription.currency,
@@ -327,7 +345,11 @@ def subscription_costs(user, args: dict, today: date) -> dict:
             for entry in summary["by_category"]
         ],
         "payments_due_next_30_days": [
-            {"subscription": payment.subscription.name, "date": payment.date.isoformat(), "amount": _money(payment.base_amount)}
+            {
+                "subscription": payment.subscription.name,
+                "date": payment.date.isoformat(),
+                "amount": _money(payment.base_amount),
+            }
             for payment in summary["upcoming"][:MAX_UPCOMING_PAYMENTS]
         ],
         # Subscriptions billed in these currencies have no recent exchange rate: not in the totals.
@@ -419,21 +441,28 @@ def month_comparison(user, args: dict, today: date) -> dict:
         "against": against,
         "month_to_date": month_to_date,
         "current_period": _period_totals(month_label(year, month), current_range, current),
-        "compared_period": _period_totals(month_label(*services.compared_month(year, month, against)), compared_range, compared),
+        "compared_period": _period_totals(
+            month_label(*services.compared_month(year, month, against)), compared_range, compared
+        ),
     }
     missing = [
-        side["label"] for side, summary in ((result["current_period"], current), (result["compared_period"], compared))
+        side["label"]
+        for side, summary in ((result["current_period"], current), (result["compared_period"], compared))
         if not summary["transaction_count"]
     ]
     if missing:
-        return _no_data(f"No transactions are recorded for {' and '.join(missing)}, so there is nothing to compare.", **result)
+        return _no_data(
+            f"No transactions are recorded for {' and '.join(missing)}, so there is nothing to compare.", **result
+        )
 
     fields = ("total_expenses", "total_income", "balance")
     categories = services.get_category_comparison(user, current_range, compared_range)
     result.update(
         has_data=True,
         difference={field: _money(current[field] - compared[field]) for field in fields},
-        percentage_change={field: _percent(services.percentage_change(compared[field], current[field])) for field in fields},
+        percentage_change={
+            field: _percent(services.percentage_change(compared[field], current[field])) for field in fields
+        },
         expense_categories=[
             {
                 "category": row["category_name"],
@@ -474,7 +503,7 @@ TOOLS: dict[str, Tool] = {
     for tool in [
         Tool(
             name="get_monthly_spending",
-            label="Monthly spending",
+            label=gettext_lazy("Monthly spending"),
             description=(
                 "Totals of one calendar month: total expenses, total income, balance (income minus expenses), "
                 "number of transactions, and the five expense categories with the most spending. Call this for "
@@ -487,7 +516,7 @@ TOOLS: dict[str, Tool] = {
         ),
         Tool(
             name="get_category_spending",
-            label="Spending by category",
+            label=gettext_lazy("Spending by category"),
             description=(
                 "One month's expenses per category (the user's own categories), largest first, with each "
                 "category's share of the month's expenses; also lists the expense categories with no spending "
@@ -497,14 +526,14 @@ TOOLS: dict[str, Tool] = {
                 "categories instead of silently using a different one."
             ),
             input_schema=_month_schema(
-                category={"type": "string", "description": "Optional: a category name to look up, e.g. \"Food\"."}
+                category={"type": "string", "description": 'Optional: a category name to look up, e.g. "Food".'}
             ),
             arguments=CategoryArguments,
             run=category_spending,
         ),
         Tool(
             name="get_merchant_spending",
-            label="Spending by merchant",
+            label=gettext_lazy("Spending by merchant"),
             description=(
                 "One month's expenses per merchant (shop, company or payee, taken from transaction descriptions), "
                 "largest first: total, number of payments, average payment, share of the month's expenses and the "
@@ -512,20 +541,23 @@ TOOLS: dict[str, Tool] = {
                 "questions about where — at which shops or companies — the user spends money."
             ),
             input_schema=_month_schema(
-                merchant={"type": "string", "description": "Optional: a merchant name to look up, e.g. \"Tesco\"."},
-                limit={"type": "integer", "description": f"How many merchants, largest first (1-{merchants.MAX_LIMIT}). Default {merchants.DEFAULT_LIMIT}."},
+                merchant={"type": "string", "description": 'Optional: a merchant name to look up, e.g. "Tesco".'},
+                limit={
+                    "type": "integer",
+                    "description": f"How many merchants, largest first (1-{merchants.MAX_LIMIT}). Default {merchants.DEFAULT_LIMIT}.",
+                },
             ),
             arguments=MerchantArguments,
             run=merchant_spending,
         ),
         Tool(
             name="get_budget_status",
-            label="Budgets",
+            label=gettext_lazy("Budgets"),
             description=(
                 "The user's budgets (monthly spending limits) for one month: limit, spent, remaining, usage in %, "
                 "what spending evenly over the month would allow by today, and a status — on_track (within the "
                 "month's pace), ahead_of_pace (spending faster than the month passes, not over the limit yet) or "
-                "over_budget (limit exceeded). A budget covering all expenses is named \"Overall\". Call this for "
+                'over_budget (limit exceeded). A budget covering all expenses is named "Overall". Call this for '
                 "questions about budgets, limits or overspending."
             ),
             input_schema=_month_schema(),
@@ -534,7 +566,7 @@ TOOLS: dict[str, Tool] = {
         ),
         Tool(
             name="get_subscription_costs",
-            label="Subscriptions",
+            label=gettext_lazy("Subscriptions"),
             description=(
                 "The user's subscriptions (streaming, software, gym, phone…) as of today: each one's price and "
                 "billing cycle, monthly and yearly cost (in its own currency and in the base currency), status "
@@ -548,7 +580,7 @@ TOOLS: dict[str, Tool] = {
         ),
         Tool(
             name="get_savings_progress",
-            label="Savings goals",
+            label=gettext_lazy("Savings goals"),
             description=(
                 "The user's savings goals as of today: saved amount, target, progress in %, amount still needed, "
                 "target date, days left and how much to save per month to reach it in time (in the goal's own "
@@ -558,7 +590,7 @@ TOOLS: dict[str, Tool] = {
             input_schema={
                 "type": "object",
                 "properties": {
-                    "goal": {"type": "string", "description": "Optional: a goal name to look up, e.g. \"Japan trip\"."}
+                    "goal": {"type": "string", "description": 'Optional: a goal name to look up, e.g. "Japan trip".'}
                 },
                 "additionalProperties": False,
             },
@@ -567,7 +599,7 @@ TOOLS: dict[str, Tool] = {
         ),
         Tool(
             name="get_month_comparison",
-            label="Month comparison",
+            label=gettext_lazy("Month comparison"),
             description=(
                 "Compares a month with the previous month (default) or with the same month a year earlier: "
                 "expenses, income and balance of both periods, their differences and % changes, and every expense "
@@ -632,13 +664,16 @@ def describe_source(source: dict) -> tuple[str, str | None]:
     """(label, detail) of a stored source, e.g. ("Month comparison", "September 2026 vs August 2026")."""
     name, arguments = source.get("tool", ""), source.get("arguments") or {}
     tool = TOOLS.get(name)
-    label = tool.label if tool else name
+    label = str(tool.label) if tool else name
     parts = []
     if "year" in arguments and "month" in arguments:
         period = month_label(arguments["year"], arguments["month"])
         if name == "get_month_comparison":
             against = arguments.get("against", Against.PREVIOUS_MONTH)
-            period += " vs " + month_label(*services.compared_month(arguments["year"], arguments["month"], against))
+            period = _("%(period)s vs %(compared)s") % {
+                "period": period,
+                "compared": month_label(*services.compared_month(arguments["year"], arguments["month"], against)),
+            }
         parts.append(period)
     for key in ("category", "merchant", "goal"):
         if arguments.get(key):

@@ -1,3 +1,4 @@
+import { t } from "i18next";
 import type { Achievement } from "../types/achievement";
 import { formatCurrency } from "./format";
 
@@ -7,8 +8,8 @@ export function describeProgress(achievement: Achievement): string {
   if (unit === "money" && currency) {
     return `${formatCurrency(progress, currency)} / ${formatCurrency(target, currency)}`;
   }
-  const count = `${Number(progress)} / ${Number(target)}`;
-  return unit === "days" ? `${count} days` : count;
+  const values = { progress: Number(progress), target: Number(target) };
+  return unit === "days" ? t("achievements.progressDays", values) : `${values.progress} / ${values.target}`;
 }
 
 /** The locked achievement closest to being unlocked (highest progress), if any has started. */

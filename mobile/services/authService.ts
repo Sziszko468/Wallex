@@ -1,7 +1,15 @@
 import axios from "axios";
 import { Platform } from "react-native";
 import { apiClient, API_BASE_URL } from "./apiClient";
-import type { AuthTokens, LoginPayload, LoginResult, MfaLoginPayload, RegisterPayload, User } from "../types/auth";
+import type {
+  AuthTokens,
+  LoginPayload,
+  LoginResult,
+  MfaLoginPayload,
+  RegisterPayload,
+  UpdateUserPayload,
+  User,
+} from "../types/auth";
 
 const AUTH_TIMEOUT_MS = 15_000;
 
@@ -29,5 +37,11 @@ export async function register(payload: RegisterPayload): Promise<User> {
 
 export async function getCurrentUser(): Promise<User> {
   const response = await apiClient.get<User>("/auth/me/");
+  return response.data;
+}
+
+/** Saves a profile setting (the interface language) on the account. */
+export async function updateCurrentUser(payload: UpdateUserPayload): Promise<User> {
+  const response = await apiClient.patch<User>("/auth/me/", payload);
   return response.data;
 }

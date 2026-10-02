@@ -1,6 +1,8 @@
 import { StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import type { Budget } from "../../types/budget";
 import type { Category } from "../../types/category";
+import { BUDGET_NEAR_LIMIT_PERCENT, FULL_PERCENT } from "../../config/budget";
 import { formatCurrency, formatPercentage } from "../../utils/format";
 import { useBaseCurrency } from "../../hooks/useBaseCurrency";
 import { colors, fontSize, radius, spacing } from "../../utils/theme";
@@ -11,9 +13,10 @@ interface BudgetCardProps {
 }
 
 export function BudgetCard({ budget, category }: BudgetCardProps) {
+  const { t } = useTranslation();
   const baseCurrency = useBaseCurrency();
-  const isOverBudget = budget.usage_percentage > 100;
-  const isNearLimit = !isOverBudget && budget.usage_percentage >= 80;
+  const isOverBudget = budget.usage_percentage > FULL_PERCENT;
+  const isNearLimit = !isOverBudget && budget.usage_percentage >= BUDGET_NEAR_LIMIT_PERCENT;
   const barColor = isOverBudget ? colors.danger : isNearLimit ? colors.warning : colors.success;
 
   return (
@@ -21,7 +24,7 @@ export function BudgetCard({ budget, category }: BudgetCardProps) {
       <View style={styles.header}>
         <View style={styles.categoryRow}>
           {category && <View style={[styles.dot, { backgroundColor: category.color }]} />}
-          <Text style={styles.categoryName}>{category?.name ?? "Overall"}</Text>
+          <Text style={styles.categoryName}>{category?.name ?? t("budgets.overall")}</Text>
         </View>
         <Text style={styles.amountText}>
           {formatCurrency(budget.spent_amount, baseCurrency)} / {formatCurrency(budget.amount, baseCurrency)}
@@ -32,25 +35,25 @@ export function BudgetCard({ budget, category }: BudgetCardProps) {
         <View
           style={[
             styles.fill,
-            { width: `${Math.min(100, budget.usage_percentage)}%`, backgroundColor: barColor },
+            { width: `${Math.min(FULL_PERCENT, budget.usage_percentage)}%`, backgroundColor: barColor },
           ]}
         />
       </View>
 
       <View style={styles.footer}>
         <Text style={[styles.footerText, isOverBudget && styles.overBudgetText]}>
-          {formatPercentage(budget.usage_percentage)} used
+          {t("budgets.used", { percentage: formatPercentage(budget.usage_percentage) })}
         </Text>
         <Text style={[styles.footerText, isOverBudget && styles.overBudgetText]}>
           {isOverBudget
-            ? `Over by ${formatCurrency(Math.abs(Number(budget.remaining_amount)), baseCurrency)}`
-            : `${formatCurrency(budget.remaining_amount, baseCurrency)} left`}
+            ? t("budgets.over", { amount: formatCurrency(Math.abs(Number(budget.remaining_amount)), baseCurrency) })
+            : t("budgets.left", { amount: formatCurrency(budget.remaining_amount, baseCurrency) })}
         </Text>
       </View>
 
       {isOverBudget && (
         <View style={styles.warningBanner} accessibilityRole="alert">
-          <Text style={styles.warningText}>⚠ Over budget for this month</Text>
+          <Text style={styles.warningText}>{t("budgets.overBudget")}</Text>
         </View>
       )}
     </View>

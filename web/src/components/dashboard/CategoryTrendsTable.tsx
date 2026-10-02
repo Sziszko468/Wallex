@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { Trends } from "../../types/dashboard";
 import { useBaseCurrency } from "../../hooks/useBaseCurrency";
 import { formatCurrency, formatShortMonth } from "../../utils/format";
@@ -14,23 +15,24 @@ interface CategoryTrendsTableProps {
 
 /** Each category's last two months, e.g. Food: Aug €280 → Sep €320, +14.3%. */
 export function CategoryTrendsTable({ trends, colorFor, limit = 6 }: CategoryTrendsTableProps) {
+  const { t } = useTranslation();
   const baseCurrency = useBaseCurrency();
   const previous = trends.months[trends.months.length - 2];
   const latest = trends.months[trends.months.length - 1];
   if (trends.categories.length === 0 || !previous || !latest) {
-    return <EmptyState icon="categories" message="No spending in these months yet." />;
+    return <EmptyState icon="categories" message={t("dashboard.categoryTrends.empty")} />;
   }
 
   return (
     <div className={styles.scroll}>
       <table className={styles.table}>
-        <caption className={styles.visuallyHidden}>Category trends</caption>
+        <caption className={styles.visuallyHidden}>{t("dashboard.categoryTrends.title")}</caption>
         <thead>
           <tr>
-            <th scope="col">Category</th>
+            <th scope="col">{t("common.labels.category")}</th>
             <th scope="col" className={styles.number}>{formatShortMonth(previous.year, previous.month)}</th>
             <th scope="col" className={styles.number}>{formatShortMonth(latest.year, latest.month)}</th>
-            <th scope="col" className={styles.number}>Change</th>
+            <th scope="col" className={styles.number}>{t("dashboard.categoryTrends.change")}</th>
           </tr>
         </thead>
         <tbody>

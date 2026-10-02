@@ -1,4 +1,5 @@
 import { Platform } from "react-native";
+import { t } from "i18next";
 import * as LocalAuthentication from "expo-local-authentication";
 import { logWarning } from "../utils/logging";
 
@@ -30,14 +31,14 @@ function describe(types: LocalAuthentication.AuthenticationType[]): string {
   }
   if (types.length === 1) {
     if (hasFace) return "Face Unlock";
-    if (hasFingerprint) return "Fingerprint";
+    if (hasFingerprint) return t("settings.biometrics.fingerprint");
   }
-  return "Biometrics";
+  return t("settings.biometrics.generic");
 }
 
 export async function getBiometricCapability(): Promise<BiometricCapability> {
   if (Platform.OS === "web") {
-    return { isAvailable: false, label: "Biometrics", reason: "unsupported_platform" };
+    return { isAvailable: false, label: t("settings.biometrics.generic"), reason: "unsupported_platform" };
   }
 
   try {
@@ -62,7 +63,7 @@ export async function getBiometricCapability(): Promise<BiometricCapability> {
     return { isAvailable: true, label };
   } catch (error) {
     logWarning("Failed to query biometric capability", error);
-    return { isAvailable: false, label: "Biometrics", reason: "no_hardware" };
+    return { isAvailable: false, label: t("settings.biometrics.generic"), reason: "no_hardware" };
   }
 }
 
@@ -78,7 +79,7 @@ function toFailure(error: LocalAuthentication.LocalAuthenticationError, label: s
       return {
         success: false,
         reason: "lockout",
-        message: `Too many failed attempts — ${label} is temporarily locked. Sign in with your password instead.`,
+        message: t("settings.biometrics.lockedOut", { method: label }),
       };
     case "not_enrolled":
     case "not_available":
@@ -86,17 +87,17 @@ function toFailure(error: LocalAuthentication.LocalAuthenticationError, label: s
       return {
         success: false,
         reason: "unavailable",
-        message: `${label} is no longer set up on this device. Sign in with your password instead.`,
+        message: t("settings.biometrics.removed", { method: label }),
       };
     case "authentication_failed":
-      return { success: false, reason: "failed", message: "We couldn't verify it's you. Please try again." };
+      return { success: false, reason: "failed", message: t("settings.biometrics.failedVerify") };
     case "timeout":
-      return { success: false, reason: "failed", message: "The request timed out. Please try again." };
+      return { success: false, reason: "failed", message: t("settings.biometrics.timedOut") };
     default:
       return {
         success: false,
         reason: "failed",
-        message: `${label} didn't work. Try again, or sign in with your password.`,
+        message: t("settings.biometrics.didntWork", { method: label }),
       };
   }
 }
@@ -108,7 +109,7 @@ export async function authenticateWithBiometrics(
   try {
     const result = await LocalAuthentication.authenticateAsync({
       promptMessage,
-      cancelLabel: "Cancel",
+      cancelLabel: t("settings.biometrics.cancel"),
       // No silent fallback to the device passcode: the lock screen offers
       // "Sign in with password" (the backend credential) as the alternative.
       disableDeviceFallback: true,

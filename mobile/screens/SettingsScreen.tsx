@@ -1,15 +1,21 @@
 import { useState } from "react";
 import { Alert, StyleSheet, Switch, Text, View } from "react-native";
 import { router } from "expo-router";
+import { useTranslation } from "react-i18next";
+import { APP_NAME } from "../config/app";
+import { LOCK_AFTER_BACKGROUND_MINUTES } from "../config/security";
 import { useAuth } from "../hooks/useAuth";
 import { useOffline } from "../hooks/useOffline";
 import { Button } from "../components/Button";
+import { LanguageSelector } from "../components/LanguageSelector";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { extractErrorMessage } from "../utils/errors";
+import { formatFullDate } from "../utils/format";
 import { Screen } from "../components/Screen";
 import { colors, fontSize, radius, spacing } from "../utils/theme";
 
 export function SettingsScreen() {
+  const { t } = useTranslation();
   const {
     user,
     logout,
@@ -27,7 +33,7 @@ export function SettingsScreen() {
   const [isUpdatingLock, setIsUpdatingLock] = useState(false);
   const [lockError, setLockError] = useState<string | null>(null);
 
-  const biometricLabel = biometricCapability?.label ?? "Biometrics";
+  const biometricLabel = biometricCapability?.label ?? t("settings.biometrics.generic");
   const isBiometricSupported =
     biometricCapability !== null &&
     (biometricCapability.isAvailable || biometricCapability.reason !== "unsupported_platform");
@@ -61,14 +67,10 @@ export function SettingsScreen() {
   }
 
   function confirmLogoutEverywhere() {
-    Alert.alert(
-      "Log out of all devices?",
-      "Every phone and browser signed in to your account is signed out, this one included.",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Log out everywhere", style: "destructive", onPress: () => void handleLogoutEverywhere() },
-      ]
-    );
+    Alert.alert(t("settings.session.logoutAll"), t("settings.session.logoutAllMessage"), [
+      { text: t("common.actions.cancel"), style: "cancel" },
+      { text: t("settings.session.logoutAllConfirm"), style: "destructive", onPress: () => void handleLogoutEverywhere() },
+    ]);
   }
 
   async function handleLogoutEverywhere() {
@@ -84,32 +86,36 @@ export function SettingsScreen() {
 
   return (
     <Screen scroll>
-      <Text style={styles.heading}>Settings</Text>
+      <Text style={styles.heading}>{t("settings.title")}</Text>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Profile</Text>
-        <Row label="Email" value={user?.email} />
-        <Row label="First name" value={user?.first_name || "—"} />
-        <Row label="Last name" value={user?.last_name || "—"} />
+        <Text style={styles.cardTitle}>{t("settings.profile.title")}</Text>
+        <Row label={t("settings.profile.email")} value={user?.email} />
+        <Row label={t("settings.profile.firstName")} value={user?.first_name || t("common.states.notAvailable")} />
+        <Row label={t("settings.profile.lastName")} value={user?.last_name || t("common.states.notAvailable")} />
         <Row
-          label="Member since"
-          value={user ? new Date(user.date_joined).toLocaleDateString() : "—"}
+          label={t("settings.profile.memberSince")}
+          value={user ? formatFullDate(user.date_joined) : t("common.states.notAvailable")}
         />
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Currency</Text>
-        <Row label="Base currency" value={user?.base_currency} />
-        <Text style={styles.cardText}>
-          Totals, budgets and recurring amounts are shown in this currency. You can change it in the Spendly web app.
-        </Text>
+        <Text style={styles.cardTitle}>{t("settings.language.title")}</Text>
+        <Text style={styles.cardText}>{t("settings.language.hint")}</Text>
+        <LanguageSelector />
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Notifications</Text>
-        <Text style={styles.cardText}>Budget alerts, payment reminders and important insights.</Text>
+        <Text style={styles.cardTitle}>{t("settings.currency.title")}</Text>
+        <Row label={t("settings.currency.base")} value={user?.base_currency} />
+        <Text style={styles.cardText}>{t("settings.currency.hint")}</Text>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>{t("settings.notifications.title")}</Text>
+        <Text style={styles.cardText}>{t("settings.notifications.hint")}</Text>
         <Button
-          title="Notification settings"
+          title={t("settings.notifications.button")}
           variant="secondary"
           onPress={() => router.push("/notification-settings")}
         />
@@ -117,19 +123,19 @@ export function SettingsScreen() {
 
       {isBiometricSupported && (
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Security</Text>
+          <Text style={styles.cardTitle}>{t("settings.security.title")}</Text>
           <ErrorBanner message={lockError} />
           <View style={styles.switchRow}>
             <View style={styles.switchText}>
-              <Text style={styles.switchLabel}>Unlock with {biometricLabel}</Text>
+              <Text style={styles.switchLabel}>{t("settings.security.unlockWith", { method: biometricLabel })}</Text>
               <Text style={styles.switchHint}>
                 {biometricCapability?.isAvailable
-                  ? "Require it to open Spendly, and after 1 minute in the background."
-                  : `Set up ${biometricLabel} in your device settings to use this.`}
+                  ? t("settings.security.requireHint", { count: LOCK_AFTER_BACKGROUND_MINUTES, appName: APP_NAME })
+                  : t("settings.security.setupHint", { method: biometricLabel })}
               </Text>
             </View>
             <Switch
-              accessibilityLabel={`Unlock with ${biometricLabel}`}
+              accessibilityLabel={t("settings.security.unlockWith", { method: biometricLabel })}
               value={isBiometricLockEnabled}
               onValueChange={handleBiometricToggle}
               disabled={isUpdatingLock || !biometricCapability?.isAvailable}
@@ -140,22 +146,16 @@ export function SettingsScreen() {
       )}
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Session</Text>
-        <Text style={styles.cardText}>Log out of Spendly on this device.</Text>
+        <Text style={styles.cardTitle}>{t("settings.session.title")}</Text>
+        <Text style={styles.cardText}>{t("settings.session.hint")}</Text>
         <ErrorBanner
-          message={
-            unsyncedCount > 0
-              ? `${unsyncedCount} transaction${unsyncedCount === 1 ? " hasn't" : "s haven't"} been synced yet. Logging out now discards ${unsyncedCount === 1 ? "it" : "them"} — connect to the internet first to keep ${unsyncedCount === 1 ? "it" : "them"}.`
-              : null
-          }
+          message={unsyncedCount > 0 ? t("settings.session.unsynced", { count: unsyncedCount }) : null}
         />
-        <Button title="Log out" variant="danger" onPress={handleLogout} isLoading={isLoggingOut} />
-        <Text style={[styles.cardText, styles.spaced]}>
-          Lost a phone or signed in somewhere you shouldn&apos;t have? End every session at once.
-        </Text>
+        <Button title={t("settings.session.logout")} variant="danger" onPress={handleLogout} isLoading={isLoggingOut} />
+        <Text style={[styles.cardText, styles.spaced]}>{t("settings.session.lostPhone")}</Text>
         <ErrorBanner message={sessionError} />
         <Button
-          title="Log out of all devices"
+          title={t("settings.session.logoutAll")}
           variant="secondary"
           onPress={confirmLogoutEverywhere}
           isLoading={isLoggingOutEverywhere}

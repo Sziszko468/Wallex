@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import type { Category } from "../../types/category";
 import type { Transaction } from "../../types/transaction";
 import { formatCurrency, formatShortDate } from "../../utils/format";
@@ -12,9 +13,11 @@ interface TransactionListItemProps {
 }
 
 export function TransactionListItem({ transaction, category, onPress }: TransactionListItemProps) {
+  const { t } = useTranslation();
   const baseCurrency = useBaseCurrency();
   const isIncome = transaction.type === "income";
-  const title = transaction.description || category?.name || "Transaction";
+  const title = transaction.description || category?.name || t("common.transaction");
+  const categoryName = category?.name ?? t("common.uncategorized");
   const amountLabel = `${isIncome ? "+" : "-"}${formatCurrency(transaction.amount, transaction.currency)}`;
   // A foreign-currency transaction also shows its value in the base currency (computed by the API).
   const convertedLabel =
@@ -23,9 +26,13 @@ export function TransactionListItem({ transaction, category, onPress }: Transact
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${title}, ${category?.name ?? "Uncategorized"}, ${formatShortDate(
-        transaction.date
-      )}, ${amountLabel}${convertedLabel ? `, ${convertedLabel}` : ""}`}
+      accessibilityLabel={t(convertedLabel ? "transactions.itemLabelConverted" : "transactions.itemLabel", {
+        title,
+        category: categoryName,
+        date: formatShortDate(transaction.date),
+        amount: amountLabel,
+        converted: convertedLabel ?? "",
+      })}
       onPress={onPress}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
     >
@@ -35,7 +42,7 @@ export function TransactionListItem({ transaction, category, onPress }: Transact
           {title}
         </Text>
         <Text style={styles.meta} numberOfLines={1}>
-          {category?.name ?? "Uncategorized"} · {formatShortDate(transaction.date)}
+          {categoryName} · {formatShortDate(transaction.date)}
         </Text>
       </View>
       <View style={styles.amounts}>

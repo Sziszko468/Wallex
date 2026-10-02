@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import type { DashboardStats } from "../../types/dashboard";
 import { formatCurrency } from "../../utils/format";
 import { useBaseCurrency } from "../../hooks/useBaseCurrency";
@@ -9,23 +10,24 @@ interface SummaryCardProps {
 }
 
 export function SummaryCard({ stats }: SummaryCardProps) {
+  const { t } = useTranslation();
   const baseCurrency = useBaseCurrency();
   const balance = Number(stats.balance);
 
   return (
     <View>
-      <Text style={styles.balanceLabel}>Balance</Text>
+      <Text style={styles.balanceLabel}>{t("dashboard.summary.balance")}</Text>
       <Text style={[styles.balanceValue, balance < 0 && styles.negative]}>
         {formatCurrency(stats.balance, baseCurrency)}
       </Text>
 
       <View style={styles.row}>
         <View style={styles.pill}>
-          <Text style={styles.pillLabel}>↑ Income</Text>
+          <Text style={styles.pillLabel}>{t("dashboard.summary.income")}</Text>
           <Text style={[styles.pillValue, styles.income]}>{formatCurrency(stats.total_income, baseCurrency)}</Text>
         </View>
         <View style={styles.pill}>
-          <Text style={styles.pillLabel}>↓ Expenses</Text>
+          <Text style={styles.pillLabel}>{t("dashboard.summary.expenses")}</Text>
           <Text style={[styles.pillValue, styles.expense]}>
             {formatCurrency(stats.total_expenses, baseCurrency)}
           </Text>
@@ -33,7 +35,7 @@ export function SummaryCard({ stats }: SummaryCardProps) {
       </View>
 
       <Text style={styles.count}>
-        {stats.transaction_count} transaction{stats.transaction_count === 1 ? "" : "s"} this month
+        {t("dashboard.summary.count", { count: stats.transaction_count })}
       </Text>
     </View>
   );

@@ -18,6 +18,7 @@ from datetime import date, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 from .models import DECIMALS, ECB_BASE, Currency, ExchangeRate
 
@@ -42,7 +43,10 @@ class MissingExchangeRateError(ConversionError):
     def __init__(self, currency: str, day: date):
         self.currency = currency
         self.day = day
-        super().__init__(f"No {currency} exchange rate is available for {day.isoformat()}.")
+        super().__init__(
+            _("No %(currency)s exchange rate is available for %(date)s.")
+            % {"currency": currency, "date": day.isoformat()}
+        )
 
 
 def minor_unit(currency: str) -> Decimal:
@@ -90,9 +94,9 @@ class RateTable:
             return cls()
         # A future day falls back to today's latest rate, so the window must reach back from today too.
         earliest = min(first_day, timezone.localdate()) - MAX_RATE_AGE
-        rows = ExchangeRate.objects.filter(
-            currency__in=needed, date__gte=earliest, date__lte=last_day
-        ).values_list("currency", "date", "rate")
+        rows = ExchangeRate.objects.filter(currency__in=needed, date__gte=earliest, date__lte=last_day).values_list(
+            "currency", "date", "rate"
+        )
         return cls(rows)
 
     def _per_euro(self, currency: str, day: date) -> tuple[Decimal, date | None]:

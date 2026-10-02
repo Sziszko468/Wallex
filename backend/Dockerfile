@@ -11,17 +11,18 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 # Tesseract is the OCR engine for receipt scanning (English + Hungarian language data).
+# gettext (msgfmt, xgettext) builds the translation catalogs (manage.py compilemessages).
 # psycopg[binary] and Pillow ship prebuilt wheels, so no compiler or libpq-dev is needed.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        tesseract-ocr tesseract-ocr-eng tesseract-ocr-hun \
+        tesseract-ocr tesseract-ocr-eng tesseract-ocr-hun gettext \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
 # Never run the app as root: a compromised process can't touch the rest of the image.
-RUN useradd --create-home --uid 1000 spendly
+RUN useradd --create-home --uid 1000 wallex
 
 
 # ---- dev: docker-compose.yml (bind-mounted source, auto-reload, test tools) ----------
@@ -30,8 +31,8 @@ FROM base AS dev
 COPY requirements-dev.txt .
 RUN pip install -r requirements-dev.txt
 
-COPY --chown=spendly . .
-USER spendly
+COPY --chown=wallex . .
+USER wallex
 
 EXPOSE 8000
 CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
@@ -46,6 +47,9 @@ ENV DJANGO_SETTINGS_MODULE=config.settings.prod \
 # Code stays owned by root: the app user can read it but never modify it.
 COPY . .
 
+# Compile the translation catalogs (.po -> .mo); the compiled files are not kept in git.
+RUN find locale -name '*.po' -exec sh -c 'msgfmt --check -o "${0%.po}.mo" "$0"' {} \;
+
 # Bake the admin's static files into the image (served by WhiteNoise). Importing the
 # production settings requires real-looking values; collectstatic never opens a database
 # connection, and the throwaway key only lives for this one command.
@@ -54,7 +58,7 @@ RUN DJANGO_SECRET_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(
     POSTGRES_DB=unused POSTGRES_USER=unused POSTGRES_PASSWORD=unused \
     python manage.py collectstatic --noinput
 
-USER spendly
+USER wallex
 
 EXPOSE 8000
 CMD ["gunicorn", "--config", "gunicorn.conf.py", "config.wsgi:application"]

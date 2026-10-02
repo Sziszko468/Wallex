@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import type { SavingsGoal } from "../../types/savingsGoal";
 import { formatCurrency, formatDate, formatPercentage } from "../../utils/format";
@@ -18,6 +19,7 @@ interface GoalCardProps {
 
 /** One goal in the list: progress as the API computed it, target date, and quick actions. */
 export function GoalCard({ goal, onAddMoney, onRemoveMoney, onEdit, onDelete }: GoalCardProps) {
+  const { t } = useTranslation();
   const isArchived = goal.status === "archived";
   const isOverdue = goal.days_left !== null && goal.days_left < 0 && goal.status === "active";
 
@@ -32,11 +34,11 @@ export function GoalCard({ goal, onAddMoney, onRemoveMoney, onEdit, onDelete }: 
 
       <div className={styles.amounts}>
         <span className={styles.saved}>{formatCurrency(goal.current_amount, goal.currency)}</span>
-        <span className={styles.target}> of {formatCurrency(goal.target_amount, goal.currency)}</span>
+        <span className={styles.target}> {t("goals.card.of", { target: formatCurrency(goal.target_amount, goal.currency) })}</span>
       </div>
 
       <div className={styles.progress}>
-        <ProgressBar percentage={goal.progress_percentage} label={`${goal.name} progress`} tone={goalTone(goal.status)} />
+        <ProgressBar percentage={goal.progress_percentage} label={t("goals.card.progress", { name: goal.name })} tone={goalTone(goal.status)} />
         <div className={styles.meta}>
           <span className={styles.percentage}>{formatPercentage(goal.progress_percentage)}</span>
           {goal.target_date && goal.days_left !== null ? (
@@ -44,7 +46,7 @@ export function GoalCard({ goal, onAddMoney, onRemoveMoney, onEdit, onDelete }: 
               {formatDate(goal.target_date)} · {describeDaysLeft(goal.days_left)}
             </span>
           ) : (
-            <span>No target date</span>
+            <span>{t("goals.card.noTargetDate")}</span>
           )}
         </div>
       </div>
@@ -54,24 +56,24 @@ export function GoalCard({ goal, onAddMoney, onRemoveMoney, onEdit, onDelete }: 
           size="sm"
           leadingIcon="plus"
           disabled={isArchived}
-          aria-label={`Add money to ${goal.name}`}
+          aria-label={t("goals.card.addMoneyTo", { name: goal.name })}
           onClick={() => onAddMoney(goal)}
         >
-          Add money
+          {t("goals.card.addMoney")}
         </Button>
         <Button
           size="sm"
           variant="secondary"
           leadingIcon="minus"
           disabled={isArchived}
-          aria-label={`Remove money from ${goal.name}`}
+          aria-label={t("goals.card.removeMoneyFrom", { name: goal.name })}
           onClick={() => onRemoveMoney(goal)}
         >
-          Remove
+          {t("goals.card.remove")}
         </Button>
         <span className={styles.spacer} />
-        <IconButton icon="pencil" label={`Edit ${goal.name}`} size="sm" onClick={() => onEdit(goal)} />
-        <IconButton icon="trash" label={`Delete ${goal.name}`} variant="danger" size="sm" onClick={() => onDelete(goal)} />
+        <IconButton icon="pencil" label={t("common.item.edit", { name: goal.name })} size="sm" onClick={() => onEdit(goal)} />
+        <IconButton icon="trash" label={t("common.item.delete", { name: goal.name })} variant="danger" size="sm" onClick={() => onDelete(goal)} />
       </div>
     </article>
   );

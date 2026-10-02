@@ -9,6 +9,7 @@ import {
 } from "react";
 import { AppState } from "react-native";
 import axios from "axios";
+import { t } from "i18next";
 import * as authService from "../services/authService";
 import {
   activateSession,
@@ -32,7 +33,7 @@ import { unregisterCurrentDevice } from "../services/pushNotifications";
 import {
   getBiometricLockEnabled,
   getRefreshToken,
-  removeLegacyAccessToken,
+  removeLegacyKeys,
   setBiometricLockEnabled,
 } from "../utils/tokenStorage";
 import {
@@ -47,7 +48,11 @@ import {
 import { getTokenUserId } from "../utils/jwt";
 import { isOfflineError } from "../utils/network";
 import type { AuthTokens, LoginPayload, RegisterPayload, User } from "../types/auth";
+import type { Language } from "../i18n/languages";
+import { APP_NAME } from "../config/app";
+import { LOCK_AFTER_BACKGROUND_MS } from "../config/security";
 import { logWarning } from "../utils/logging";
+import { HTTP_STATUS } from "../config/http";
 
 /**
  * - loading:     reading the stored session on launch
@@ -61,9 +66,6 @@ import { logWarning } from "../utils/logging";
 export type AuthStatus = "loading" | "signedOut" | "locked" | "signedIn" | "unavailable";
 
 export type SignOutReason = "expired" | "biometricsUnavailable" | "storageError";
-
-// Re-lock when the app comes back after being in the background this long.
-const LOCK_AFTER_BACKGROUND_MS = 60_000;
 
 /** The password was checked: either signed in, or a two-factor code is needed. */
 export type LoginOutcome = { status: "signedIn" } | { status: "mfaRequired"; mfaToken: string };
@@ -87,13 +89,15 @@ interface AuthContextValue {
   retry: () => Promise<void>;
   enableBiometricLock: () => Promise<BiometricResult>;
   disableBiometricLock: () => Promise<void>;
+  /** Saves the interface language to the account (see hooks/useLanguage). */
+  changeLanguage: (language: Language) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 function isRejectedByServer(error: unknown): boolean {
   const status = axios.isAxiosError(error) ? error.response?.status : undefined;
-  return status === 401 || status === 403;
+  return status === HTTP_STATUS.UNAUTHORIZED || status === HTTP_STATUS.FORBIDDEN;
 }
 
 function warnOnFailure(label: string) {
@@ -200,7 +204,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       let refresh: string | null;
       let lockEnabled: boolean;
       try {
-        await removeLegacyAccessToken();
+        await removeLegacyKeys();
         [refresh, lockEnabled] = await Promise.all([getRefreshToken(), getBiometricLockEnabled()]);
       } catch {
         await clearSession();
@@ -344,8 +348,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [forgetLocally]);
 
   const unlock = useCallback(async () => {
-    const label = biometricCapability?.label ?? "Biometrics";
-    const result = await authenticateWithBiometrics("Unlock Spendly", label);
+    const label = biometricCapability?.label ?? t("settings.biometrics.generic");
+    const result = await authenticateWithBiometrics(t("settings.biometrics.unlockPrompt"), label);
     if (result.success) {
       await resume();
     }
@@ -364,11 +368,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return {
         success: false,
         reason: "unavailable",
-        message: `${capability.label} isn't set up on this device.`,
+        message: t("settings.biometrics.notSetUp", { method: capability.label }),
       } satisfies BiometricResult;
     }
     // Confirm it works (and that it's the device owner) before relying on it.
-    const result = await authenticateWithBiometrics(`Enable ${capability.label} for Spendly`, capability.label);
+    const result = await authenticateWithBiometrics(
+      t("settings.biometrics.enablePrompt", { method: capability.label, appName: APP_NAME }),
+      capability.label
+    );
     if (result.success) {
       await setBiometricLockEnabled(true);
       setIsBiometricLockEnabled(true);
@@ -379,6 +386,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const disableBiometricLock = useCallback(async () => {
     await setBiometricLockEnabled(false);
     setIsBiometricLockEnabled(false);
+  }, []);
+
+  const changeLanguage = useCallback(async (language: Language) => {
+    setUser(await authService.updateCurrentUser({ language }));
   }, []);
 
   const value: AuthContextValue = {
@@ -397,6 +408,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     retry,
     enableBiometricLock,
     disableBiometricLock,
+    changeLanguage,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

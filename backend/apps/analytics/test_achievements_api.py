@@ -29,15 +29,44 @@ def test_list_shape_and_order(auth_client):
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
     assert [item["code"] for item in data] == [
-        "first_transaction", "streak_7", "streak_30", "saved_100", "saved_1000", "goal_completed", "stayed_under_budget",
+        "first_transaction",
+        "streak_7",
+        "streak_30",
+        "saved_100",
+        "saved_1000",
+        "goal_completed",
+        "stayed_under_budget",
     ]
     assert set(data[0]) == {
-        "code", "name", "title", "detail", "description", "icon", "category", "unit", "target", "target_currency",
-        "progress", "progress_percentage", "unlocked", "unlocked_at", "is_new",
+        "code",
+        "name",
+        "title",
+        "detail",
+        "description",
+        "icon",
+        "category",
+        "unit",
+        "target",
+        "target_currency",
+        "progress",
+        "progress_percentage",
+        "unlocked",
+        "unlocked_at",
+        "is_new",
     }
     streak = data[1]
-    assert (streak["icon"], streak["name"], streak["unit"], streak["target"]) == ("🔥", "7 Day Tracking Streak", "days", "7.00")
-    assert (streak["unlocked"], streak["unlocked_at"], streak["is_new"], streak["progress"]) == (False, None, False, "0.00")
+    assert (streak["icon"], streak["name"], streak["unit"], streak["target"]) == (
+        "🔥",
+        "7 Day Tracking Streak",
+        "days",
+        "7.00",
+    )
+    assert (streak["unlocked"], streak["unlocked_at"], streak["is_new"], streak["progress"]) == (
+        False,
+        None,
+        False,
+        "0.00",
+    )
 
 
 @pytest.mark.django_db
@@ -69,7 +98,9 @@ def test_mark_seen_clears_is_new(auth_client, user, food_category):
 
 @pytest.mark.django_db
 def test_money_progress_is_a_decimal_string_in_the_target_currency(auth_client, user):
-    SavingsGoal.objects.create(user=user, name="Trip", target_amount=Decimal("3000.00"), current_amount=Decimal("412.50"))
+    SavingsGoal.objects.create(
+        user=user, name="Trip", target_amount=Decimal("3000.00"), current_amount=Decimal("412.50")
+    )
 
     saved = _by_code(auth_client.get(LIST))["saved_1000"]
 
@@ -80,8 +111,12 @@ def test_money_progress_is_a_decimal_string_in_the_target_currency(auth_client, 
 @pytest.mark.django_db
 def test_stayed_under_budget_is_personalized(auth_client, user, food_category):
     last_month = TODAY.replace(day=1) - timedelta(days=1)
-    Budget.objects.create(user=user, category=food_category, amount=Decimal("100.00"), year=last_month.year, month=last_month.month)
-    Transaction.objects.create(user=user, category=food_category, type="expense", amount=Decimal("80.00"), date=last_month)
+    Budget.objects.create(
+        user=user, category=food_category, amount=Decimal("100.00"), year=last_month.year, month=last_month.month
+    )
+    Transaction.objects.create(
+        user=user, category=food_category, type="expense", amount=Decimal("80.00"), date=last_month
+    )
 
     budget = _by_code(auth_client.get(LIST))["stayed_under_budget"]
 
@@ -113,7 +148,9 @@ def test_each_user_sees_only_their_own_progress(auth_client, other_auth_client, 
 
 @pytest.mark.django_db
 def test_reading_twice_keeps_the_unlock_time(auth_client, user, food_category):
-    Transaction.objects.create(user=user, category=food_category, type="expense", amount=Decimal("1.00"), date=date(2026, 1, 5))
+    Transaction.objects.create(
+        user=user, category=food_category, type="expense", amount=Decimal("1.00"), date=date(2026, 1, 5)
+    )
 
     first = _by_code(auth_client.get(LIST))["first_transaction"]["unlocked_at"]
     second = _by_code(auth_client.get(LIST))["first_transaction"]["unlocked_at"]

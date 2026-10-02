@@ -1,6 +1,7 @@
 import type { SelectHTMLAttributes } from "react";
+import { useTranslation } from "react-i18next";
 import type { CurrencyCode } from "../types/currency";
-import { CURRENCIES, CURRENCY_CODES, isCurrencyCode } from "../utils/currency";
+import { CURRENCY_CODES, currencyName, isCurrencyCode } from "../utils/currency";
 import { Select } from "./Select";
 
 interface CurrencySelectProps
@@ -11,13 +12,14 @@ interface CurrencySelectProps
   error?: string;
 }
 
-const OPTIONS = CURRENCY_CODES.map((code) => ({ value: code, label: `${code} — ${CURRENCIES[code].name}` }));
+export function CurrencySelect({ label, value, onChange, error, ...rest }: CurrencySelectProps) {
+  const { t } = useTranslation();
+  const options = CURRENCY_CODES.map((code) => ({ value: code, label: `${code} — ${currencyName(code)}` }));
 
-export function CurrencySelect({ label = "Currency", value, onChange, error, ...rest }: CurrencySelectProps) {
   return (
     <Select
-      label={label}
-      options={OPTIONS}
+      label={label ?? t("common.currency.label")}
+      options={options}
       value={value}
       error={error}
       onChange={(event) => {

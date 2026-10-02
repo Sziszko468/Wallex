@@ -46,9 +46,7 @@ def test_retrieve_own_transaction(auth_client, user, expense_category):
 
 
 @pytest.mark.django_db
-def test_retrieve_other_users_transaction_returns_404(
-    auth_client, other_user, other_user_expense_category
-):
+def test_retrieve_other_users_transaction_returns_404(auth_client, other_user, other_user_expense_category):
     other_transaction = _create_transaction(other_user, other_user_expense_category)
 
     response = auth_client.get(reverse("transaction-detail", args=[other_transaction.id]))
@@ -86,9 +84,7 @@ def test_create_transaction_success(auth_client, user, expense_category):
 
 
 @pytest.mark.django_db
-def test_create_transaction_ignores_client_supplied_user(
-    auth_client, user, other_user, expense_category
-):
+def test_create_transaction_ignores_client_supplied_user(auth_client, user, other_user, expense_category):
     payload = {
         "category": expense_category.id,
         "type": "expense",
@@ -160,9 +156,7 @@ def test_create_transaction_type_category_mismatch_rejected(auth_client, expense
 
 
 @pytest.mark.django_db
-def test_create_transaction_with_other_users_category_rejected(
-    auth_client, other_user_expense_category
-):
+def test_create_transaction_with_other_users_category_rejected(auth_client, other_user_expense_category):
     payload = {
         "category": other_user_expense_category.id,
         "type": "expense",
@@ -223,9 +217,7 @@ def test_update_transaction_put_success(auth_client, user, expense_category):
 
 
 @pytest.mark.django_db
-def test_update_other_users_transaction_returns_404(
-    auth_client, other_user, other_user_expense_category
-):
+def test_update_other_users_transaction_returns_404(auth_client, other_user, other_user_expense_category):
     other_transaction = _create_transaction(other_user, other_user_expense_category)
     payload = {
         "category": other_user_expense_category.id,
@@ -234,9 +226,7 @@ def test_update_other_users_transaction_returns_404(
         "date": "2026-09-20",
     }
 
-    response = auth_client.put(
-        reverse("transaction-detail", args=[other_transaction.id]), payload
-    )
+    response = auth_client.put(reverse("transaction-detail", args=[other_transaction.id]), payload)
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
     other_transaction.refresh_from_db()
@@ -247,9 +237,7 @@ def test_update_other_users_transaction_returns_404(
 def test_partial_update_transaction_patch_success(auth_client, user, expense_category):
     transaction = _create_transaction(user, expense_category, description="Original")
 
-    response = auth_client.patch(
-        reverse("transaction-detail", args=[transaction.id]), {"description": "Patched"}
-    )
+    response = auth_client.patch(reverse("transaction-detail", args=[transaction.id]), {"description": "Patched"})
 
     assert response.status_code == status.HTTP_200_OK
     transaction.refresh_from_db()
@@ -326,9 +314,7 @@ def test_filter_by_date_range(auth_client, user, expense_category):
     _create_transaction(user, expense_category, date=date(2026, 9, 15), description="september")
     _create_transaction(user, expense_category, date=date(2026, 10, 15), description="october")
 
-    response = auth_client.get(
-        reverse("transaction-list"), {"date_from": "2026-09-01", "date_to": "2026-09-30"}
-    )
+    response = auth_client.get(reverse("transaction-list"), {"date_from": "2026-09-01", "date_to": "2026-09-30"})
 
     assert response.status_code == status.HTTP_200_OK
     assert response.data["count"] == 1
@@ -386,7 +372,8 @@ def test_pagination_shows_every_transaction_exactly_once(auth_client, user, expe
     first_day = date(2026, 9, 1)
     for index in range(45):
         _create_transaction(
-            user, expense_category,
+            user,
+            expense_category,
             date=first_day + timedelta(days=index % 3),
             amount=Decimal("10.00") + index % 2,
         )

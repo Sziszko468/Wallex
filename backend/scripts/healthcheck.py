@@ -11,6 +11,7 @@ import os
 import sys
 import urllib.error
 import urllib.request
+from http import HTTPStatus
 
 
 def _host_header() -> str:
@@ -22,12 +23,10 @@ def _host_header() -> str:
 
 def main() -> int:
     port = os.environ.get("PORT", "8000")
-    request = urllib.request.Request(
-        f"http://127.0.0.1:{port}/api/health/ready/", headers={"Host": _host_header()}
-    )
+    request = urllib.request.Request(f"http://127.0.0.1:{port}/api/health/ready/", headers={"Host": _host_header()})
     try:
         with urllib.request.urlopen(request, timeout=5) as response:
-            return 0 if response.status == 200 else 1
+            return 0 if response.status == HTTPStatus.OK else 1
     except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
         print(f"health check failed: {error}", file=sys.stderr)
         return 1

@@ -1,4 +1,4 @@
-# Spendly — testing strategy
+# WALLEX — testing strategy
 
 ## Principle: test the risk, not the line count
 
@@ -23,6 +23,7 @@ the backend's numbers without recomputing them.
 | Backend | `docker compose exec backend pytest -q` | real PostgreSQL (never SQLite) + real Tesseract |
 | Web | `npm --prefix web test` | Vitest + jsdom, API faked with MSW at the network level |
 | Mobile | `npm --prefix mobile test` | Jest (`jest-expo`), native modules faked in `__tests__/setup.ts` |
+| Style | `docker compose exec backend ruff check .` and `ruff format --check .`; `npm --prefix web run lint` | ruff rules in `backend/pyproject.toml` (unused code, `raise … from`, magic values, complexity); oxlint for the web, including `no-magic-numbers` |
 
 ## Tools and why
 
@@ -56,6 +57,8 @@ Expo push (`push_outbox` autouse fixture), OCR (`FakeOcrProvider` via the
 | Account security | `tests/test_account_security.py`, `tests/test_isolation_canary.py`, `apps/users/test_mfa.py`, `web/src/pages/SecurityPage.test.tsx`, `mobile/__tests__/auth/` | Sessions revocable at once (one device, everywhere, password change), refresh-token reuse revokes the session, 30-day limit, per-account lock across IPs, HttpOnly cookie transport and its CSRF guard, TOTP against the RFC vectors + replay + recovery codes + encryption at rest, audit trail, and user B's canary data absent from every readable endpoint for user A. |
 | **Offline sync (server side)** | `apps/transactions/test_client_id.py` | Same `client_id` → 200 + existing row (no duplicate), even with a now-invalid payload, and under a concurrent race. |
 | Receipts | `apps/receipts/` | Parser rules, never saves, fake-provider API tests, one real-Tesseract test. |
+| Languages (en / hu) | `tests/test_translation_catalog.py`, `tests/test_i18n.py`, web `i18n/*.test.ts(x)`, mobile `__tests__/i18n/` | Every text in the code has a finished Hungarian translation with the same placeholders (read from the source, no extraction tool needed); `Accept-Language` selection (`hu`, `hu-HU,en;q=0.5`, unknown → English), error codes identical in both languages; the account language drives notifications, pushes and the monthly summary regardless of the request's language; default category names, month names, money formats, insights, achievements, assistant texts and CSV row reasons in Hungarian; no language leaks between requests; clients: both catalogs have the same keys/plurals, nothing left in English, language persists and syncs to the account. |
+| Ordering | `tests/test_ordering.py` | Every list endpoint's default and `?ordering=` sort (transactions, notifications, budgets, goals, subscriptions, recurring items, achievements, insights, analytics breakdowns): direction, tie-breaks, stable pagination. |
 
 ### Web (`web/src/**/*.test.ts(x)`)
 

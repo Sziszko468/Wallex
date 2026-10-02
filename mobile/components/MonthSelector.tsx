@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import { formatMonthYear } from "../utils/format";
 import { colors, fontSize, radius, spacing } from "../utils/theme";
 
@@ -10,11 +11,12 @@ interface MonthSelectorProps {
 }
 
 export function MonthSelector({ year, month, onPrevious, onNext }: MonthSelectorProps) {
+  const { t } = useTranslation();
   return (
     <View style={styles.row}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Previous month"
+        accessibilityLabel={t("common.month.previous")}
         onPress={onPrevious}
         hitSlop={8}
         style={({ pressed }) => [styles.chevron, pressed && styles.chevronPressed]}
@@ -26,7 +28,7 @@ export function MonthSelector({ year, month, onPrevious, onNext }: MonthSelector
 
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Next month"
+        accessibilityLabel={t("common.month.next")}
         onPress={onNext}
         hitSlop={8}
         style={({ pressed }) => [styles.chevron, pressed && styles.chevronPressed]}

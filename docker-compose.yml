@@ -19,7 +19,8 @@ services:
       context: ./backend
       # Dev image: runserver with auto-reload + test tools. Production: docker-compose.prod.yml.
       target: dev
-    command: python manage.py runserver 0.0.0.0:8000
+    # The compiled translations (.mo) are not kept in git: build them before every start.
+    command: sh -c "python manage.py compilemessages -i .venv && python manage.py runserver 0.0.0.0:8000"
     volumes:
       - ./backend:/app
     ports:

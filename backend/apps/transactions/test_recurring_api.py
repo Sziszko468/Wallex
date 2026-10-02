@@ -48,14 +48,10 @@ def test_retrieve_own_recurring_transaction(auth_client, user, expense_category)
 
 
 @pytest.mark.django_db
-def test_retrieve_other_users_recurring_transaction_returns_404(
-    auth_client, other_user, other_user_expense_category
-):
+def test_retrieve_other_users_recurring_transaction_returns_404(auth_client, other_user, other_user_expense_category):
     other_recurring = _create_recurring(other_user, other_user_expense_category)
 
-    response = auth_client.get(
-        reverse("recurringtransaction-detail", args=[other_recurring.id])
-    )
+    response = auth_client.get(reverse("recurringtransaction-detail", args=[other_recurring.id]))
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
@@ -88,9 +84,7 @@ def test_create_recurring_transaction_success(auth_client, user, expense_categor
 
 
 @pytest.mark.django_db
-def test_create_recurring_transaction_sets_next_occurrence_to_start_date(
-    auth_client, expense_category
-):
+def test_create_recurring_transaction_sets_next_occurrence_to_start_date(auth_client, expense_category):
     payload = {
         "name": "Rent",
         "category": expense_category.id,
@@ -106,9 +100,7 @@ def test_create_recurring_transaction_sets_next_occurrence_to_start_date(
 
 
 @pytest.mark.django_db
-def test_create_recurring_transaction_ignores_client_supplied_next_occurrence_date(
-    auth_client, expense_category
-):
+def test_create_recurring_transaction_ignores_client_supplied_next_occurrence_date(auth_client, expense_category):
     payload = {
         "name": "Rent",
         "category": expense_category.id,
@@ -125,9 +117,7 @@ def test_create_recurring_transaction_ignores_client_supplied_next_occurrence_da
 
 
 @pytest.mark.django_db
-def test_create_recurring_transaction_ignores_client_supplied_user(
-    auth_client, user, other_user, expense_category
-):
+def test_create_recurring_transaction_ignores_client_supplied_user(auth_client, user, other_user, expense_category):
     payload = {
         "name": "Rent",
         "category": expense_category.id,
@@ -146,9 +136,7 @@ def test_create_recurring_transaction_ignores_client_supplied_user(
 
 @pytest.mark.parametrize("frequency", ["weekly", "monthly", "yearly"])
 @pytest.mark.django_db
-def test_create_recurring_transaction_supports_all_frequencies(
-    auth_client, expense_category, frequency
-):
+def test_create_recurring_transaction_supports_all_frequencies(auth_client, expense_category, frequency):
     payload = {
         "name": "Subscription",
         "category": expense_category.id,
@@ -196,9 +184,7 @@ def test_create_recurring_transaction_negative_amount_rejected(auth_client, expe
 
 
 @pytest.mark.django_db
-def test_create_recurring_transaction_type_category_mismatch_rejected(
-    auth_client, expense_category
-):
+def test_create_recurring_transaction_type_category_mismatch_rejected(auth_client, expense_category):
     payload = {
         "name": "Broken",
         "category": expense_category.id,
@@ -214,9 +200,7 @@ def test_create_recurring_transaction_type_category_mismatch_rejected(
 
 
 @pytest.mark.django_db
-def test_create_recurring_transaction_with_other_users_category_rejected(
-    auth_client, other_user_expense_category
-):
+def test_create_recurring_transaction_with_other_users_category_rejected(auth_client, other_user_expense_category):
     payload = {
         "name": "Broken",
         "category": other_user_expense_category.id,
@@ -232,9 +216,7 @@ def test_create_recurring_transaction_with_other_users_category_rejected(
 
 
 @pytest.mark.django_db
-def test_create_recurring_transaction_end_date_before_start_date_rejected(
-    auth_client, expense_category
-):
+def test_create_recurring_transaction_end_date_before_start_date_rejected(auth_client, expense_category):
     payload = {
         "name": "Insurance",
         "category": expense_category.id,
@@ -281,14 +263,10 @@ def test_create_recurring_transaction_unauthenticated_rejected(api_client, expen
 
 
 @pytest.mark.django_db
-def test_partial_update_recurring_transaction_patch_success(
-    auth_client, user, expense_category
-):
+def test_partial_update_recurring_transaction_patch_success(auth_client, user, expense_category):
     recurring = _create_recurring(user, expense_category, amount=Decimal("15.99"))
 
-    response = auth_client.patch(
-        reverse("recurringtransaction-detail", args=[recurring.id]), {"amount": "17.99"}
-    )
+    response = auth_client.patch(reverse("recurringtransaction-detail", args=[recurring.id]), {"amount": "17.99"})
 
     assert response.status_code == status.HTTP_200_OK
     recurring.refresh_from_db()
@@ -315,9 +293,7 @@ def test_update_start_date_advances_next_occurrence_date(auth_client, user, expe
 
 
 @pytest.mark.django_db
-def test_update_without_start_date_change_keeps_next_occurrence_date(
-    auth_client, user, expense_category
-):
+def test_update_without_start_date_change_keeps_next_occurrence_date(auth_client, user, expense_category):
     recurring = _create_recurring(
         user,
         expense_category,
@@ -339,9 +315,7 @@ def test_update_without_start_date_change_keeps_next_occurrence_date(
 def test_deactivate_recurring_transaction(auth_client, user, expense_category):
     recurring = _create_recurring(user, expense_category, is_active=True)
 
-    response = auth_client.patch(
-        reverse("recurringtransaction-detail", args=[recurring.id]), {"is_active": False}
-    )
+    response = auth_client.patch(reverse("recurringtransaction-detail", args=[recurring.id]), {"is_active": False})
 
     assert response.status_code == status.HTTP_200_OK
     recurring.refresh_from_db()
@@ -349,9 +323,7 @@ def test_deactivate_recurring_transaction(auth_client, user, expense_category):
 
 
 @pytest.mark.django_db
-def test_update_other_users_recurring_transaction_returns_404(
-    auth_client, other_user, other_user_expense_category
-):
+def test_update_other_users_recurring_transaction_returns_404(auth_client, other_user, other_user_expense_category):
     other_recurring = _create_recurring(other_user, other_user_expense_category)
 
     response = auth_client.patch(
@@ -368,9 +340,7 @@ def test_update_other_users_recurring_transaction_returns_404(
 def test_delete_recurring_transaction_success(auth_client, user, expense_category):
     recurring = _create_recurring(user, expense_category)
 
-    response = auth_client.delete(
-        reverse("recurringtransaction-detail", args=[recurring.id])
-    )
+    response = auth_client.delete(reverse("recurringtransaction-detail", args=[recurring.id]))
 
     assert response.status_code == status.HTTP_204_NO_CONTENT
     assert not RecurringTransaction.objects.filter(id=recurring.id).exists()
@@ -382,9 +352,7 @@ def test_delete_other_users_recurring_transaction_returns_404_and_is_not_deleted
 ):
     other_recurring = _create_recurring(other_user, other_user_expense_category)
 
-    response = auth_client.delete(
-        reverse("recurringtransaction-detail", args=[other_recurring.id])
-    )
+    response = auth_client.delete(reverse("recurringtransaction-detail", args=[other_recurring.id]))
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
     assert RecurringTransaction.objects.filter(id=other_recurring.id).exists()
@@ -392,9 +360,7 @@ def test_delete_other_users_recurring_transaction_returns_404_and_is_not_deleted
 
 @pytest.mark.django_db
 def test_delete_nonexistent_recurring_transaction_returns_404(auth_client):
-    response = auth_client.delete(
-        reverse("recurringtransaction-detail", args=[999999])
-    )
+    response = auth_client.delete(reverse("recurringtransaction-detail", args=[999999]))
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
 

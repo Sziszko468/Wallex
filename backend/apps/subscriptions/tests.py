@@ -39,8 +39,14 @@ def _spec_example(make_subscription):
 def test_a_subscription_is_a_recurring_expense_row(user, make_subscription, entertainment):
     netflix = make_subscription("Netflix", type=TransactionType.INCOME)  # the proxy overrides it
     RecurringTransaction.objects.create(
-        user=user, category=entertainment, name="Rent", type=TransactionType.EXPENSE, amount=D("600.00"),
-        frequency=Frequency.MONTHLY, start_date=date(2026, 1, 1), next_occurrence_date=date(2026, 1, 1),
+        user=user,
+        category=entertainment,
+        name="Rent",
+        type=TransactionType.EXPENSE,
+        amount=D("600.00"),
+        frequency=Frequency.MONTHLY,
+        start_date=date(2026, 1, 1),
+        next_occurrence_date=date(2026, 1, 1),
     )
 
     row = RecurringTransaction.objects.get(pk=netflix.pk)
@@ -53,8 +59,15 @@ def test_a_subscription_is_a_recurring_expense_row(user, make_subscription, ente
 def test_the_database_rejects_an_income_subscription(user, salary):
     with pytest.raises(IntegrityError), transaction.atomic():
         RecurringTransaction.objects.create(
-            user=user, category=salary, name="Odd", type=TransactionType.INCOME, is_subscription=True,
-            amount=D("1.00"), frequency=Frequency.MONTHLY, start_date=TODAY, next_occurrence_date=TODAY,
+            user=user,
+            category=salary,
+            name="Odd",
+            type=TransactionType.INCOME,
+            is_subscription=True,
+            amount=D("1.00"),
+            frequency=Frequency.MONTHLY,
+            start_date=TODAY,
+            next_occurrence_date=TODAY,
         )
 
 
@@ -181,7 +194,10 @@ def test_summary_counts_and_categories(user, make_subscription, bills):
 
     assert (summary["active_count"], summary["paused_count"], summary["ended_count"]) == (3, 1, 1)
     assert summary["monthly_total"] == D("50.00")  # ended and paused ones cost nothing
-    assert [(c["category_name"], c["monthly_total"], c["subscription_count"], c["percentage"]) for c in summary["by_category"]] == [
+    assert [
+        (c["category_name"], c["monthly_total"], c["subscription_count"], c["percentage"])
+        for c in summary["by_category"]
+    ] == [
         ("Bills", D("30.00"), 1, D("60.00")),
         ("Entertainment", D("20.00"), 2, D("40.00")),
     ]
@@ -205,8 +221,13 @@ def test_summary_is_one_query_plus_one_for_rates(user, make_subscription, add_ra
 def test_subscriptions_of_another_user_never_count(user, other_user, make_subscription, entertainment):
     make_subscription("Mine", "10.00")
     Subscription.objects.create(
-        user=other_user, category=entertainment, name="Theirs", amount=D("99.00"),
-        frequency=Frequency.MONTHLY, start_date=date(2026, 1, 1), next_occurrence_date=date(2026, 1, 1),
+        user=other_user,
+        category=entertainment,
+        name="Theirs",
+        amount=D("99.00"),
+        frequency=Frequency.MONTHLY,
+        start_date=date(2026, 1, 1),
+        next_occurrence_date=date(2026, 1, 1),
     )
 
     assert services.get_summary(user, TODAY)["monthly_total"] == D("10.00")

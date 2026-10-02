@@ -1,5 +1,6 @@
 import axios from "axios";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { HTTP_STATUS } from "../config/http";
 import { nextSyncTick } from "../utils/syncClock";
 import { useSyncState } from "./useSync";
 
@@ -19,7 +20,7 @@ interface AsyncDataOptions {
 }
 
 function isNotFound(error: unknown): boolean {
-  return axios.isAxiosError(error) && error.response?.status === 404;
+  return axios.isAxiosError(error) && error.response?.status === HTTP_STATUS.NOT_FOUND;
 }
 
 function sameData(a: unknown, b: unknown): boolean {

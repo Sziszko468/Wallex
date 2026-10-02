@@ -135,10 +135,7 @@ def test_category_without_previous_spending_is_not_compared(user, food_category)
 
 @pytest.mark.django_db
 def test_only_the_largest_category_changes_are_reported(user):
-    categories = [
-        Category.objects.create(user=user, name=f"Cat {i}", type=TransactionType.EXPENSE)
-        for i in range(5)
-    ]
+    categories = [Category.objects.create(user=user, name=f"Cat {i}", type=TransactionType.EXPENSE) for i in range(5)]
     for i, category in enumerate(categories):
         _expense(user, category, "100.00", date(2026, 8, 10))
         _expense(user, category, str(Decimal("200.00") + i * 10), date(2026, 9, 10))

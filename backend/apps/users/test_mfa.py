@@ -20,7 +20,13 @@ def test_hotp_matches_rfc4226_test_vectors():
 
 @pytest.mark.parametrize(
     ("unix_time", "code"),
-    [(59, "94287082"), (1111111109, "07081804"), (1111111111, "14050471"), (1234567890, "89005924"), (2000000000, "69279037")],
+    [
+        (59, "94287082"),
+        (1111111109, "07081804"),
+        (1111111111, "14050471"),
+        (1234567890, "89005924"),
+        (2000000000, "69279037"),
+    ],
 )
 def test_totp_matches_rfc6238_test_vectors(unix_time, code):
     assert mfa.hotp(b"12345678901234567890", mfa.current_step(unix_time), digits=8) == code
@@ -48,8 +54,8 @@ def test_secret_is_160_random_bits_in_base32():
 
 def test_provisioning_uri_for_authenticator_apps(user):
     uri = mfa.provisioning_uri("JBSWY3DPEHPK3PXP", user.email)
-    assert uri.startswith("otpauth://totp/Spendly:testuser%40example.com?")
-    assert "secret=JBSWY3DPEHPK3PXP" in uri and "issuer=Spendly" in uri
+    assert uri.startswith("otpauth://totp/WALLEX:testuser%40example.com?")
+    assert "secret=JBSWY3DPEHPK3PXP" in uri and "issuer=WALLEX" in uri
 
 
 # --- Helpers -------------------------------------------------------------------------------
@@ -95,7 +101,7 @@ def test_setup_needs_the_password(auth_client):
 @pytest.mark.django_db
 def test_setup_then_confirm_turns_it_on(auth_client, user, clock):
     setup = auth_client.post(reverse("auth-2fa-setup"), {"password": PASSWORD}).data
-    assert setup["otpauth_uri"].startswith("otpauth://totp/Spendly:")
+    assert setup["otpauth_uri"].startswith("otpauth://totp/WALLEX:")
     assert auth_client.get(reverse("auth-2fa")).data["enabled"] is False  # not before the code proves it works
 
     codes = _enable(auth_client, user, clock)
@@ -151,7 +157,10 @@ def test_turning_it_off_needs_password_and_code(auth_client, api_client, user, c
     _enable(auth_client, user, clock)
 
     assert auth_client.post(reverse("auth-2fa-disable"), {"password": PASSWORD, "code": "000000"}).status_code == 400
-    assert auth_client.post(reverse("auth-2fa-disable"), {"password": "x", "code": _code(user, clock, 1)}).status_code == 400
+    assert (
+        auth_client.post(reverse("auth-2fa-disable"), {"password": "x", "code": _code(user, clock, 1)}).status_code
+        == 400
+    )
     response = auth_client.post(reverse("auth-2fa-disable"), {"password": PASSWORD, "code": _code(user, clock, 1)})
 
     assert response.status_code == 200
@@ -190,9 +199,13 @@ def test_signing_in_with_the_authenticator(auth_client, api_client, user, clock)
 def test_a_code_works_only_once(auth_client, api_client, user, clock):
     _enable(auth_client, user, clock)
     code = _code(user, clock, 1)
-    first = api_client.post(reverse("auth-login-verify"), {"mfa_token": _password_step(api_client, user)["mfa_token"], "code": code})
+    first = api_client.post(
+        reverse("auth-login-verify"), {"mfa_token": _password_step(api_client, user)["mfa_token"], "code": code}
+    )
 
-    replay = api_client.post(reverse("auth-login-verify"), {"mfa_token": _password_step(api_client, user)["mfa_token"], "code": code})
+    replay = api_client.post(
+        reverse("auth-login-verify"), {"mfa_token": _password_step(api_client, user)["mfa_token"], "code": code}
+    )
 
     assert (first.status_code, replay.status_code) == (200, 401)
 
@@ -215,7 +228,9 @@ def test_a_tampered_or_expired_challenge_is_refused(auth_client, api_client, use
     _enable(auth_client, user, clock)
     challenge = _password_step(api_client, user)["mfa_token"]
 
-    tampered = api_client.post(reverse("auth-login-verify"), {"mfa_token": challenge[:-2] + "xx", "code": _code(user, clock, 1)})
+    tampered = api_client.post(
+        reverse("auth-login-verify"), {"mfa_token": challenge[:-2] + "xx", "code": _code(user, clock, 1)}
+    )
     monkeypatch.setattr(mfa, "CHALLENGE_MAX_AGE", -1)
     expired = api_client.post(reverse("auth-login-verify"), {"mfa_token": challenge, "code": _code(user, clock, 1)})
 

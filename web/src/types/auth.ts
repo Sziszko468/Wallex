@@ -1,3 +1,4 @@
+import type { Language } from "../i18n/languages";
 import type { CurrencyCode } from "./currency";
 
 export interface User {
@@ -8,12 +9,12 @@ export interface User {
   date_joined: string;
   /** Currency of every total, budget, recurring amount and transaction `base_amount`. */
   base_currency: CurrencyCode;
+  /** The interface language; also the language of notifications and the assistant. */
+  language: Language;
 }
 
-/** Body for PATCH /api/auth/me/ — only the base currency is writable. */
-export interface UpdateUserPayload {
-  base_currency: CurrencyCode;
-}
+/** Body for PATCH /api/auth/me/ — the base currency and the language are writable. */
+export type UpdateUserPayload = Partial<Pick<User, "base_currency" | "language">>;
 
 /** Browsers get only the access token; the refresh token is an HttpOnly cookie. */
 export interface AccessToken {
@@ -46,4 +47,6 @@ export interface RegisterPayload {
   password_confirm: string;
   first_name?: string;
   last_name?: string;
+  /** The language the account starts in (what the interface showed while registering). */
+  language?: Language;
 }

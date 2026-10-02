@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import type { AssistantMessage } from "../../types/assistant";
 import { Icon } from "../icons/Icon";
 import { MarkdownText } from "./MarkdownText";
@@ -19,9 +20,10 @@ function AssistantAvatar() {
 }
 
 function Sources({ message }: { message: AssistantMessage }) {
+  const { t } = useTranslation();
   if (message.sources.length === 0) return null;
   return (
-    <ul className={styles.sources} aria-label="Based on">
+    <ul className={styles.sources} aria-label={t("assistant.messages.basedOn")}>
       {message.sources.map((source, index) => (
         <li key={index} className={styles.source}>
           {source.label}
@@ -33,6 +35,7 @@ function Sources({ message }: { message: AssistantMessage }) {
 }
 
 export function ChatMessages({ messages, pendingQuestion }: ChatMessagesProps) {
+  const { t } = useTranslation();
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -41,12 +44,12 @@ export function ChatMessages({ messages, pendingQuestion }: ChatMessagesProps) {
 
   return (
     <div className={styles.thread}>
-      <ol className={styles.messages} role="log" aria-label="Conversation" aria-live="polite">
+      <ol className={styles.messages} role="log" aria-label={t("assistant.messages.conversation")} aria-live="polite">
         {messages.map((message) => (
           <li
             key={message.id}
             className={message.role === "user" ? styles.fromUser : styles.fromAssistant}
-            aria-label={message.role === "user" ? "You" : "Assistant"}
+            aria-label={message.role === "user" ? t("assistant.messages.you") : t("assistant.messages.assistant")}
           >
             <div className={styles.bubbleRow}>
               {message.role === "assistant" && <AssistantAvatar />}
@@ -63,16 +66,16 @@ export function ChatMessages({ messages, pendingQuestion }: ChatMessagesProps) {
         ))}
         {pendingQuestion !== null && (
           <>
-            <li className={styles.fromUser} aria-label="You">
+            <li className={styles.fromUser} aria-label={t("assistant.messages.you")}>
               <div className={styles.bubble}>
                 <p className={styles.question}>{pendingQuestion}</p>
               </div>
             </li>
-            <li className={styles.fromAssistant} aria-label="Assistant">
+            <li className={styles.fromAssistant} aria-label={t("assistant.messages.assistant")}>
               <div className={styles.bubbleRow}>
                 <AssistantAvatar />
                 <div className={`${styles.bubble} ${styles.thinking}`} role="status">
-                  Checking your data
+                  {t("assistant.messages.thinking")}
                   <span className={styles.dots} aria-hidden="true">
                     <span />
                     <span />

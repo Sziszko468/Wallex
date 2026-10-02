@@ -21,18 +21,28 @@ class DecryptionError(Exception):
     """The value wasn't encrypted with the current FIELD_ENCRYPTION_KEY (or was altered)."""
 
 
+# Frozen on purpose: this is the HKDF domain-separation label of the keys that already
+# protect stored authenticator secrets and recovery-code hashes. It predates the WALLEX
+# name, and changing it would make every existing value undecryptable.
+KEY_DERIVATION_LABEL = "spendly"
+
+
+KEY_LENGTH_BYTES = 32  # a 256-bit key for Fernet / HMAC
+KEY_CACHE_SIZE = 4  # master keys alive at once: the current one and a few rotated-out ones
+
+
 def _derive(master_key: str, purpose: str) -> bytes:
-    return HKDF(algorithm=hashes.SHA256(), length=32, salt=None, info=f"spendly:{purpose}".encode()).derive(
-        master_key.encode()
-    )
+    return HKDF(
+        algorithm=hashes.SHA256(), length=KEY_LENGTH_BYTES, salt=None, info=f"{KEY_DERIVATION_LABEL}:{purpose}".encode()
+    ).derive(master_key.encode())
 
 
-@lru_cache(maxsize=4)
+@lru_cache(maxsize=KEY_CACHE_SIZE)
 def _fernet(master_key: str) -> Fernet:
     return Fernet(urlsafe_b64encode(_derive(master_key, "field-encryption")))
 
 
-@lru_cache(maxsize=4)
+@lru_cache(maxsize=KEY_CACHE_SIZE)
 def _hash_key(master_key: str) -> bytes:
     return _derive(master_key, "code-hashing")
 

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { CurrencyCode } from "../../types/currency";
 import type { SubscriptionCategoryCost } from "../../types/subscription";
 import { formatCurrency, formatPercentage } from "../../utils/format";
@@ -13,8 +14,9 @@ interface SubscriptionCategoryListProps {
 
 /** Monthly subscription cost per category — totals and shares computed by the API. */
 export function SubscriptionCategoryList({ categories, baseCurrency, colorFor }: SubscriptionCategoryListProps) {
+  const { t } = useTranslation();
   if (categories.length === 0) {
-    return <EmptyState icon="subscriptions" message="No active subscriptions." />;
+    return <EmptyState icon="subscriptions" message={t("subscriptions.categoryList.empty")} />;
   }
 
   return (

@@ -83,7 +83,11 @@ def tool_call_reply(*calls: tuple[str, dict]) -> BetaMessage:
 @pytest.fixture
 def fake_model(settings):
     """The assistant enabled, answering from FakeAnthropic.script."""
-    settings.AI_ASSISTANT = {**settings.AI_ASSISTANT, "ENABLED": True, "CLIENT": "apps.analytics.conftest.FakeAnthropic"}
+    settings.AI_ASSISTANT = {
+        **settings.AI_ASSISTANT,
+        "ENABLED": True,
+        "CLIENT": "apps.analytics.conftest.FakeAnthropic",
+    }
     FakeAnthropic.script = []
     FakeAnthropic.requests = []
     FakeAnthropic.timeouts = []

@@ -23,6 +23,7 @@ from decimal import Decimal
 from django.db.models import Min, Q, Sum, Value
 from django.db.models.functions import Coalesce, TruncMonth
 
+from apps.categories.defaults import display_name
 from apps.categories.models import TransactionType
 from apps.transactions.models import Transaction
 
@@ -74,9 +75,7 @@ def find_unusual_spending(user, today: date) -> list[UnusualSpending]:
     first_expense = min(row["first_day"] for row in rows)
     months_with_expenses = {row["month"] for row in rows}
     tracked = [
-        month
-        for month in months
-        if month in months_with_expenses and first_expense <= _same_days_end(month, today)
+        month for month in months if month in months_with_expenses and first_expense <= _same_days_end(month, today)
     ]
     if len(tracked) < MIN_BASELINE_MONTHS:
         return []
@@ -90,7 +89,7 @@ def find_unusual_spending(user, today: date) -> list[UnusualSpending]:
     usual_sums: dict[int, Decimal] = defaultdict(lambda: ZERO)
     for row in rows:
         if row["month"] == this_month:
-            current[row["category_id"]] = (row["category__name"], row["same_days_total"])
+            current[row["category_id"]] = (display_name(row["category__name"]), row["same_days_total"])
         elif row["month"] in tracked:
             usual_sums[row["category_id"]] += row["same_days_total"]
 

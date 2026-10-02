@@ -40,7 +40,7 @@ describe("App shell — desktop", () => {
 
     await screen.findByRole("heading", { name: "Savings goals" });
     // The title is set in an effect, which can land a tick after the heading is painted.
-    await waitFor(() => expect(document.title).toBe("Goals · Spendly"));
+    await waitFor(() => expect(document.title).toBe("Goals · WALLEX"));
   });
 
   it("adds a transaction from anywhere with the New transaction button, then confirms it", async () => {

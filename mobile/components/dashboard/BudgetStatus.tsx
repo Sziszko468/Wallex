@@ -1,5 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import type { BudgetUsageEntry } from "../../types/dashboard";
+import { BUDGET_NEAR_LIMIT_PERCENT, FULL_PERCENT } from "../../config/budget";
 import { formatCurrency, formatPercentage } from "../../utils/format";
 import { useBaseCurrency } from "../../hooks/useBaseCurrency";
 import { colors, fontSize, spacing } from "../../utils/theme";
@@ -9,25 +11,26 @@ interface BudgetStatusProps {
 }
 
 export function BudgetStatus({ budgets }: BudgetStatusProps) {
+  const { t } = useTranslation();
   const baseCurrency = useBaseCurrency();
   if (budgets.length === 0) {
-    return <Text style={styles.empty}>No budgets set for this month.</Text>;
+    return <Text style={styles.empty}>{t("dashboard.budgetStatus.empty")}</Text>;
   }
 
   return (
     <View>
       {budgets.map((budget) => {
-        const isOverBudget = budget.usage_percentage > 100;
+        const isOverBudget = budget.usage_percentage > FULL_PERCENT;
         const barColor = isOverBudget
           ? colors.danger
-          : budget.usage_percentage >= 80
+          : budget.usage_percentage >= BUDGET_NEAR_LIMIT_PERCENT
             ? colors.warning
             : colors.success;
 
         return (
           <View key={budget.budget_id} style={styles.item}>
             <View style={styles.itemHeader}>
-              <Text style={styles.name}>{budget.category_name || "Overall"}</Text>
+              <Text style={styles.name}>{budget.category_name || t("dashboard.budgetStatus.overall")}</Text>
               <Text style={styles.amountText}>
                 {formatCurrency(budget.spent_amount, baseCurrency)} / {formatCurrency(budget.budget_amount, baseCurrency)}
               </Text>
@@ -36,16 +39,17 @@ export function BudgetStatus({ budgets }: BudgetStatusProps) {
               <View
                 style={[
                   styles.fill,
-                  { width: `${Math.min(100, budget.usage_percentage)}%`, backgroundColor: barColor },
+                  { width: `${Math.min(FULL_PERCENT, budget.usage_percentage)}%`, backgroundColor: barColor },
                 ]}
               />
             </View>
             <Text style={[styles.status, isOverBudget && styles.statusOver]}>
               {isOverBudget
-                ? `Over budget by ${formatCurrency(Math.abs(Number(budget.remaining_amount)), baseCurrency)}`
-                : `${formatCurrency(budget.remaining_amount, baseCurrency)} left · ${formatPercentage(
-                    budget.usage_percentage
-                  )}`}
+                ? t("dashboard.budgetStatus.over", { amount: formatCurrency(Math.abs(Number(budget.remaining_amount)), baseCurrency) })
+                : t("dashboard.budgetStatus.left", {
+                    amount: formatCurrency(budget.remaining_amount, baseCurrency),
+                    percentage: formatPercentage(budget.usage_percentage),
+                  })}
             </Text>
           </View>
         );

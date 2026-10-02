@@ -32,9 +32,7 @@ def _withdraw(client, goal, amount):
 @pytest.fixture
 def make_goal(user):
     def _make(name="Japan trip", target="3000.00", current="0.00", owner=None, **fields):
-        goal = SavingsGoal(
-            user=owner or user, name=name, target_amount=D(target), current_amount=D(current), **fields
-        )
+        goal = SavingsGoal(user=owner or user, name=name, target_amount=D(target), current_amount=D(current), **fields)
         goal.sync_status()
         goal.save()
         return goal
@@ -56,12 +54,28 @@ def test_create_the_japan_trip(auth_client, user):
     assert response.status_code == status.HTTP_201_CREATED
     data = response.json()
     assert set(data) == {
-        "id", "name", "currency", "target_amount", "current_amount", "target_date", "status",
-        "progress_percentage", "remaining_amount", "days_left", "monthly_needed", "base_current_amount",
-        "base_target_amount", "created_at", "updated_at",
+        "id",
+        "name",
+        "currency",
+        "target_amount",
+        "current_amount",
+        "target_date",
+        "status",
+        "progress_percentage",
+        "remaining_amount",
+        "days_left",
+        "monthly_needed",
+        "base_current_amount",
+        "base_target_amount",
+        "created_at",
+        "updated_at",
     }
     assert (data["currency"], data["status"]) == ("EUR", "active")
-    assert (data["target_amount"], data["current_amount"], data["remaining_amount"]) == ("3000.00", "1850.00", "1150.00")
+    assert (data["target_amount"], data["current_amount"], data["remaining_amount"]) == (
+        "3000.00",
+        "1850.00",
+        "1150.00",
+    )
     assert data["progress_percentage"] == 61.67
     assert data["days_left"] == 365
     assert data["monthly_needed"] == "95.84"  # 1150 over 12 months, rounded up
@@ -92,7 +106,9 @@ def test_a_goal_in_another_currency_shows_its_base_values(auth_client, add_rates
     add_rates(TODAY - timedelta(days=1), USD="1.25")
 
     data = auth_client.post(
-        LIST, {"name": "New York", "currency": "USD", "target_amount": "5000.00", "current_amount": "1250.00"}, format="json"
+        LIST,
+        {"name": "New York", "currency": "USD", "target_amount": "5000.00", "current_amount": "1250.00"},
+        format="json",
     ).json()
 
     assert (data["currency"], data["target_amount"]) == ("USD", "5000.00")  # as saved, never converted
@@ -101,7 +117,9 @@ def test_a_goal_in_another_currency_shows_its_base_values(auth_client, add_rates
 
 @pytest.mark.django_db
 def test_a_goal_created_already_reached_is_completed(auth_client):
-    data = auth_client.post(LIST, {"name": "Done", "target_amount": "100", "current_amount": "100"}, format="json").json()
+    data = auth_client.post(
+        LIST, {"name": "Done", "target_amount": "100", "current_amount": "100"}, format="json"
+    ).json()
 
     assert data["status"] == "completed"
 
@@ -117,7 +135,11 @@ def test_a_goal_created_already_reached_is_completed(auth_client):
         ({"currency": "JPY", "current_amount": "10.5"}, "current_amount", "JPY amounts can't have decimals."),
         ({"currency": "XYZ"}, "currency", '"XYZ" is not a valid choice.'),
         ({"target_date": "2020-01-01"}, "target_date", "The target date can't be in the past."),
-        ({"status": "completed"}, "status", "A goal is completed automatically when the saved amount reaches the target."),
+        (
+            {"status": "completed"},
+            "status",
+            "A goal is completed automatically when the saved amount reaches the target.",
+        ),
         ({"name": ""}, "name", "This field may not be blank."),
         ({"name": "x" * 101}, "name", "Ensure this field has no more than 100 characters."),
     ],
@@ -291,7 +313,11 @@ def test_add_money(auth_client, make_goal):
 
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
-    assert (data["current_amount"], data["remaining_amount"], data["progress_percentage"]) == ("2050.00", "950.00", 68.33)
+    assert (data["current_amount"], data["remaining_amount"], data["progress_percentage"]) == (
+        "2050.00",
+        "950.00",
+        68.33,
+    )
 
 
 @pytest.mark.django_db

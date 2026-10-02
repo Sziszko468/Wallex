@@ -1,11 +1,15 @@
 from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.models import update_last_login
+from django.utils.translation import gettext_lazy as _
+from django.utils.translation import ngettext
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
+
+from apps.common.constants import SECONDS_PER_MINUTE
 
 from . import audit, cookies, lockout, mfa, sessions
 from .models import AuditAction, RevokeReason
@@ -28,7 +32,7 @@ from .serializers import (
 User = get_user_model()
 
 # The same answer for an unknown email and a wrong password (no account enumeration).
-_BAD_CREDENTIALS = {"detail": "No active account found with the given credentials", "code": "no_active_account"}
+_BAD_CREDENTIALS = {"detail": _("No active account found with the given credentials"), "code": "no_active_account"}
 
 
 def _account(email: str):
@@ -37,10 +41,15 @@ def _account(email: str):
 
 
 def _locked_response(seconds: int) -> Response:
-    minutes = max(1, round(seconds / 60))
+    minutes = max(1, round(seconds / SECONDS_PER_MINUTE))
     response = Response(
         {
-            "detail": f"Too many failed sign-in attempts. Try again in {minutes} minute{'s' if minutes != 1 else ''}.",
+            "detail": ngettext(
+                "Too many failed sign-in attempts. Try again in %(minutes)d minute.",
+                "Too many failed sign-in attempts. Try again in %(minutes)d minutes.",
+                minutes,
+            )
+            % {"minutes": minutes},
             "code": "account_locked",
             "retry_after": seconds,
         },
@@ -127,7 +136,10 @@ class MfaLoginView(APIView):
         user = mfa.read_challenge(serializer.validated_data["mfa_token"])
         if user is None:
             return Response(
-                {"detail": "This sign-in attempt has expired. Enter your password again.", "code": "mfa_challenge_invalid"},
+                {
+                    "detail": _("This sign-in attempt has expired. Enter your password again."),
+                    "code": "mfa_challenge_invalid",
+                },
                 status=status.HTTP_401_UNAUTHORIZED,
             )
         email = lockout.normalize_email(user.email)
@@ -141,7 +153,10 @@ class MfaLoginView(APIView):
         if method is None:
             audit.record(AuditAction.MFA_FAILED, request=request, user=user, email=email)
             return Response(
-                {"detail": "That code isn't right. Try the newest code from your authenticator app.", "code": "mfa_code_invalid"},
+                {
+                    "detail": _("That code isn't right. Try the newest code from your authenticator app."),
+                    "code": "mfa_code_invalid",
+                },
                 status=status.HTTP_401_UNAUTHORIZED,
             )
         if method == mfa.Method.RECOVERY_CODE:
@@ -164,11 +179,12 @@ class RefreshView(APIView):
         if not raw:
             if cookies.uses_cookie(request):  # no cookie: this browser isn't signed in
                 return Response(
-                    {"detail": "You are not signed in.", "code": "session_ended"}, status=status.HTTP_401_UNAUTHORIZED
+                    {"detail": _("You are not signed in."), "code": "session_ended"},
+                    status=status.HTTP_401_UNAUTHORIZED,
                 )
-            return Response({"refresh": ["This field is required."]}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"refresh": [_("This field is required.")]}, status=status.HTTP_400_BAD_REQUEST)
         try:
-            _, refresh = sessions.rotate(raw, request)
+            _session, refresh = sessions.rotate(raw, request)
         except sessions.SessionRejected as error:
             response = Response({"detail": error.message, "code": error.code}, status=status.HTTP_401_UNAUTHORIZED)
             if cookies.uses_cookie(request):
@@ -208,15 +224,15 @@ class LogoutView(APIView):
             try:
                 token = RefreshToken(raw)
             except TokenError:
-                return Response({"detail": "Invalid or expired refresh token."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"detail": _("Invalid or expired refresh token.")}, status=status.HTTP_400_BAD_REQUEST)
             # Same response as an invalid token, so it doesn't reveal whose token it was.
             if str(token.get("user_id")) != str(request.user.pk):
-                return Response({"detail": "Invalid or expired refresh token."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"detail": _("Invalid or expired refresh token.")}, status=status.HTTP_400_BAD_REQUEST)
 
         session = sessions.find_active(request.user, audit.session_key_of(request))
         if session is not None:
             sessions.revoke(session, RevokeReason.LOGOUT)
         audit.record(AuditAction.LOGOUT, request=request)
-        response = Response({"detail": "Logged out successfully."})
+        response = Response({"detail": _("Logged out successfully.")})
         cookies.clear_refresh_cookie(response)
         return response

@@ -1,21 +1,18 @@
+import { t } from "i18next";
 import type { RecurringFrequency } from "../types/recurringTransaction";
 import type { SubscriptionStatus } from "../types/subscription";
 
-/** "€17.99 / month" — the billing period of one payment. */
-export const PERIOD_LABELS: Record<RecurringFrequency, string> = {
-  weekly: "week",
-  monthly: "month",
-  yearly: "year",
-};
+/** "week" / "month" / "year" — the billing period of one payment ("€17.99 / month"). */
+export function periodLabel(frequency: RecurringFrequency): string {
+  return t(`recurring.period.${frequency}`);
+}
 
-export const FREQUENCY_LABELS: Record<RecurringFrequency, string> = {
-  weekly: "Weekly",
-  monthly: "Monthly",
-  yearly: "Yearly",
-};
+/** "Weekly" / "Monthly" / "Yearly". */
+export function frequencyLabel(frequency: RecurringFrequency): string {
+  return t(`recurring.frequency.${frequency}`);
+}
 
-export const STATUS_LABELS: Record<SubscriptionStatus, string> = {
-  active: "Active",
-  paused: "Paused",
-  ended: "Ended",
-};
+/** "Active" / "Paused" / "Ended". */
+export function statusLabel(status: SubscriptionStatus): string {
+  return t(`subscriptions.status.${status}`);
+}

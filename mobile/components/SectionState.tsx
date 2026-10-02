@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import { ErrorBanner } from "./ErrorBanner";
 import { extractErrorMessage } from "../utils/errors";
 import { colors, fontSize, spacing } from "../utils/theme";
@@ -13,6 +14,7 @@ interface SectionStateProps {
 
 /** Shared loading/error/content switch used by every independent dashboard section. */
 export function SectionState({ isLoading, error, onRetry, children }: SectionStateProps) {
+  const { t } = useTranslation();
   if (isLoading) {
     return (
       <View style={styles.center}>
@@ -27,12 +29,12 @@ export function SectionState({ isLoading, error, onRetry, children }: SectionSta
         <ErrorBanner message={extractErrorMessage(error)} />
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Retry"
+          accessibilityLabel={t("common.actions.retry")}
           onPress={onRetry}
           hitSlop={8}
           style={({ pressed }) => [styles.retry, pressed && styles.retryPressed]}
         >
-          <Text style={styles.retryText}>Retry</Text>
+          <Text style={styles.retryText}>{t("common.actions.retry")}</Text>
         </Pressable>
       </View>
     );

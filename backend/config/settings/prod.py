@@ -1,6 +1,6 @@
 from django.core.exceptions import ImproperlyConfigured
 
-from .base import *  # noqa: F401,F403
+from .base import *  # noqa: F403
 from .base import (
     ALLOWED_HOSTS,
     AUTH_REFRESH_COOKIE,
@@ -20,8 +20,11 @@ def _require(condition: bool, message: str) -> None:
         raise ImproperlyConfigured(message)
 
 
+MIN_SECRET_KEY_LENGTH = 50  # characters; token_urlsafe(64) is 86
+
+
 def _is_strong_key(key: str) -> bool:
-    return len(key) >= 50 and "change-me" not in key and not key.startswith("django-insecure")
+    return len(key) >= MIN_SECRET_KEY_LENGTH and "change-me" not in key and not key.startswith("django-insecure")
 
 
 # The web app is normally served from the API's own origin (the web image proxies /api/),
@@ -98,7 +101,7 @@ STORAGES = {
 # Must be shared by every gunicorn worker and container, or each one counts separately and
 # the limits multiply. The database cache needs no extra service (its table is created by
 # `createcachetable` next to the migrations); point CACHE_URL at Redis when traffic grows.
-CACHES = {"default": env.cache_url("CACHE_URL", default="dbcache://spendly_cache")}
+CACHES = {"default": env.cache_url("CACHE_URL", default="dbcache://wallex_cache")}
 
 # --- Database ---------------------------------------------------------------------------
 # Keep connections open between requests instead of reconnecting every time.

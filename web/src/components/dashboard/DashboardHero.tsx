@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { DashboardStats } from "../../types/dashboard";
 import { useBaseCurrency } from "../../hooks/useBaseCurrency";
 import { formatCurrency, formatMonthYear } from "../../utils/format";
@@ -15,17 +16,20 @@ interface DashboardHeroProps {
   isLoading: boolean;
 }
 
+const FULL_BAR_PERCENT = 100;
+
 /**
  * The first thing on the dashboard: one clear answer to "how am I doing this month?".
  * The balance leads; income and spending support it as two proportional strokes. Every figure
  * is the backend's; the bars only compare the two values visually (nothing is computed or shown).
  */
 export function DashboardHero({ stats, year, month, isLoading }: DashboardHeroProps) {
+  const { t } = useTranslation();
   const baseCurrency = useBaseCurrency();
 
   if (isLoading || !stats) {
     return (
-      <Card tone="tinted" padding="lg" aria-busy="true" aria-label="Loading your overview">
+      <Card tone="tinted" padding="lg" aria-busy="true" aria-label={t("dashboard.hero.loading")}>
         <div className={styles.skeleton}>
           <Skeleton width="9rem" height="0.875rem" />
           <Skeleton width="min(18rem, 70%)" height="3.25rem" borderRadius={12} />
@@ -39,23 +43,21 @@ export function DashboardHero({ stats, year, month, isLoading }: DashboardHeroPr
   const income = Number(stats.total_income);
   const expenses = Number(stats.total_expenses);
   const scale = Math.max(income, expenses);
-  const incomeWidth = scale > 0 ? (income / scale) * 100 : 0;
-  const expensesWidth = scale > 0 ? (expenses / scale) * 100 : 0;
+  const incomeWidth = scale > 0 ? (income / scale) * FULL_BAR_PERCENT : 0;
+  const expensesWidth = scale > 0 ? (expenses / scale) * FULL_BAR_PERCENT : 0;
   const overallBudget = stats.budget_usage.find((budget) => budget.category_id === null);
   const overallRemaining = overallBudget ? Number(overallBudget.remaining_amount) : 0;
 
   return (
-    <Card as="section" tone="tinted" padding="lg" aria-label="Overview">
+    <Card as="section" tone="tinted" padding="lg" aria-label={t("dashboard.overview")}>
       <div className={styles.hero}>
         <div className={styles.primary}>
-          <p className={styles.overline}>
-            Balance · {formatMonthYear(year, month)}
-          </p>
+          <p className={styles.overline}>{t("dashboard.hero.balance", { period: formatMonthYear(year, month) })}</p>
           <p className={balanceIsNegative ? `${styles.balance} ${styles.negative}` : styles.balance}>
             {formatCurrency(stats.balance, baseCurrency)}
           </p>
           <p className={styles.caption}>
-            {balanceIsNegative ? "You spent more than you earned this month." : "What's left after this month's spending."}
+            {balanceIsNegative ? t("dashboard.hero.captionNegative") : t("dashboard.hero.captionPositive")}
           </p>
         </div>
 
@@ -65,12 +67,10 @@ export function DashboardHero({ stats, year, month, isLoading }: DashboardHeroPr
               <span className={`${styles.flowIcon} ${styles.incomeIcon}`}>
                 <Icon name="arrow-down-left" size={14} strokeWidth={2.25} />
               </span>
-              Income
+              {t("common.labels.income")}
             </dt>
             <dd className={styles.flowValue}>
-              <span className={styles.amount}>
-                +{formatCurrency(stats.total_income, baseCurrency)}
-              </span>
+              <span className={styles.amount}>+{formatCurrency(stats.total_income, baseCurrency)}</span>
               <span className={styles.bar} aria-hidden="true">
                 <span className={`${styles.fill} ${styles.incomeFill}`} style={{ width: `${incomeWidth}%` }} />
               </span>
@@ -81,12 +81,10 @@ export function DashboardHero({ stats, year, month, isLoading }: DashboardHeroPr
               <span className={`${styles.flowIcon} ${styles.expenseIcon}`}>
                 <Icon name="arrow-up-right" size={14} strokeWidth={2.25} />
               </span>
-              Expenses
+              {t("common.labels.expenses")}
             </dt>
             <dd className={styles.flowValue}>
-              <span className={styles.amount}>
-                −{formatCurrency(stats.total_expenses, baseCurrency)}
-              </span>
+              <span className={styles.amount}>−{formatCurrency(stats.total_expenses, baseCurrency)}</span>
               <span className={styles.bar} aria-hidden="true">
                 <span className={`${styles.fill} ${styles.expenseFill}`} style={{ width: `${expensesWidth}%` }} />
               </span>
@@ -98,31 +96,30 @@ export function DashboardHero({ stats, year, month, isLoading }: DashboardHeroPr
       <div className={styles.facts}>
         <p className={styles.fact}>
           <Icon name="transactions" size={16} />
-          {stats.transaction_count} {stats.transaction_count === 1 ? "transaction" : "transactions"} this month
+          {t("dashboard.hero.transactionsThisMonth", { count: stats.transaction_count })}
         </p>
         {stats.top_spending_category && (
           <p className={styles.fact}>
             <Icon name="budgets" size={16} />
-            Most spent on {stats.top_spending_category.category_name}
+            {t("dashboard.hero.topCategory", { name: stats.top_spending_category.category_name })}
           </p>
         )}
         {stats.transaction_count === 0 && (
           <ButtonLink to="/transactions" size="sm" leadingIcon="plus">
-            Add a transaction
+            {t("dashboard.hero.addTransaction")}
           </ButtonLink>
         )}
         {overallBudget && (
           <div className={styles.budget}>
             <p className={styles.fact}>
               <Icon name="wallet" size={16} />
-              Overall budget:{" "}
               {overallRemaining < 0
-                ? `${formatCurrency(Math.abs(overallRemaining), baseCurrency)} over`
-                : `${formatCurrency(overallBudget.remaining_amount, baseCurrency)} left`}
+                ? t("dashboard.hero.budgetOver", { amount: formatCurrency(Math.abs(overallRemaining), baseCurrency) })
+                : t("dashboard.hero.budgetLeft", { amount: formatCurrency(overallBudget.remaining_amount, baseCurrency) })}
             </p>
             <ProgressBar
               percentage={overallBudget.usage_percentage}
-              label="Overall budget used"
+              label={t("dashboard.hero.budgetUsed")}
               tone={overallBudget.status === "over_budget" ? "danger" : overallBudget.status === "ahead_of_pace" ? "warning" : "default"}
             />
           </div>

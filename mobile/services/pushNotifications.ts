@@ -1,5 +1,7 @@
 import { Platform } from "react-native";
 import axios from "axios";
+import { t } from "i18next";
+import { APP_NAME } from "../config/app";
 import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
 import { deleteDevice, registerDevice } from "./notificationsService";
@@ -12,6 +14,7 @@ import {
 } from "../utils/tokenStorage";
 import type { DevicePlatform } from "../types/notification";
 import { logWarning } from "../utils/logging";
+import { HTTP_STATUS } from "../config/http";
 
 /**
  * Push registration of this app installation.
@@ -50,7 +53,7 @@ async function ensureAndroidChannel(): Promise<void> {
   if (Platform.OS !== "android") return;
   // Android 13+ only shows the permission prompt once a channel exists.
   await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
-    name: "Spendly alerts",
+    name: t("settings.notificationSettings.push.channelName", { appName: APP_NAME }),
     importance: Notifications.AndroidImportance.HIGH,
   });
 }
@@ -69,7 +72,7 @@ function getProjectId(): string | null {
  */
 export async function syncPushRegistration({ askPermission }: { askPermission: boolean }): Promise<PushStatus> {
   if (!isPushSupportedPlatform) {
-    return { state: "unsupported", message: "Push notifications are available in the iOS and Android app." };
+    return { state: "unsupported", message: t("settings.notificationSettings.device.unsupportedPlatform") };
   }
 
   try {
@@ -88,7 +91,7 @@ export async function syncPushRegistration({ askPermission }: { askPermission: b
     if (!projectId) {
       return {
         state: "unsupported",
-        message: "Push notifications aren't configured for this build (missing EAS project ID).",
+        message: t("settings.notificationSettings.push.noProject"),
       };
     }
 
@@ -100,7 +103,7 @@ export async function syncPushRegistration({ askPermission }: { askPermission: b
       logWarning("Could not get an Expo push token", error);
       return {
         state: "unsupported",
-        message: "This build can't receive push notifications. Use a development build on a real device.",
+        message: t("settings.notificationSettings.push.devBuild"),
       };
     }
 
@@ -124,7 +127,7 @@ export async function unregisterCurrentDevice(): Promise<void> {
     await deleteDevice(deviceId);
   } catch (error) {
     // Already gone (e.g. taken over by another account on this phone) is fine.
-    if (!(axios.isAxiosError(error) && error.response?.status === 404)) throw error;
+    if (!(axios.isAxiosError(error) && error.response?.status === HTTP_STATUS.NOT_FOUND)) throw error;
   }
   await setPushDeviceId(null);
 }

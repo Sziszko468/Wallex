@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="3.4" stroke-linecap="round">
-  <!-- The Spendly ring: three unequal arcs (sage, teal, sand) — mid-tones that read on light and dark tab strips. -->
+  <!-- The WALLEX ring: three unequal arcs (sage, teal, sand) — mid-tones that read on light and dark tab strips. -->
   <g transform="rotate(-100 12 12)">
     <circle cx="12" cy="12" r="8" stroke="#5e9c7e" stroke-dasharray="15.08 35.18" />
     <circle cx="12" cy="12" r="8" stroke="#4a9bb0" stroke-dasharray="10.05 40.21" stroke-dashoffset="-21.44" />

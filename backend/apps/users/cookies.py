@@ -12,6 +12,8 @@ allow-listed origins pass. SameSite=Strict keeps other sites from sending the co
 The mobile apps keep the refresh token in the Keychain / Keystore and send it in the body.
 """
 
+from http import HTTPStatus
+
 from django.conf import settings
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -51,7 +53,7 @@ def clear_refresh_cookie(response: Response) -> None:
     response.delete_cookie(config["NAME"], path=config["PATH"], samesite=config["SAMESITE"])
 
 
-def token_response(request, refresh: RefreshToken, status: int = 200) -> Response:
+def token_response(request, refresh: RefreshToken, status: int = HTTPStatus.OK) -> Response:
     """{"access", "refresh"} for apps; {"access"} + the HttpOnly cookie for browsers."""
     data = {"access": str(refresh.access_token)}
     if not uses_cookie(request):

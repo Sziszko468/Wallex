@@ -1,4 +1,6 @@
 import { useId, type FormEvent, type KeyboardEvent } from "react";
+import { useTranslation } from "react-i18next";
+import { COUNTER_VISIBLE_FROM } from "../../config/assistant";
 import { Button } from "../Button";
 import styles from "./ChatComposer.module.scss";
 
@@ -12,10 +14,11 @@ interface ChatComposerProps {
 }
 
 export function ChatComposer({ value, onChange, onSubmit, maxLength, disabled }: ChatComposerProps) {
+  const { t } = useTranslation();
   const inputId = useId();
   const counterId = useId();
   const canSend = !disabled && value.trim().length > 0;
-  const nearLimit = value.length > maxLength * 0.8;
+  const nearLimit = value.length > maxLength * COUNTER_VISIBLE_FROM;
 
   function submit(event?: FormEvent) {
     event?.preventDefault();
@@ -33,7 +36,7 @@ export function ChatComposer({ value, onChange, onSubmit, maxLength, disabled }:
   return (
     <form className={styles.composer} onSubmit={submit}>
       <label htmlFor={inputId} className={styles.label}>
-        Ask about your finances
+        {t("assistant.composer.label")}
       </label>
       <textarea
         id={inputId}
@@ -43,7 +46,7 @@ export function ChatComposer({ value, onChange, onSubmit, maxLength, disabled }:
         onKeyDown={handleKeyDown}
         maxLength={maxLength}
         rows={2}
-        placeholder="e.g. Where did I spend more than last month?"
+        placeholder={t("assistant.composer.placeholder")}
         disabled={disabled}
         aria-describedby={nearLimit ? counterId : undefined}
       />
@@ -52,7 +55,7 @@ export function ChatComposer({ value, onChange, onSubmit, maxLength, disabled }:
           {nearLimit ? `${value.length} / ${maxLength}` : ""}
         </span>
         <Button type="submit" size="sm" leadingIcon="arrow-up" disabled={!canSend}>
-          Send
+          {t("assistant.composer.send")}
         </Button>
       </div>
     </form>

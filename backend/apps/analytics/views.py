@@ -7,11 +7,11 @@ from rest_framework.views import APIView
 from . import achievements, formatters, insights, merchants, patterns, services, trends
 from .openapi import (
     ACHIEVEMENTS_LIST_SCHEMA,
-    MARK_SEEN_SCHEMA,
     CATEGORIES_SCHEMA,
     COMPARISON_SCHEMA,
     DASHBOARD_SCHEMA,
     INSIGHTS_SCHEMA,
+    MARK_SEEN_SCHEMA,
     MERCHANTS_SCHEMA,
     MONTHLY_SCHEMA,
     SPENDING_PATTERNS_SCHEMA,
@@ -39,9 +39,7 @@ class DashboardView(APIView):
 
     def get(self, request):
         query = _validated(MonthQuerySerializer, request)
-        dashboard = services.get_dashboard(
-            request.user, query["year"], query["month"], today=timezone.localdate()
-        )
+        dashboard = services.get_dashboard(request.user, query["year"], query["month"], today=timezone.localdate())
         return Response(formatters.format_dashboard(dashboard))
 
 
@@ -63,9 +61,7 @@ class CategoryAnalyticsView(APIView):
         query = _validated(MonthQuerySerializer, request)
         year, month = query["year"], query["month"]
         categories = services.get_category_breakdown(request.user, year, month)
-        return Response(
-            {"year": year, "month": month, "categories": formatters.format_category_breakdown(categories)}
-        )
+        return Response({"year": year, "month": month, "categories": formatters.format_category_breakdown(categories)})
 
 
 @COMPARISON_SCHEMA
@@ -104,9 +100,7 @@ class SpendingPatternsView(APIView):
 
     def get(self, request):
         query = _validated(MonthQuerySerializer, request)
-        result = patterns.get_spending_patterns(
-            request.user, query["year"], query["month"], today=timezone.localdate()
-        )
+        result = patterns.get_spending_patterns(request.user, query["year"], query["month"], today=timezone.localdate())
         return Response(formatters.format_spending_patterns(result))
 
 

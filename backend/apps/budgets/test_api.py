@@ -32,16 +32,20 @@ def test_list_unauthenticated_rejected(api_client):
 
 @pytest.mark.django_db
 def test_retrieve_budget_includes_computed_fields(auth_client, user, expense_category):
-    budget = Budget.objects.create(
-        user=user, category=expense_category, amount=Decimal("400.00"), year=2026, month=9
+    budget = Budget.objects.create(user=user, category=expense_category, amount=Decimal("400.00"), year=2026, month=9)
+    Transaction.objects.create(
+        user=user,
+        category=expense_category,
+        type="expense",
+        amount=Decimal("200.00"),
+        date=date(2026, 9, 5),
     )
     Transaction.objects.create(
-        user=user, category=expense_category, type="expense",
-        amount=Decimal("200.00"), date=date(2026, 9, 5),
-    )
-    Transaction.objects.create(
-        user=user, category=expense_category, type="expense",
-        amount=Decimal("120.00"), date=date(2026, 9, 20),
+        user=user,
+        category=expense_category,
+        type="expense",
+        amount=Decimal("120.00"),
+        date=date(2026, 9, 20),
     )
 
     response = auth_client.get(reverse("budget-detail", args=[budget.id]))
@@ -78,7 +82,11 @@ def test_create_budget_success(auth_client, user, expense_category):
 @pytest.mark.django_db
 def test_create_budget_ignores_client_supplied_user(auth_client, user, other_user, expense_category):
     payload = {
-        "category": expense_category.id, "amount": "400.00", "year": 2026, "month": 9, "user": other_user.id,
+        "category": expense_category.id,
+        "amount": "400.00",
+        "year": 2026,
+        "month": 9,
+        "user": other_user.id,
     }
     response = auth_client.post(reverse("budget-list"), payload)
 
@@ -168,12 +176,13 @@ def test_budget_zero_spent_gives_zero_usage_and_full_remaining(auth_client, expe
 
 @pytest.mark.django_db
 def test_over_budget_shows_negative_remaining_and_over_100_percent(auth_client, user, expense_category):
-    budget = Budget.objects.create(
-        user=user, category=expense_category, amount=Decimal("400.00"), year=2026, month=9
-    )
+    budget = Budget.objects.create(user=user, category=expense_category, amount=Decimal("400.00"), year=2026, month=9)
     Transaction.objects.create(
-        user=user, category=expense_category, type="expense",
-        amount=Decimal("500.00"), date=date(2026, 9, 10),
+        user=user,
+        category=expense_category,
+        type="expense",
+        amount=Decimal("500.00"),
+        date=date(2026, 9, 10),
     )
 
     response = auth_client.get(reverse("budget-detail", args=[budget.id]))
@@ -185,9 +194,7 @@ def test_over_budget_shows_negative_remaining_and_over_100_percent(auth_client, 
 
 @pytest.mark.django_db
 def test_patch_budget_amount_success(auth_client, user, expense_category):
-    budget = Budget.objects.create(
-        user=user, category=expense_category, amount=Decimal("400.00"), year=2026, month=9
-    )
+    budget = Budget.objects.create(user=user, category=expense_category, amount=Decimal("400.00"), year=2026, month=9)
     response = auth_client.patch(reverse("budget-detail", args=[budget.id]), {"amount": "500.00"})
 
     assert response.status_code == status.HTTP_200_OK
@@ -209,9 +216,7 @@ def test_patch_other_users_budget_returns_404(auth_client, other_user, other_use
 
 @pytest.mark.django_db
 def test_put_method_not_allowed(auth_client, user, expense_category):
-    budget = Budget.objects.create(
-        user=user, category=expense_category, amount=Decimal("400.00"), year=2026, month=9
-    )
+    budget = Budget.objects.create(user=user, category=expense_category, amount=Decimal("400.00"), year=2026, month=9)
     response = auth_client.put(
         reverse("budget-detail", args=[budget.id]),
         {"category": expense_category.id, "amount": "500.00", "year": 2026, "month": 9},
@@ -221,9 +226,7 @@ def test_put_method_not_allowed(auth_client, user, expense_category):
 
 @pytest.mark.django_db
 def test_delete_budget_success(auth_client, user, expense_category):
-    budget = Budget.objects.create(
-        user=user, category=expense_category, amount=Decimal("400.00"), year=2026, month=9
-    )
+    budget = Budget.objects.create(user=user, category=expense_category, amount=Decimal("400.00"), year=2026, month=9)
     response = auth_client.delete(reverse("budget-detail", args=[budget.id]))
 
     assert response.status_code == status.HTTP_204_NO_CONTENT

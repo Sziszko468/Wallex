@@ -10,7 +10,7 @@ import type { User } from "../types/auth";
  * the signed-in user can already see in the app. It is cleared on logout.
  */
 
-const PREFIX = "spendly_offline";
+const PREFIX = "wallex_offline";
 const LAST_USER_KEY = `${PREFIX}:last_user`;
 
 let currentUserId: number | null = null;

@@ -1,14 +1,9 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import type { Category } from "../../types/category";
 import type { RecurringTransaction } from "../../types/recurringTransaction";
 import { formatCurrency, formatShortDate } from "../../utils/format";
 import { colors, fontSize, radius, spacing } from "../../utils/theme";
-
-const FREQUENCY_LABELS: Record<RecurringTransaction["frequency"], string> = {
-  weekly: "Weekly",
-  monthly: "Monthly",
-  yearly: "Yearly",
-};
 
 interface RecurringTransactionCardProps {
   item: RecurringTransaction;
@@ -27,6 +22,7 @@ export function RecurringTransactionCard({
   onToggleActive,
   isToggling,
 }: RecurringTransactionCardProps) {
+  const { t } = useTranslation();
   const isIncome = item.type === "income";
 
   return (
@@ -45,20 +41,22 @@ export function RecurringTransactionCard({
       </View>
 
       <Text style={styles.meta}>
-        {category?.name ?? "Uncategorized"} · {FREQUENCY_LABELS[item.frequency]}
+        {category?.name ?? t("common.uncategorized")} · {t(`recurring.frequency.${item.frequency}`)}
       </Text>
 
       <View style={styles.footer}>
-        <Text style={styles.nextOccurrence}>Next: {formatShortDate(item.next_occurrence_date)}</Text>
+        <Text style={styles.nextOccurrence}>
+          {t("recurring.next", { date: formatShortDate(item.next_occurrence_date) })}
+        </Text>
         <Text style={item.is_active ? styles.statusActive : styles.statusPaused}>
-          {item.is_active ? "Active" : "Paused"}
+          {item.is_active ? t("recurring.active") : t("recurring.paused")}
         </Text>
       </View>
 
       <View style={styles.actions}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`${item.is_active ? "Pause" : "Resume"} ${item.name}`}
+          accessibilityLabel={t(item.is_active ? "recurring.pauseLabel" : "recurring.resumeLabel", { name: item.name })}
           onPress={onToggleActive}
           disabled={isToggling}
           style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}
@@ -66,24 +64,24 @@ export function RecurringTransactionCard({
           {isToggling ? (
             <ActivityIndicator size="small" color={colors.primary} />
           ) : (
-            <Text style={styles.actionText}>{item.is_active ? "Pause" : "Resume"}</Text>
+            <Text style={styles.actionText}>{item.is_active ? t("common.actions.pause") : t("common.actions.resume")}</Text>
           )}
         </Pressable>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Edit ${item.name}`}
+          accessibilityLabel={t("recurring.editLabel", { name: item.name })}
           onPress={onEdit}
           style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}
         >
-          <Text style={styles.actionText}>Edit</Text>
+          <Text style={styles.actionText}>{t("common.actions.edit")}</Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Delete ${item.name}`}
+          accessibilityLabel={t("recurring.deleteLabel", { name: item.name })}
           onPress={onDelete}
           style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}
         >
-          <Text style={[styles.actionText, styles.deleteText]}>Delete</Text>
+          <Text style={[styles.actionText, styles.deleteText]}>{t("common.actions.delete")}</Text>
         </Pressable>
       </View>
     </View>

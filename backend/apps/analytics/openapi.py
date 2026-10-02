@@ -15,8 +15,8 @@ from .insights import InsightType, Severity
 from .models import AchievementCategory, AchievementUnit
 from .serializers import (
     AchievementSerializer,
-    MarkSeenResultSerializer,
     ComparisonQuerySerializer,
+    MarkSeenResultSerializer,
     MerchantsQuerySerializer,
     MonthQuerySerializer,
     TrendsQuerySerializer,
@@ -233,7 +233,9 @@ class SpendingPatternsSerializer(serializers.Serializer):
     weekdays = WeekdaySpendingSerializer(many=True, help_text="Always 7 entries, Monday first.")
     fixed_expenses = _money("Expenses a recurring template accounts for (see the description).")
     variable_expenses = _money("`total_expenses - fixed_expenses`.")
-    fixed_percentage = serializers.FloatField(allow_null=True, help_text="Share of fixed expenses; `null` without expenses.")
+    fixed_percentage = serializers.FloatField(
+        allow_null=True, help_text="Share of fixed expenses; `null` without expenses."
+    )
     recurring_commitments = _money(
         "What the active recurring expense templates add up to per month (weekly × 52 / 12, yearly / 12)."
     )
@@ -246,12 +248,15 @@ class InsightSerializer(serializers.Serializer):
     )
     type = serializers.ChoiceField(choices=INSIGHT_TYPE_CHOICES, help_text="What was observed (see the table above).")
     severity = serializers.ChoiceField(
-        choices=INSIGHT_SEVERITY_CHOICES, help_text="`alert` > `warning` > `positive` > `info`; the list is sorted by it."
+        choices=INSIGHT_SEVERITY_CHOICES,
+        help_text="`alert` > `warning` > `positive` > `info`; the list is sorted by it.",
     )
     message = serializers.CharField(help_text="English sentence for the user. Contains no currency symbol.")
     category_id = serializers.IntegerField(allow_null=True, help_text="The category concerned, if any.")
     amount = _money("The amount the insight is about (see the table); `null` if none.", allow_null=True)
-    percentage = serializers.FloatField(allow_null=True, help_text="The percentage the insight is about; `null` if none.")
+    percentage = serializers.FloatField(
+        allow_null=True, help_text="The percentage the insight is about; `null` if none."
+    )
 
 
 class InsightListSerializer(serializers.Serializer):
@@ -261,10 +266,13 @@ class InsightListSerializer(serializers.Serializer):
 
 
 _QUERY_ERRORS = validation_error(
-    ("Out of range", {
-        "year": ["Ensure this value is greater than or equal to 2000."],
-        "month": ["Ensure this value is less than or equal to 12."],
-    }),
+    (
+        "Out of range",
+        {
+            "year": ["Ensure this value is greater than or equal to 2000."],
+            "month": ["Ensure this value is less than or equal to 12."],
+        },
+    ),
     ("Not a number", {"year": ["A valid integer is required."]}),
     description="`year` or `month` is invalid.",
 )

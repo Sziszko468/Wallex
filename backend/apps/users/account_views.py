@@ -2,6 +2,7 @@
 two-factor authentication and the security log. All of them only ever touch the caller's
 own account; sensitive changes also ask for the password again."""
 
+from django.utils.translation import gettext_lazy as _
 from rest_framework import generics, mixins, permissions, status, viewsets
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
@@ -88,7 +89,9 @@ class PasswordChangeView(SensitiveActionView):
         user.save(update_fields=["password"])
         count = sessions.revoke_all(user, RevokeReason.PASSWORD_CHANGED, keep_key=audit.session_key_of(request))
         audit.record(AuditAction.PASSWORD_CHANGED, request=request, other_sessions_revoked=count)
-        return Response({"detail": "Password changed. Your other devices were signed out.", "revoked_sessions": count})
+        return Response(
+            {"detail": _("Password changed. Your other devices were signed out."), "revoked_sessions": count}
+        )
 
 
 # --- Two-factor authentication ---------------------------------------------------------------
@@ -137,10 +140,12 @@ def _check_second_factor(request, serializer):
     """Password and a current code (or recovery code) — returns an error response or None."""
     serializer.is_valid(raise_exception=True)
     if not mfa.is_enabled(request.user):
-        return Response({"non_field_errors": ["Two-factor authentication is off."]}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"non_field_errors": [_("Two-factor authentication is off.")]}, status=status.HTTP_400_BAD_REQUEST
+        )
     method = mfa.verify(request.user, serializer.validated_data["code"])
     if method is None:
-        return Response({"code": ["That code isn't right."]}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"code": [_("That code isn't right.")]}, status=status.HTTP_400_BAD_REQUEST)
     if method == mfa.Method.RECOVERY_CODE:
         audit.record(AuditAction.RECOVERY_CODE_USED, request=request, remaining=mfa.recovery_codes_left(request.user))
     return None
@@ -149,18 +154,22 @@ def _check_second_factor(request, serializer):
 @MFA_DISABLE_SCHEMA
 class MfaDisableView(SensitiveActionView):
     def post(self, request):
-        problem = _check_second_factor(request, PasswordAndCodeSerializer(data=request.data, context={"request": request}))
+        problem = _check_second_factor(
+            request, PasswordAndCodeSerializer(data=request.data, context={"request": request})
+        )
         if problem is not None:
             return problem
         mfa.disable(request.user)
         audit.record(AuditAction.MFA_DISABLED, request=request)
-        return Response({"detail": "Two-factor authentication is off."})
+        return Response({"detail": _("Two-factor authentication is off.")})
 
 
 @MFA_RECOVERY_CODES_SCHEMA
 class RecoveryCodesView(SensitiveActionView):
     def post(self, request):
-        problem = _check_second_factor(request, PasswordAndCodeSerializer(data=request.data, context={"request": request}))
+        problem = _check_second_factor(
+            request, PasswordAndCodeSerializer(data=request.data, context={"request": request})
+        )
         if problem is not None:
             return problem
         codes = mfa.regenerate_recovery_codes(request.user)
@@ -190,7 +199,12 @@ class SecurityEventsView(generics.ListAPIView):
         category = request.query_params.get("category")
         if category and category not in AuditCategory.values:
             return Response(
-                {"category": [f'"{category}" is not one of: {", ".join(AuditCategory.values)}.']},
+                {
+                    "category": [
+                        _('"%(category)s" is not one of: %(choices)s.')
+                        % {"category": category, "choices": ", ".join(AuditCategory.values)}
+                    ]
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
         return super().list(request, *args, **kwargs)

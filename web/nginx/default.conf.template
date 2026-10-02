@@ -1,4 +1,4 @@
-# Spendly web: serves the React build and proxies the Django backend on the same origin.
+# WALLEX web: serves the React build and proxies the Django backend on the same origin.
 #
 # The nginx image renders this template with envsubst when the container starts. Only
 # variables that are set in the environment are replaced (API_UPSTREAM,

@@ -1,4 +1,5 @@
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import type { AssistantMessage } from "../../types/assistant";
 import { colors, fontSize, spacing } from "../../utils/theme";
 import { MarkdownText } from "./MarkdownText";
@@ -10,8 +11,9 @@ interface ChatMessageListProps {
 }
 
 function Question({ text }: { text: string }) {
+  const { t } = useTranslation();
   return (
-    <View style={[styles.row, styles.rowUser]} accessibilityLabel={`You: ${text}`}>
+    <View style={[styles.row, styles.rowUser]} accessibilityLabel={t("assistant.messages.you", { text })}>
       <View style={[styles.bubble, styles.userBubble]}>
         <Text style={styles.userText}>{text}</Text>
       </View>
@@ -20,14 +22,15 @@ function Question({ text }: { text: string }) {
 }
 
 function Answer({ message }: { message: AssistantMessage }) {
+  const { t } = useTranslation();
   return (
     <View style={[styles.row, styles.rowAssistant]}>
       <View style={[styles.bubble, styles.assistantBubble]}>
         <MarkdownText text={message.content} />
       </View>
       {message.sources.length > 0 && (
-        <View style={styles.sources} accessibilityLabel="Based on">
-          <Text style={styles.sourcesLabel}>Based on:</Text>
+        <View style={styles.sources} accessibilityLabel={t("assistant.messages.basedOn")}>
+          <Text style={styles.sourcesLabel}>{t("assistant.messages.basedOnLabel")}</Text>
           {message.sources.map((source, index) => (
             <Text key={index} style={styles.source}>
               {source.label}
@@ -41,6 +44,7 @@ function Answer({ message }: { message: AssistantMessage }) {
 }
 
 export function ChatMessageList({ messages, pendingQuestion }: ChatMessageListProps) {
+  const { t } = useTranslation();
   return (
     <View style={styles.list}>
       {messages.map((message) =>
@@ -57,10 +61,10 @@ export function ChatMessageList({ messages, pendingQuestion }: ChatMessageListPr
             <View
               style={[styles.bubble, styles.assistantBubble, styles.thinking]}
               accessibilityRole="progressbar"
-              accessibilityLabel="Checking your data"
+              accessibilityLabel={t("assistant.messages.thinking")}
             >
               <ActivityIndicator size="small" color={colors.textMuted} />
-              <Text style={styles.thinkingText}>Checking your data…</Text>
+              <Text style={styles.thinkingText}>{t("assistant.messages.thinkingText")}</Text>
             </View>
           </View>
         </>

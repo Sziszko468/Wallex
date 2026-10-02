@@ -1,0 +1,61 @@
+export const common = {
+  actions: {
+    cancel: "Cancel",
+    delete: "Delete",
+    edit: "Edit",
+    retry: "Retry",
+    done: "Done",
+    save: "Save",
+    saveChanges: "Save changes",
+    pause: "Pause",
+    resume: "Resume",
+  },
+  states: {
+    loading: "Loading…",
+    checkingSession: "Checking your session…",
+    notAvailable: "—",
+  },
+  transactionType: {
+    expense: "Expense",
+    income: "Income",
+  },
+  month: {
+    previous: "Previous month",
+    next: "Next month",
+  },
+  dates: {
+    today: "Today",
+    yesterday: "Yesterday",
+  },
+  form: {
+    amount: "Amount",
+    amountIn: "Amount ({{currency}})",
+    category: "Category",
+    date: "Date",
+    datePlaceholder: "YYYY-MM-DD",
+    description: "Description (optional)",
+    descriptionPlaceholder: "e.g. Groceries",
+    name: "Name",
+    noCategories: "No categories available for this type.",
+  },
+  validation: {
+    amountRequired: "Amount is required.",
+    amountPositive: "Amount must be greater than 0.",
+    noDecimals: "{{currency}} amounts can't have decimals.",
+    categoryRequired: "Choose a category.",
+    dateRequired: "Date is required.",
+    dateInvalid: "Enter a valid date (YYYY-MM-DD).",
+    nameRequired: "Name is required.",
+  },
+  confirm: {
+    deleteMessage: "Delete \"{{name}}\"? This can't be undone.",
+  },
+  saved: "Saved ✓",
+  savedOffline: "Saved offline — will sync ✓",
+  saveOffline: "Save offline",
+  uncategorized: "Uncategorized",
+  transaction: "Transaction",
+  language: {
+    label: "Language",
+  },
+} as const;

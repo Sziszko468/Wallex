@@ -82,7 +82,7 @@ describe("Settings page — appearance", () => {
     await user.click(within(theme).getByRole("radio", { name: "Dark" }));
     expect(within(theme).getByRole("radio", { name: "Dark" })).toBeChecked();
     expect(document.documentElement).toHaveAttribute("data-theme", "dark");
-    expect(localStorage.getItem("spendly-theme")).toBe("dark");
+    expect(localStorage.getItem("wallex-theme")).toBe("dark");
 
     await user.click(within(theme).getByRole("radio", { name: "System" }));
     expect(document.documentElement).not.toHaveAttribute("data-theme");

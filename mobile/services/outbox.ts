@@ -1,3 +1,4 @@
+import { t } from "i18next";
 import axios from "axios";
 import * as Crypto from "expo-crypto";
 import { createTransaction } from "./transactionsService";
@@ -6,6 +7,8 @@ import { extractErrorMessage, extractFieldErrors } from "../utils/errors";
 import { isOfflineError } from "../utils/network";
 import { getOfflineUser, readUserJson, writeUserJson } from "../utils/offlineStore";
 import type { CreateTransactionPayload } from "../types/transaction";
+import { HTTP_STATUS } from "../config/http";
+import { MS_PER_MINUTE } from "../config/time";
 
 /**
  * Transactions recorded while offline, waiting to be sent to the backend.
@@ -37,9 +40,14 @@ export interface SyncResult {
 
 const OUTBOX_NAME = "outbox";
 const BASE_BACKOFF_MS = 15_000;
-const MAX_BACKOFF_MS = 10 * 60_000;
+const MAX_BACKOFF_MINUTES = 10;
+const MAX_BACKOFF_MS = MAX_BACKOFF_MINUTES * MS_PER_MINUTE;
 // Worth retrying as-is: the server may accept the same data later.
-const RETRYABLE_STATUSES = new Set([408, 429, 500]);
+const RETRYABLE_STATUSES = new Set<number>([
+  HTTP_STATUS.REQUEST_TIMEOUT,
+  HTTP_STATUS.TOO_MANY_REQUESTS,
+  HTTP_STATUS.INTERNAL_SERVER_ERROR,
+]);
 
 let items: readonly PendingTransaction[] = [];
 let loadedForUser: number | null = null;
@@ -126,7 +134,7 @@ export async function retryPending(clientId: string): Promise<void> {
 /** Why the backend refused an item, phrased for someone who recorded it offline a while ago. */
 function describeRejection(error: unknown): string {
   if (extractFieldErrors(error).category) {
-    return "Its category no longer exists (it was deleted or changed meanwhile). Discard it and add it again with another category.";
+    return t("offline.categoryGone");
   }
   return extractErrorMessage(error);
 }

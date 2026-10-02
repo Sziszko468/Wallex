@@ -5,15 +5,14 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
 from django.db.models.functions import Round
+from django.utils.translation import gettext_lazy as _
 
 from apps.categories.models import Category, TransactionType
 from apps.currencies.models import Currency
 
 
 class Transaction(models.Model):
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="transactions"
-    )
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="transactions")
     # RESTRICT, not PROTECT: a category in use can't be deleted on its own, but deleting
     # the user (which removes their categories *and* transactions together) still works.
     category = models.ForeignKey(Category, on_delete=models.RESTRICT, related_name="transactions")
@@ -26,9 +25,7 @@ class Transaction(models.Model):
     )
     type = models.CharField(max_length=10, choices=TransactionType.choices)
     # The amount as it was paid, in `currency` — never rewritten.
-    amount = models.DecimalField(
-        max_digits=12, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))]
-    )
+    amount = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))])
     # Default EUR: every transaction recorded before multi-currency support was in euros.
     currency = models.CharField(max_length=3, choices=Currency.choices, default=Currency.EUR)
     # Value of 1 unit of `currency` in the user's base currency (1 when they are the same).
@@ -54,9 +51,7 @@ class Transaction(models.Model):
         ordering = ["-date", "-created_at"]
         constraints = [
             models.CheckConstraint(condition=models.Q(amount__gt=0), name="transaction_amount_positive"),
-            models.CheckConstraint(
-                condition=models.Q(exchange_rate__gt=0), name="transaction_exchange_rate_positive"
-            ),
+            models.CheckConstraint(condition=models.Q(exchange_rate__gt=0), name="transaction_exchange_rate_positive"),
             models.UniqueConstraint(
                 fields=["user", "client_id"],
                 condition=models.Q(client_id__isnull=False),
@@ -70,9 +65,7 @@ class Transaction(models.Model):
 
     def clean(self):
         if self.category_id and self.type and self.category.type != self.type:
-            raise ValidationError(
-                {"type": "Transaction type must match the selected category's type."}
-            )
+            raise ValidationError({"type": _("Transaction type must match the selected category's type.")})
 
     def __str__(self):
         return f"{self.date} · {self.get_type_display()} · {self.amount} {self.currency}"
@@ -85,19 +78,13 @@ class Frequency(models.TextChoices):
 
 
 class RecurringTransaction(models.Model):
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="recurring_transactions"
-    )
-    category = models.ForeignKey(
-        Category, on_delete=models.RESTRICT, related_name="recurring_transactions"
-    )
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="recurring_transactions")
+    category = models.ForeignKey(Category, on_delete=models.RESTRICT, related_name="recurring_transactions")
     name = models.CharField(max_length=100)
     type = models.CharField(max_length=10, choices=TransactionType.choices)
     # The amount of one occurrence as billed, in `currency` — never rewritten (a Netflix
     # plan billed in USD stays 15.49 USD). Totals convert it to the base currency.
-    amount = models.DecimalField(
-        max_digits=12, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))]
-    )
+    amount = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))])
     currency = models.CharField(max_length=3, choices=Currency.choices, default=Currency.EUR)
     # Who gets paid (landlord, "Netflix Inc.", employer). Optional; `name` is the label.
     merchant = models.CharField(max_length=100, blank=True, default="")
@@ -133,11 +120,9 @@ class RecurringTransaction(models.Model):
 
     def clean(self):
         if self.category_id and self.type and self.category.type != self.type:
-            raise ValidationError(
-                {"type": "Recurring transaction type must match the selected category's type."}
-            )
+            raise ValidationError({"type": _("Recurring transaction type must match the selected category's type.")})
         if self.is_subscription and self.type != TransactionType.EXPENSE:
-            raise ValidationError({"type": "Subscriptions are always expenses."})
+            raise ValidationError({"type": _("Subscriptions are always expenses.")})
 
     def __str__(self):
         return f"{self.name} ({self.get_frequency_display()})"

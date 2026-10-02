@@ -19,6 +19,11 @@ jest.mock("expo-secure-store", () => {
 // The real provider renders nothing until native layout reports the insets.
 jest.mock("react-native-safe-area-context", () => require("react-native-safe-area-context/jest/mock").default);
 
+// The device's language: tests start in English whatever the machine running them is set to.
+jest.mock("expo-localization", () => ({
+  getLocales: () => [{ languageTag: "en-US", languageCode: "en" }],
+}));
+
 jest.mock("expo-crypto", () => ({
   randomUUID: () => require("crypto").randomUUID(),
 }));
@@ -36,6 +41,7 @@ jest.mock("expo-notifications", () => ({
 }));
 
 beforeEach(async () => {
+  await require("../i18n").i18n.changeLanguage("en");
   const AsyncStorage = require("@react-native-async-storage/async-storage");
   await AsyncStorage.clear();
   require("expo-secure-store").__store.clear();

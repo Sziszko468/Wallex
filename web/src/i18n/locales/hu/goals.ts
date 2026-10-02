@@ -1,0 +1,91 @@
+import type { DeepStrings } from "../../types";
+import type { goals as en } from "../en/goals";
+
+export const goals: DeepStrings<typeof en> = {
+  title: "Megtakarítási célok",
+  description: "Tegyél félre pénzt arra, ami fontos.",
+  new: "Új cél",
+  toast: {
+    created: "Cél létrehozva",
+    updated: "Cél frissítve",
+    savingsUpdated: "Megtakarítás frissítve",
+    deleted: "Cél törölve",
+  },
+  empty: {
+    title: "Még nincs megtakarítási cél",
+    message: "Hozz létre egyet egy útra, egy új laptopra vagy egy vésztartalékra, és nézd, ahogy telik.",
+  },
+  summary: {
+    totalSaved: "Összes megtakarítás",
+    totalTarget: "Összes célösszeg",
+    overall: "Teljes előrehaladás",
+    unconverted:
+      "Nem szerepel az összesítésben: {{currencies}} pénznemben gyűjtött célok – nincs árfolyam az elmúlt {{days}} napból.",
+  },
+  delete: {
+    title: "Cél törlése",
+    message: "Törlöd ezt: „{{name}}”? Az előrehaladása elvész. Ha meg szeretnéd őrizni, inkább archiváld.",
+  },
+  status: {
+    active: "Aktív",
+    completed: "Teljesítve",
+    archived: "Archiválva",
+  },
+  daysLeft: {
+    today: "Ma esedékes",
+    left_one: "{{count}} nap van hátra",
+    left_other: "{{count}} nap van hátra",
+    overdue_one: "{{count}} napja lejárt",
+    overdue_other: "{{count}} napja lejárt",
+  },
+  card: {
+    of: "/ {{target}}",
+    noTargetDate: "Nincs céldátum",
+    addMoney: "Pénz hozzáadása",
+    remove: "Levonás",
+    addMoneyTo: "Pénz hozzáadása ide: {{name}}",
+    removeMoneyFrom: "Pénz levonása innen: {{name}}",
+    progress: "{{name}} előrehaladása",
+  },
+  money: {
+    saved: "Eddig megtakarítva: <strong>{{saved}}</strong> / {{target}}",
+    amount: "Összeg ({{currency}})",
+    enterAmount: "Adj meg 0-nál nagyobb összeget.",
+    submitAdd: "Pénz hozzáadása",
+    submitRemove: "Pénz levonása",
+  },
+  form: {
+    newTitle: "Új megtakarítási cél",
+    editTitle: "Cél szerkesztése",
+    namePlaceholder: "pl. Japán út, Vésztartalék",
+    targetAmount: "Célösszeg",
+    currencyLocked: "A pénznem nem módosítható, ha már van megtakarított pénz a célban.",
+    savedSoFar: "Eddig megtakarítva",
+    alreadySaved: "Már megtakarított (opcionális)",
+    targetDate: "Céldátum (opcionális)",
+    submitCreate: "Cél létrehozása",
+    submitSave: "Módosítások mentése",
+    errors: {
+      invalidAmount: "Adj meg érvényes összeget.",
+      targetPositive: "A célösszegnek 0-nál nagyobbnak kell lennie.",
+      datePast: "A céldátum nem lehet a múltban.",
+    },
+  },
+  detail: {
+    backLink: "Összes cél",
+    fallbackTitle: "Cél",
+    removeMoney: "Pénz levonása",
+    archive: "Archiválás",
+    restore: "Visszaállítás",
+    progress: "Előrehaladás",
+    amountOf: "{{saved}} / {{target}}",
+    saved: "Megtakarítva",
+    target: "Célösszeg",
+    stillToSave: "Még hátra van",
+    targetDateCard: "Céldátum",
+    timeLeft: "Hátralévő idő",
+    toReach: "Az eléréshez",
+    monthlySave: "havonta {{amount}} megtakarítás kell",
+    noTargetDate: "Nincs céldátum. Adj meg egyet, hogy lásd, havonta mennyit kell megtakarítanod.",
+  },
+};

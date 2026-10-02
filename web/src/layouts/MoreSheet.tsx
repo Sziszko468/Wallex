@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { NavLink } from "react-router-dom";
 import { Icon } from "../components/icons/Icon";
 import { Modal } from "../components/Modal";
@@ -11,9 +12,10 @@ interface MoreSheetProps {
 
 /** Every destination that doesn't fit in the phone's bottom bar, as big, easy-to-hit tiles. */
 export function MoreSheet({ isOpen, onClose }: MoreSheetProps) {
+  const { t } = useTranslation();
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="More" size="sm">
-      <nav aria-label="More destinations">
+    <Modal isOpen={isOpen} onClose={onClose} title={t("nav.more")} size="sm">
+      <nav aria-label={t("nav.moreDestinations")}>
         <ul className={styles.grid}>
           {MORE_ITEMS.map((item) => (
             <li key={item.to}>
@@ -26,7 +28,7 @@ export function MoreSheet({ isOpen, onClose }: MoreSheetProps) {
                 <span className={styles.icon}>
                   <Icon name={item.icon} size={22} />
                 </span>
-                {item.label}
+                {t(item.labelKey)}
               </NavLink>
             </li>
           ))}

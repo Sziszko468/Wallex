@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import { Icon } from "./icons/Icon";
 import { IconButton } from "./IconButton";
 import styles from "./Toast.module.scss";
@@ -25,6 +26,7 @@ const ToastContext = createContext<ToastApi | null>(null);
 
 /** Short confirmations ("Transaction added") that appear, announce themselves politely, and leave. */
 export function ToastProvider({ children }: { children: ReactNode }) {
+  const { t } = useTranslation();
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const nextId = useRef(0);
 
@@ -59,7 +61,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             >
               <Icon name={toast.tone === "error" ? "alert-circle" : "check-circle"} size={20} className={styles.icon} />
               <span className={styles.message}>{toast.message}</span>
-              <IconButton icon="x" label="Dismiss" size="sm" onClick={() => dismiss(toast.id)} />
+              <IconButton icon="x" label={t("common.actions.dismiss")} size="sm" onClick={() => dismiss(toast.id)} />
             </div>
           ))}
         </div>,

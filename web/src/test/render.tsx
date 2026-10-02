@@ -3,6 +3,7 @@ import { render } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import userEvent from "@testing-library/user-event";
 import { AuthProvider } from "../hooks/useAuth";
+import { LanguageProvider } from "../hooks/useLanguage";
 import { ThemeProvider } from "../hooks/useTheme";
 import { AppRoutes } from "../App";
 import { http, HttpResponse } from "msw";
@@ -24,7 +25,9 @@ export function renderApp(path: string) {
       <ThemeProvider>
         <MemoryRouter initialEntries={[path]}>
           <AuthProvider>
-            <AppRoutes />
+            <LanguageProvider>
+              <AppRoutes />
+            </LanguageProvider>
           </AuthProvider>
         </MemoryRouter>
       </ThemeProvider>

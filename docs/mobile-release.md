@@ -1,4 +1,4 @@
-# Spendly mobile — build & release guide
+# WALLEX mobile — build & release guide
 
 How the Expo app becomes installable iOS and Android binaries: the build variants,
 configuration, secrets policy, and the path to TestFlight / App Store and Google Play.
@@ -13,8 +13,8 @@ install needed). The examples below write it as `eas`.
 |---|---|---|---|
 | Profile (`eas.json`) | `development` (+ `development-simulator`) | `preview` | `production` |
 | Purpose | Daily development with hot reload | Testers, QA, real-device checks | TestFlight / App Store, Google Play |
-| App name on the device | Spendly (Dev) | Spendly (Preview) | Spendly |
-| iOS bundle ID / Android package | `com.szilard.spendly.dev` | `com.szilard.spendly.preview` | `com.szilard.spendly` |
+| App name on the device | WALLEX (Dev) | WALLEX (Preview) | WALLEX |
+| iOS bundle ID / Android package | `com.szilard.wallex.dev` | `com.szilard.wallex.preview` | `com.szilard.wallex` |
 | JavaScript | Loaded from your computer (Metro) | Embedded, release mode | Embedded, release mode |
 | API URL | Auto-detected dev machine (`http://<LAN-IP>:8000/api`) | `EXPO_PUBLIC_API_BASE_URL` from the EAS `preview` environment (https) | … from the EAS `production` environment (https) |
 | Distribution | Internal (APK / registered iPhones) | Internal (APK / registered iPhones) | Store (AAB / IPA) |
@@ -34,12 +34,12 @@ the same time.
 
 | Setting | Where | Value | Notes |
 |---|---|---|---|
-| App name | `app.json` → `name` | `Spendly` | Shown under the icon; variants get a suffix. |
-| iOS bundle identifier | `app.json` → `ios.bundleIdentifier` | `com.szilard.spendly` | **Cannot change** once the app exists in App Store Connect. |
-| Android package | `app.json` → `android.package` | `com.szilard.spendly` | **Cannot change** once uploaded to Google Play. |
+| App name | `app.json` → `name` | `WALLEX` | Shown under the icon; variants get a suffix. |
+| iOS bundle identifier | `app.json` → `ios.bundleIdentifier` | `com.szilard.wallex` | **Cannot change** once the app exists in App Store Connect. |
+| Android package | `app.json` → `android.package` | `com.szilard.wallex` | **Cannot change** once uploaded to Google Play. |
 | Version (user-facing) | `app.json` → `version` | `1.0.0` | Bump manually for each store release (semver). |
 | Build number / versionCode | EAS servers (`appVersionSource: "remote"`) | automatic | `production` builds increment it (`autoIncrement`), so you never edit it by hand. |
-| Deep link scheme | `app.json` → `scheme` | `spendly` | |
+| Deep link scheme | `app.json` → `scheme` | `wallex` | |
 | iPad | `ios.supportsTablet` | `false` | Phone-only: no iPad screenshots or layouts required. The app still runs on iPad in iPhone mode. |
 | Orientation / theme | `orientation`, `userInterfaceStyle` | portrait / light | |
 
@@ -58,7 +58,7 @@ reverse-domain name. Edit `app.json`; the variant suffixes follow automatically.
 Check the resolved config for any variant:
 
 ```bash
-APP_VARIANT=preview EXPO_PUBLIC_API_BASE_URL=https://spendly.example.com/api npx expo config --type public
+APP_VARIANT=preview EXPO_PUBLIC_API_BASE_URL=https://wallex.example.com/api npx expo config --type public
 ```
 
 ## 4. Environment configuration and the production API URL
@@ -68,8 +68,8 @@ secret, but it lives in **EAS environments** rather than the repository, so each
 environment can point at its own backend:
 
 ```bash
-eas env:set --name EXPO_PUBLIC_API_BASE_URL --value https://spendly.example.com/api --environment production --visibility plaintext
-eas env:set --name EXPO_PUBLIC_API_BASE_URL --value https://staging.spendly.example.com/api --environment preview --visibility plaintext
+eas env:set --name EXPO_PUBLIC_API_BASE_URL --value https://wallex.example.com/api --environment production --visibility plaintext
+eas env:set --name EXPO_PUBLIC_API_BASE_URL --value https://staging.wallex.example.com/api --environment preview --visibility plaintext
 eas env:list --environment production
 ```
 
@@ -161,7 +161,7 @@ The app asks for a permission only at the moment the feature is used, never on f
 To inspect the final result without building:
 
 ```bash
-APP_VARIANT=production EXPO_PUBLIC_API_BASE_URL=https://spendly.example.com/api npx expo config --type introspect
+APP_VARIANT=production EXPO_PUBLIC_API_BASE_URL=https://wallex.example.com/api npx expo config --type introspect
 ```
 
 ## 8. Development build
@@ -231,7 +231,7 @@ A release-mode app for testers: no dev menu, JavaScript embedded, pointing at a 
 https backend.
 
 ```bash
-eas env:set --name EXPO_PUBLIC_API_BASE_URL --value https://spendly.example.com/api --environment preview --visibility plaintext
+eas env:set --name EXPO_PUBLIC_API_BASE_URL --value https://wallex.example.com/api --environment preview --visibility plaintext
 eas build --profile preview --platform android
 eas build --profile preview --platform ios
 ```
@@ -252,7 +252,7 @@ Test on a preview build everything the web preview cannot show:
 ## 10. Production build
 
 ```bash
-eas env:set --name EXPO_PUBLIC_API_BASE_URL --value https://spendly.example.com/api --environment production --visibility plaintext
+eas env:set --name EXPO_PUBLIC_API_BASE_URL --value https://wallex.example.com/api --environment production --visibility plaintext
 eas build --profile production --platform all
 ```
 
@@ -299,7 +299,7 @@ submits in one step.
    - **privacy policy URL** (required),
    - **App Privacy** questionnaire: data collected = email address and financial info,
      linked to the user, not used for tracking.
-5. **App Review notes: give a demo account.** Spendly requires login, and reviewers
+5. **App Review notes: give a demo account.** WALLEX requires login, and reviewers
    reject apps they cannot get past the login screen. Create a demo user with sample
    transactions on the production backend and put its credentials in the review notes.
    Do not put them in the repository.
@@ -324,7 +324,7 @@ Already handled in the config:
 
 **Steps:**
 
-1. **Create the app in Play Console:** name "Spendly", app (not game), free.
+1. **Create the app in Play Console:** name "WALLEX", app (not game), free.
 2. **Service account for automated submits:**
    - Create a Google Cloud service account with access to your Play Console account.
    - Download its JSON key, then upload it to EAS (`eas credentials` → Android →
@@ -355,7 +355,7 @@ After the first release is live, you can set `"releaseStatus": "completed"` in `
 | Platform | What | How |
 |---|---|---|
 | iOS | APNs key | `eas credentials` → iOS → Push Notifications → let EAS create it. Needs the Apple Developer account. |
-| Android | FCM V1 | 1. Create a Firebase project and add an Android app with package `com.szilard.spendly` (and `.preview` / `.dev` if you test push there). 2. Download `google-services.json` and store it as an EAS file variable (below). 3. Upload an FCM V1 service account key via `eas credentials` → Android → FCM V1. |
+| Android | FCM V1 | 1. Create a Firebase project and add an Android app with package `com.szilard.wallex` (and `.preview` / `.dev` if you test push there). 2. Download `google-services.json` and store it as an EAS file variable (below). 3. Upload an FCM V1 service account key via `eas credentials` → Android → FCM V1. |
 
 Store `google-services.json` as an EAS file variable for each environment you test push in:
 

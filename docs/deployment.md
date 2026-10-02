@@ -1,6 +1,6 @@
-# Spendly — deployment guide
+# WALLEX — deployment guide
 
-How Spendly runs in production: which containers exist, how they are configured, and how
+How WALLEX runs in production: which containers exist, how they are configured, and how
 to ship the backend, the web app and the mobile app.
 
 ## 1. Topology
@@ -68,7 +68,7 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml exec backend pyth
 ```
 
 This stack runs next to the development stack: it has its own project name
-(`spendly-prod`), its own database volume and no overlapping ports.
+(`wallex-prod`), its own database volume and no overlapping ports.
 
 `--env-file .env.prod` is required on every command. Compose fills in `${POSTGRES_*}`
 and `${VITE_API_BASE_URL}` from it, and a missing value stops with a clear error.
@@ -98,7 +98,7 @@ Required variables are **bold**. Everything else has a safe default.
 | `AUTH_COOKIE_SECURE` | `True` | The web app's refresh-token cookie (HttpOnly, SameSite=Strict, path `/api/auth/`) is sent over HTTPS only. Turning it off stops the app in production. |
 | `DJANGO_ADMIN_ENABLED` / `DJANGO_ADMIN_URL` | `False` / `admin/` | The Django admin signs in with a password only (no 2FA, no lockout), so it is off in production. Enable it only behind a VPN or IP allow-list, preferably at a path of your own. |
 | `AUTH_MFA_RATE`, `AUTH_SENSITIVE_RATE` | `10/minute`, `20/hour` | Two-factor codes at sign-in (per IP); password change and 2FA changes (per user). |
-| `CACHE_URL` | `dbcache://spendly_cache` | Cache for rate-limit counters, shared by all workers. Use `redis://…` for high traffic (needs the `redis` package). |
+| `CACHE_URL` | `dbcache://wallex_cache` | Cache for rate-limit counters, shared by all workers. Use `redis://…` for high traffic (needs the `redis` package). |
 | `DJANGO_LOG_LEVEL` | `INFO` | All logs go to stdout. |
 | `WEB_CONCURRENCY` | `2` | gunicorn worker processes, about 100 MB RAM each. |
 | `GUNICORN_THREADS` | `4` | Threads per worker: a request waiting on the network (an AI assistant answer waits seconds for the model) doesn't block the others. |
@@ -122,7 +122,7 @@ Required variables are **bold**. Everything else has a safe default.
 | `VITE_API_BASE_URL` | **build** (`--build-arg`) | `/api` | Baked into the JavaScript bundle. `/api` = same origin through nginx; an absolute URL = API on another domain (then set `CORS_ALLOWED_ORIGINS`). Changing it requires a rebuild. |
 | `API_UPSTREAM` | runtime | `http://backend:8000` | Where nginx proxies `/api/`, `/admin/` and `/static/`. On a cloud platform, this is the backend's internal address. |
 | `WEB_PORT` | compose only | `8080` | Published host port. |
-| `SPENDLY_IMAGE_TAG` | compose only | `latest` | Tag for `spendly-backend` and `spendly-web`, e.g. a git SHA. |
+| `WALLEX_IMAGE_TAG` | compose only | `latest` | Tag for `wallex-backend` and `wallex-web`, e.g. a git SHA. |
 
 ### Mobile (EAS)
 
@@ -133,13 +133,13 @@ Required variables are **bold**. Everything else has a safe default.
 ## 4. Database setup
 
 **In `docker-compose.prod.yml`:** Postgres 16 runs with a named volume
-(`spendly-prod_postgres_data`). It publishes no port and has a `pg_isready` health check.
+(`wallex-prod_postgres_data`). It publishes no port and has a `pg_isready` health check.
 The volume survives `down` and is only removed by `down -v`.
 
 **Managed database** (recommended for real data: automatic backups, point-in-time restore):
 
 1. Create a PostgreSQL 16 database and a dedicated user that owns it.
-2. Set `DATABASE_URL=postgres://user:password@host:5432/spendly?sslmode=require`.
+2. Set `DATABASE_URL=postgres://user:password@host:5432/wallex?sslmode=require`.
 3. Remove the `postgres` service and its `depends_on` from your deployment, or simply
    don't deploy it on a platform that runs the backend alone.
 
@@ -147,7 +147,7 @@ The volume survives `down` and is only removed by `down -v`.
 
 ```bash
 docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T postgres \
-  sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --format=custom' > spendly-$(date +%F).dump
+  sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --format=custom' > wallex-$(date +%F).dump
 ```
 
 Restore into an empty database with `pg_restore --clean --if-exists -d <db> <file>`.
@@ -238,16 +238,16 @@ Probes use plain HTTP, so `/api/health/` is exempt from the HTTPS redirect.
 ### A. A single server (VPS) with Docker Compose
 
 1. Install Docker and a TLS reverse proxy on the server, e.g. Caddy with automatic
-   Let's Encrypt, forwarding `spendly.example.com` to `localhost:8080`. Point DNS at
+   Let's Encrypt, forwarding `wallex.example.com` to `localhost:8080`. Point DNS at
    the server.
 2. Clone the repository, then `cp .env.prod.example .env.prod`. Fill it in with real
-   secrets, `DJANGO_ALLOWED_HOSTS=spendly.example.com`, `DJANGO_SECURE_SSL_REDIRECT=True`,
+   secrets, `DJANGO_ALLOWED_HOSTS=wallex.example.com`, `DJANGO_SECURE_SSL_REDIRECT=True`,
    `DJANGO_BEHIND_TLS_PROXY=True` and `DRF_NUM_PROXIES=2` (Caddy + nginx).
 3. Publish the web container on localhost only: set `WEB_PORT=127.0.0.1:8080`, so
    port 8080 is never reachable from the internet.
 4. Start the stack:
    `docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build`.
-5. Verify: `https://spendly.example.com/api/health/ready/` returns `{"status":"ok",…}`,
+5. Verify: `https://wallex.example.com/api/health/ready/` returns `{"status":"ok",…}`,
    and the app loads and logs in.
 6. Schedule the jobs (section 11) and the database backup (section 4).
 7. **Updates:** `git pull`, then the same `up -d --build`. `migrate` runs first; if it
@@ -257,20 +257,20 @@ Probes use plain HTTP, so `/api/health/` is exempt from the HTTPS redirect.
 
 1. **Build and push the images** to a registry (tag them with the git SHA, not only `latest`):
    ```bash
-   docker build -t <registry>/spendly-backend:<sha> backend
-   docker build -t <registry>/spendly-web:<sha> web
-   docker push <registry>/spendly-backend:<sha>
-   docker push <registry>/spendly-web:<sha>
+   docker build -t <registry>/wallex-backend:<sha> backend
+   docker build -t <registry>/wallex-web:<sha> web
+   docker push <registry>/wallex-backend:<sha>
+   docker push <registry>/wallex-web:<sha>
    ```
 2. **Database:** create a managed PostgreSQL database (section 4) and put its
    `DATABASE_URL` into the platform's secret store, not into the image.
 3. **Backend service:**
-   - use the `spendly-backend` image and set the variables from section 3,
+   - use the `wallex-backend` image and set the variables from section 3,
    - release command: `python manage.py migrate --noinput && python manage.py createcachetable`,
    - health check path: `/api/health/ready/`,
    - keep it private (internal networking) if the platform allows it.
 4. **Web service:**
-   - use the `spendly-web` image with `API_UPSTREAM` set to the backend's internal URL,
+   - use the `wallex-web` image with `API_UPSTREAM` set to the backend's internal URL,
    - expose it publicly on HTTPS with your domain,
    - health check path: `/healthz`.
 
@@ -297,7 +297,7 @@ What connects it to this deployment:
 
 - **API URL:** the app's only build-time setting is `EXPO_PUBLIC_API_BASE_URL`, which
   must be the public **https** origin of this stack plus `/api`
-  (e.g. `https://spendly.example.com/api`). Set it per EAS environment. A `preview` or
+  (e.g. `https://wallex.example.com/api`). Set it per EAS environment. A `preview` or
   `production` build without a valid https URL fails at build time.
 - **No CORS needed:** native apps are not browsers.
 - **Backend first:** deploy the backend before building. Store reviewers need a working
@@ -315,7 +315,7 @@ It is idempotent, so a missed or doubled run is harmless.
 
 - **Server with compose** (host crontab):
   ```
-  0 * * * * cd /srv/spendly && docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T backend python manage.py send_scheduled_notifications
+  0 * * * * cd /srv/wallex && docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T backend python manage.py send_scheduled_notifications
   ```
 - **Cloud:** use the platform's cron job feature (Render Cron Job, Cloud Scheduler +
   Cloud Run job, Fly Machines schedule) with the backend image and the same environment.
@@ -327,7 +327,7 @@ audit events after 365 days (sign-in attempts for addresses without an account a
 ended sessions after 90 days, and expired JWT bookkeeping rows.
 
 ```
-15 3 * * * cd /srv/spendly && docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T backend python manage.py prune_security_data
+15 3 * * * cd /srv/wallex && docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T backend python manage.py prune_security_data
 ```
 
 ### Exchange rates
@@ -341,7 +341,7 @@ before their date, so:
   (the whole history since 1999, about 35,000 rows, ~10 s);
 - **every day, after 16:00 CET:**
   ```
-  30 17 * * * cd /srv/spendly && docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T backend python manage.py fetch_exchange_rates
+  30 17 * * * cd /srv/wallex && docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T backend python manage.py fetch_exchange_rates
   ```
 
 It is idempotent (existing rates are updated, never duplicated). If it stops running,

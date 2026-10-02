@@ -5,14 +5,15 @@ The window ends with the selected month and may cross a year boundary
 the baseline of the first month's change, so every month in the window has one.
 """
 
-import calendar
 from collections import defaultdict
 from datetime import date
 from decimal import Decimal
 
 from django.db.models import Sum
 from django.db.models.functions import TruncMonth
+from django.utils.dates import MONTHS
 
+from apps.categories.defaults import display_name
 from apps.categories.models import TransactionType
 from apps.transactions.models import Transaction
 
@@ -52,7 +53,7 @@ def get_trends(user, year: int, month: int, months: int = DEFAULT_MONTHS) -> dic
         else:
             expenses[row["month_start"]] += row["total"]
             category_totals[row["category_id"]][row["month_start"]] += row["total"]
-            category_names[row["category_id"]] = row["category__name"]
+            category_names[row["category_id"]] = display_name(row["category__name"])
 
     monthly = []
     previous_expenses = expenses[baseline]
@@ -61,7 +62,7 @@ def get_trends(user, year: int, month: int, months: int = DEFAULT_MONTHS) -> dic
             {
                 "year": start.year,
                 "month": start.month,
-                "month_name": calendar.month_name[start.month],
+                "month_name": str(MONTHS[start.month]),
                 "income": income[start],
                 "expenses": expenses[start],
                 "balance": income[start] - expenses[start],

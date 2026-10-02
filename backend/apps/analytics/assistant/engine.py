@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from datetime import date
 
 from django.conf import settings
+from django.utils.translation import gettext_lazy
 
 from . import client as model
 from . import prompts, tools
@@ -18,12 +19,12 @@ MAX_TOOL_ROUNDS = 5
 # Don't start a model call with less time than this left before the deadline.
 MIN_SECONDS_PER_CALL = 5
 
-REFUSAL_ANSWER = (
+REFUSAL_ANSWER = gettext_lazy(
     "Sorry, I can't help with that. I can answer questions about your spending, budgets, "
-    "subscriptions and savings goals in Spendly."
+    "subscriptions and savings goals in WALLEX."
 )
-INCOMPLETE = "The assistant couldn't finish this answer. Please try again."
-TOO_SLOW = "The answer took too long. Please try again."
+INCOMPLETE = gettext_lazy("The assistant couldn't finish this answer. Please try again.")
+TOO_SLOW = gettext_lazy("The answer took too long. Please try again.")
 
 
 @dataclass(frozen=True)
@@ -61,7 +62,7 @@ def answer(user, history: list[dict], question: str, today: date) -> Answer:
 
         # Declined by the model or a safety classifier (after any fallback): never show partial output.
         if response.stop_reason == "refusal":
-            return Answer(REFUSAL_ANSWER)
+            return Answer(str(REFUSAL_ANSWER))
         if response.stop_reason == "max_tokens":
             raise model.AssistantError(INCOMPLETE)
 

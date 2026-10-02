@@ -7,8 +7,7 @@ response can be served from an HTTP cache, and that a stale edit can't silently
 overwrite a newer one (If-Match / 412).
 """
 
-from datetime import date, datetime, timedelta
-from datetime import timezone as dt_timezone
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
 import pytest
@@ -207,25 +206,43 @@ WRITES = {
         {"file": _csv(f"date,description,amount\n{TODAY.isoformat()},Tesco,-9.99\n")},
         format="multipart",
     ),
-    "create category": lambda c, o: c.post(reverse("category-list"), {"name": "Pets", "type": "expense"}, format="json"),
-    "rename category": lambda c, o: c.patch(reverse("category-detail", args=[o["food"].id]), {"name": "Groceries"}, format="json"),
+    "create category": lambda c, o: c.post(
+        reverse("category-list"), {"name": "Pets", "type": "expense"}, format="json"
+    ),
+    "rename category": lambda c, o: c.patch(
+        reverse("category-detail", args=[o["food"].id]), {"name": "Groceries"}, format="json"
+    ),
     "delete category": lambda c, o: c.delete(reverse("category-detail", args=[o["spare"].id])),
     "create budget": lambda c, o: c.post(
         reverse("budget-list"), {"category": o["food"].id, "amount": "100.00", "year": 2031, "month": 1}, format="json"
     ),
-    "edit budget": lambda c, o: c.patch(reverse("budget-detail", args=[o["budget"].id]), {"amount": "90.00"}, format="json"),
+    "edit budget": lambda c, o: c.patch(
+        reverse("budget-detail", args=[o["budget"].id]), {"amount": "90.00"}, format="json"
+    ),
     "delete budget": lambda c, o: c.delete(reverse("budget-detail", args=[o["budget"].id])),
     "edit recurring": lambda c, o: c.patch(
         reverse("recurringtransaction-detail", args=[o["recurring"].id]), {"name": "Rent (new flat)"}, format="json"
     ),
     "create subscription": lambda c, o: c.post(
         reverse("subscription-list"),
-        {"name": "Netflix", "amount": "9.99", "category": o["food"].id, "frequency": "monthly", "start_date": "2026-01-05"},
+        {
+            "name": "Netflix",
+            "amount": "9.99",
+            "category": o["food"].id,
+            "frequency": "monthly",
+            "start_date": "2026-01-05",
+        },
         format="json",
     ),
-    "create goal": lambda c, o: c.post(reverse("savingsgoal-list"), {"name": "Car", "target_amount": "5000.00"}, format="json"),
-    "deposit": lambda c, o: c.post(reverse("savingsgoal-deposit", args=[o["goal"].id]), {"amount": "10.00"}, format="json"),
-    "withdraw": lambda c, o: c.post(reverse("savingsgoal-withdraw", args=[o["goal"].id]), {"amount": "10.00"}, format="json"),
+    "create goal": lambda c, o: c.post(
+        reverse("savingsgoal-list"), {"name": "Car", "target_amount": "5000.00"}, format="json"
+    ),
+    "deposit": lambda c, o: c.post(
+        reverse("savingsgoal-deposit", args=[o["goal"].id]), {"amount": "10.00"}, format="json"
+    ),
+    "withdraw": lambda c, o: c.post(
+        reverse("savingsgoal-withdraw", args=[o["goal"].id]), {"amount": "10.00"}, format="json"
+    ),
     "delete goal": lambda c, o: c.delete(reverse("savingsgoal-detail", args=[o["goal"].id])),
     "change base currency": lambda c, o: c.patch(reverse("auth-me"), {"base_currency": "HUF"}, format="json"),
 }
@@ -243,10 +260,18 @@ def test_every_write_moves_the_version(web, phone, user, add_rates, write):
         ),
         "budget": Budget.objects.create(user=user, category=food, amount=Decimal("100.00"), year=2030, month=6),
         "recurring": RecurringTransaction.objects.create(
-            user=user, category=food, name="Rent", type="expense", amount=Decimal("500.00"),
-            frequency=Frequency.MONTHLY, start_date=date(2026, 1, 1), next_occurrence_date=date(2026, 1, 1),
+            user=user,
+            category=food,
+            name="Rent",
+            type="expense",
+            amount=Decimal("500.00"),
+            frequency=Frequency.MONTHLY,
+            start_date=date(2026, 1, 1),
+            next_occurrence_date=date(2026, 1, 1),
         ),
-        "goal": SavingsGoal.objects.create(user=user, name="Trip", target_amount=Decimal("1000.00"), current_amount=Decimal("50.00")),
+        "goal": SavingsGoal.objects.create(
+            user=user, name="Trip", target_amount=Decimal("1000.00"), current_amount=Decimal("50.00")
+        ),
     }
     for day in (TODAY, TODAY - timedelta(days=1)):
         add_rates(day, HUF="390.00")
@@ -327,7 +352,9 @@ def test_a_second_save_of_the_same_version_is_refused(web, phone, food):
     loaded = _create(web, food)
 
     first = web.patch(_detail(loaded["id"]), {"description": "web"}, format="json", **_if_match(loaded["updated_at"]))
-    second = phone.patch(_detail(loaded["id"]), {"description": "phone"}, format="json", **_if_match(loaded["updated_at"]))
+    second = phone.patch(
+        _detail(loaded["id"]), {"description": "phone"}, format="json", **_if_match(loaded["updated_at"])
+    )
 
     assert (first.status_code, second.status_code) == (200, 412)
     assert Transaction.objects.get(pk=loaded["id"]).description == "web"
@@ -405,7 +432,7 @@ def test_a_browser_on_another_origin_may_send_if_match(web, food, settings):
     ],
 )
 def test_if_match_header_parsing(header, matches):
-    current = datetime(2026, 9, 27, 14, 3, 31, 357564, tzinfo=dt_timezone.utc)
+    current = datetime(2026, 9, 27, 14, 3, 31, 357564, tzinfo=UTC)
     assert precondition_holds(header, current) is matches
 
 

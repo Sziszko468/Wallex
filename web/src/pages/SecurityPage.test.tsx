@@ -15,7 +15,7 @@ const thisBrowser: Session = {
   expires_at: "2026-10-27T08:00:00Z",
   current: true,
 };
-const phone: Session = { ...thisBrowser, id: 2, platform: "ios", user_agent: "Spendly/1.0 iPhone", current: false };
+const phone: Session = { ...thisBrowser, id: 2, platform: "ios", user_agent: "WALLEX/1.0 iPhone", current: false };
 
 const off: MfaStatus = { enabled: false, enabled_at: null, recovery_codes_left: 0 };
 
@@ -134,7 +134,7 @@ describe("Security page", () => {
       http.post(`${API}/auth/2fa/setup/`, () =>
         HttpResponse.json({
           secret: "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP",
-          otpauth_uri: "otpauth://totp/Spendly:anna%40example.com?secret=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP",
+          otpauth_uri: "otpauth://totp/WALLEX:anna%40example.com?secret=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP",
         })
       ),
       http.post(`${API}/auth/2fa/confirm/`, () => HttpResponse.json({ recovery_codes: ["k3m9-q2xa", "p7tn-w4ds"] }))

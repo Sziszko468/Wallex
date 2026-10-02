@@ -1,6 +1,7 @@
 import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import type { MonthlyDataPoint } from "../../types/dashboard";
-import { formatCurrency } from "../../utils/format";
+import { formatCurrency, formatMonthName } from "../../utils/format";
 import { useBaseCurrency } from "../../hooks/useBaseCurrency";
 import { colors, fontSize, spacing } from "../../utils/theme";
 
@@ -10,6 +11,7 @@ interface SpendingTrendChartProps {
 }
 
 const CHART_HEIGHT = 90;
+const LABEL_ROW_HEIGHT = 28; // room for the month labels under the bars
 const COLUMN_WIDTH = 34;
 const BAR_WIDTH = 10;
 
@@ -21,14 +23,15 @@ const BAR_WIDTH = 10;
  * computed every value here).
  */
 export function SpendingTrendChart({ months, selectedMonth }: SpendingTrendChartProps) {
+  const { t } = useTranslation();
   const baseCurrency = useBaseCurrency();
   const maxValue = Math.max(1, ...months.flatMap((m) => [Number(m.income), Number(m.expenses)]));
 
   return (
     <View>
       <View style={styles.legend}>
-        <LegendDot color={colors.success} label="Income" />
-        <LegendDot color={colors.danger} label="Expenses" />
+        <LegendDot color={colors.success} label={t("dashboard.trend.income")} />
+        <LegendDot color={colors.danger} label={t("dashboard.trend.expenses")} />
       </View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -43,7 +46,11 @@ export function SpendingTrendChart({ months, selectedMonth }: SpendingTrendChart
                 key={point.month}
                 style={[styles.column, isSelected && styles.columnSelected]}
                 accessible
-                accessibilityLabel={`${point.month_name}: income ${formatCurrency(point.income, baseCurrency)}, expenses ${formatCurrency(point.expenses, baseCurrency)}`}
+                accessibilityLabel={t("dashboard.trend.column", {
+                  month: formatMonthName(point.month),
+                  income: formatCurrency(point.income, baseCurrency),
+                  expenses: formatCurrency(point.expenses, baseCurrency),
+                })}
               >
                 <View style={styles.bars}>
                   <View
@@ -65,7 +72,7 @@ export function SpendingTrendChart({ months, selectedMonth }: SpendingTrendChart
                     ]}
                   />
                 </View>
-                <Text style={styles.columnLabel}>{point.month_name.slice(0, 3)}</Text>
+                <Text style={styles.columnLabel}>{formatMonthName(point.month, "short")}</Text>
               </View>
             );
           })}
@@ -107,7 +114,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "flex-end",
-    height: CHART_HEIGHT + 28,
+    height: CHART_HEIGHT + LABEL_ROW_HEIGHT,
     paddingHorizontal: spacing.xs,
   },
   column: {

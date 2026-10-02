@@ -34,6 +34,8 @@ from .openapi import SYNC_STATUS_SCHEMA
 from .serializers import SyncStatusSerializer
 
 # API name -> model. Subscriptions are RecurringTransaction rows, so they are included.
+FINGERPRINT_LENGTH = 20  # hex characters kept of the SHA-256: plenty to tell two states apart
+
 SYNCED_RESOURCES = {
     "transactions": Transaction,
     "categories": Category,
@@ -73,7 +75,7 @@ def sync_version(base_currency: str, states: dict[str, ResourceState]) -> str:
         f"{name}={state.count}@{state.last_modified.isoformat() if state.last_modified else '-'}"
         for name, state in sorted(states.items())
     ]
-    return hashlib.sha256("|".join(parts).encode()).hexdigest()[:20]
+    return hashlib.sha256("|".join(parts).encode()).hexdigest()[:FINGERPRINT_LENGTH]
 
 
 def get_sync_status(user) -> dict:

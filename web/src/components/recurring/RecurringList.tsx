@@ -1,17 +1,13 @@
+import { useTranslation } from "react-i18next";
 import type { RecurringTransaction } from "../../types/recurringTransaction";
 import type { Category } from "../../types/category";
 import { formatCurrency, formatDate } from "../../utils/format";
+import { frequencyLabel } from "../../utils/subscriptions";
 import { Badge } from "../Badge";
 import { CategoryMark } from "../CategoryMark";
 import { IconButton } from "../IconButton";
 import { ListRow, RowList } from "../ListRow";
 import styles from "./RecurringList.module.scss";
-
-const FREQUENCY_LABELS: Record<RecurringTransaction["frequency"], string> = {
-  weekly: "Weekly",
-  monthly: "Monthly",
-  yearly: "Yearly",
-};
 
 interface RecurringListProps {
   items: RecurringTransaction[];
@@ -23,8 +19,9 @@ interface RecurringListProps {
 }
 
 export function RecurringList({ items, categoriesById, onEdit, onDelete, onToggleActive, togglingId }: RecurringListProps) {
+  const { t } = useTranslation();
   return (
-    <RowList label="Recurring transactions">
+    <RowList label={t("recurring.listLabel")}>
       {items.map((item) => {
         const category = categoriesById.get(item.category);
         const isIncome = item.type === "income";
@@ -38,7 +35,7 @@ export function RecurringList({ items, categoriesById, onEdit, onDelete, onToggl
                 {item.name}
                 {item.is_subscription && (
                   <Badge tone="primary" className={styles.badge}>
-                    Subscription
+                    {t("recurring.subscriptionBadge")}
                   </Badge>
                 )}
               </>
@@ -46,8 +43,8 @@ export function RecurringList({ items, categoriesById, onEdit, onDelete, onToggl
             meta={
               <>
                 {category && <span>{category.name}</span>}
-                <span>{FREQUENCY_LABELS[item.frequency]}</span>
-                <span>Next {formatDate(item.next_occurrence_date)}</span>
+                <span>{frequencyLabel(item.frequency)}</span>
+                <span>{t("recurring.next", { date: formatDate(item.next_occurrence_date) })}</span>
               </>
             }
             trailing={
@@ -58,7 +55,7 @@ export function RecurringList({ items, categoriesById, onEdit, onDelete, onToggl
                 </span>
                 {!item.is_active && (
                   <Badge variant="outline" icon="pause">
-                    Paused
+                    {t("recurring.paused")}
                   </Badge>
                 )}
               </>
@@ -67,13 +64,13 @@ export function RecurringList({ items, categoriesById, onEdit, onDelete, onToggl
               <>
                 <IconButton
                   icon={item.is_active ? "pause" : "play"}
-                  label={`${item.is_active ? "Pause" : "Resume"} ${item.name}`}
+                  label={t(item.is_active ? "recurring.pause" : "recurring.resume", { name: item.name })}
                   size="sm"
                   disabled={togglingId === item.id}
                   onClick={() => onToggleActive(item)}
                 />
-                <IconButton icon="pencil" label={`Edit ${item.name}`} size="sm" onClick={() => onEdit(item)} />
-                <IconButton icon="trash" label={`Delete ${item.name}`} variant="danger" size="sm" onClick={() => onDelete(item)} />
+                <IconButton icon="pencil" label={t("common.item.edit", { name: item.name })} size="sm" onClick={() => onEdit(item)} />
+                <IconButton icon="trash" label={t("common.item.delete", { name: item.name })} variant="danger" size="sm" onClick={() => onDelete(item)} />
               </>
             }
           />

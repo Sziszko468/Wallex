@@ -7,7 +7,7 @@ interface BrandMarkProps {
 }
 
 /**
- * The Spendly ring: three unequal arcs — sage for what you keep, teal for saving, sand for
+ * The WALLEX ring: three unequal arcs — sage for what you keep, teal for saving, sand for
  * what's set aside — with round ends and a slight tilt. The same shape as /favicon.svg,
  * but coloured with theme tokens so it stays harmonious in dark mode.
  */

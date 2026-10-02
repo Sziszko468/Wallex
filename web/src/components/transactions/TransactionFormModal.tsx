@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useTranslation } from "react-i18next";
 import type { Category, TransactionType } from "../../types/category";
 import type { ConversionPreview, CurrencyCode } from "../../types/currency";
 import type { Transaction } from "../../types/transaction";
@@ -53,6 +54,7 @@ export function TransactionFormModal({
   onClose,
   onSaved,
 }: TransactionFormModalProps) {
+  const { t } = useTranslation();
   const baseCurrency = useBaseCurrency();
   const [type, setType] = useState<TransactionType>("expense");
   const [amount, setAmount] = useState("");
@@ -142,19 +144,19 @@ export function TransactionFormModal({
     const errors: FieldErrors = {};
 
     if (!amount.trim()) {
-      errors.amount = "Amount is required.";
+      errors.amount = t("common.validation.amountRequired");
     } else if (!isPositiveAmount(amount)) {
-      errors.amount = "Amount must be greater than 0.";
+      errors.amount = t("common.validation.amountPositive");
     } else if (!hasValidPrecision(amount, currency)) {
-      errors.amount = `${currency} amounts can't have decimals.`;
+      errors.amount = t("common.validation.noDecimals", { currency });
     }
 
     if (!categoryId) {
-      errors.category = "Choose a category.";
+      errors.category = t("common.validation.categoryRequired");
     }
 
     if (!date) {
-      errors.date = "Date is required.";
+      errors.date = t("common.validation.dateRequired");
     }
 
     return errors;
@@ -191,13 +193,11 @@ export function TransactionFormModal({
         // Changed on another device since the form was opened: show what is there now.
         fillFrom(latest);
         setFieldErrors({});
-        setErrorMessage(
-          "This transaction was just changed on another device. Its latest version is shown — make your change again and save."
-        );
+        setErrorMessage(t("transactions.form.errors.conflict"));
         return;
       }
       if (transaction && isNotFound(error)) {
-        setErrorMessage("This transaction no longer exists — it was deleted on another device.");
+        setErrorMessage(t("transactions.form.errors.gone"));
         return;
       }
       setFieldErrors((previous) => ({ ...previous, ...extractFieldErrors(error) }));
@@ -206,7 +206,7 @@ export function TransactionFormModal({
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title ?? (transaction ? "Edit transaction" : "Add transaction")}>
+    <Modal isOpen={isOpen} onClose={onClose} title={title ?? (transaction ? t("transactions.form.editTitle") : t("transactions.form.addTitle"))}>
       <form onSubmit={handleSubmit} className={formStyles.stack} noValidate>
         <ErrorBanner message={errorMessage} />
 
@@ -215,7 +215,7 @@ export function TransactionFormModal({
         <div className={styles.amountBlock}>
           <div className={formStyles.amountRow}>
             <TextField
-              label="Amount"
+              label={t("common.form.amount")}
               variant="amount"
               type="number"
               inputMode="decimal"
@@ -236,12 +236,12 @@ export function TransactionFormModal({
 
           {previewKey !== null && (
             <p className={styles.conversion} aria-live="polite">
-              {previewResult === null && "Converting…"}
+              {previewResult === null && t("transactions.form.converting")}
               {previewResult !== null && "data" in previewResult && (
                 <>
                   ≈ {formatCurrency(previewResult.data.base_amount, previewResult.data.base_currency)}
                   {previewResult.data.rate_date && (
-                    <span className={styles.rateSource}> · ECB rate of {formatDate(previewResult.data.rate_date)}</span>
+                    <span className={styles.rateSource}> · {t("transactions.form.rateSource", { date: formatDate(previewResult.data.rate_date) })}</span>
                   )}
                 </>
               )}
@@ -253,8 +253,8 @@ export function TransactionFormModal({
         </div>
 
         <Select
-          label="Category"
-          placeholder="Select a category"
+          label={t("common.form.category")}
+          placeholder={t("common.form.selectCategory")}
           value={categoryId}
           onChange={(event) => setCategoryId(event.target.value)}
           options={availableCategories.map((category) => ({
@@ -265,14 +265,14 @@ export function TransactionFormModal({
         />
 
         <TextField
-          label="Description (optional)"
-          placeholder="e.g. Groceries"
+          label={t("common.form.descriptionOptional")}
+          placeholder={t("transactions.form.descriptionPlaceholder")}
           value={description}
           onChange={(event) => setDescription(event.target.value)}
         />
 
         <TextField
-          label="Date"
+          label={t("common.form.date")}
           type="date"
           value={date}
           onChange={(event) => setDate(event.target.value)}
@@ -281,10 +281,10 @@ export function TransactionFormModal({
 
         <div className={formStyles.actions}>
           <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
-            Cancel
+            {t("common.actions.cancel")}
           </Button>
           <Button type="submit" isLoading={isSubmitting}>
-            {transaction ? "Save changes" : "Add transaction"}
+            {transaction ? t("transactions.form.submitSave") : t("transactions.form.submitAdd")}
           </Button>
         </div>
       </form>

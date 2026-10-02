@@ -1,23 +1,25 @@
+import { useTranslation } from "react-i18next";
 import { Outlet } from "react-router-dom";
 import { BrandMark } from "../components/icons/BrandMark";
+import { LanguageSelector } from "../components/LanguageSelector";
+import { APP_NAME } from "../config/app";
 import { ThemeSelector } from "../components/ThemeSelector";
 import styles from "./AuthLayout.module.scss";
 
 /** Log in / register. A calm split screen on desktop, a single centred card on smaller screens. */
 export function AuthLayout() {
+  const { t } = useTranslation();
   return (
     <div className={styles.page}>
       <aside className={styles.brandPanel}>
         <div className={styles.brand}>
           <BrandMark size={36} />
-          <span className={styles.wordmark}>Spendly</span>
+          <span className={styles.wordmark}>{APP_NAME}</span>
         </div>
 
         <div className={styles.pitch}>
-          <p className={styles.headline}>A calmer way to see where your money goes.</p>
-          <p className={styles.subline}>
-            Track spending, stay within your budgets and work towards your goals — without the noise.
-          </p>
+          <p className={styles.headline}>{t("auth.layout.headline")}</p>
+          <p className={styles.subline}>{t("auth.layout.subline")}</p>
         </div>
 
         <svg className={styles.art} viewBox="0 0 400 400" fill="none" aria-hidden="true" focusable="false">
@@ -34,14 +36,15 @@ export function AuthLayout() {
       <main className={styles.formPanel}>
         <div className={styles.mobileBrand}>
           <BrandMark size={32} />
-          <span className={styles.wordmark}>Spendly</span>
+          <span className={styles.wordmark}>{APP_NAME}</span>
         </div>
 
         <div className={styles.card}>
           <Outlet />
         </div>
 
-        <div className={styles.theme}>
+        <div className={styles.preferences}>
+          <LanguageSelector size="sm" />
           <ThemeSelector size="sm" />
         </div>
       </main>

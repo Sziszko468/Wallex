@@ -43,7 +43,10 @@ def test_without_a_currency_it_works_exactly_as_before(auth_client, expense_cate
     assert response.status_code == status.HTTP_201_CREATED
     data = response.json()
     assert (data["amount"], data["currency"], data["exchange_rate"], data["base_amount"]) == (
-        "12.50", "EUR", "1.0000000000", "12.50"
+        "12.50",
+        "EUR",
+        "1.0000000000",
+        "12.50",
     )
 
 
@@ -94,7 +97,9 @@ def test_missing_rate_is_a_clear_validation_error(auth_client, expense_category)
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert response.json() == {
-        "exchange_rate": ["No GBP exchange rate is available for 2026-09-25. Enter the rate manually or try again later."]
+        "exchange_rate": [
+            "No GBP exchange rate is available for 2026-09-25. Enter the rate manually or try again later."
+        ]
     }
     assert not Transaction.objects.exists()
 
@@ -137,7 +142,9 @@ def test_editing_the_amount_keeps_the_stored_rate(auth_client, expense_category,
     created = _create(auth_client, expense_category, amount="15000", currency="HUF").json()
     add_rates(FRIDAY, HUF="500")  # the ECB table changes later (e.g. a correction)
 
-    response = auth_client.patch(reverse("transaction-detail", args=[created["id"]]), {"amount": "20000"}, format="json")
+    response = auth_client.patch(
+        reverse("transaction-detail", args=[created["id"]]), {"amount": "20000"}, format="json"
+    )
 
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["exchange_rate"] == "0.0025000000"
@@ -183,7 +190,9 @@ def test_a_full_update_without_currency_keeps_it(auth_client, expense_category, 
 def test_a_new_currency_without_a_rate_is_rejected_on_update(auth_client, expense_category):
     created = _create(auth_client, expense_category).json()
 
-    response = auth_client.patch(reverse("transaction-detail", args=[created["id"]]), {"currency": "CHF"}, format="json")
+    response = auth_client.patch(
+        reverse("transaction-detail", args=[created["id"]]), {"currency": "CHF"}, format="json"
+    )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert "exchange_rate" in response.json()
@@ -223,13 +232,19 @@ def test_budget_and_recurring_amounts_follow_the_base_currency_precision(auth_cl
     _use_base_currency(user, "HUF")
 
     budget = auth_client.post(
-        reverse("budget-list"), {"category": expense_category.id, "amount": "50000.50", "year": 2026, "month": 9}, format="json"
+        reverse("budget-list"),
+        {"category": expense_category.id, "amount": "50000.50", "year": 2026, "month": 9},
+        format="json",
     )
     recurring = auth_client.post(
         reverse("recurringtransaction-list"),
         {
-            "name": "Rent", "category": expense_category.id, "type": "expense", "amount": "150000.50",
-            "frequency": Frequency.MONTHLY, "start_date": "2026-10-01",
+            "name": "Rent",
+            "category": expense_category.id,
+            "type": "expense",
+            "amount": "150000.50",
+            "frequency": Frequency.MONTHLY,
+            "start_date": "2026-10-01",
         },
         format="json",
     )
@@ -270,7 +285,9 @@ def test_csv_duplicate_check_compares_the_currency_too(auth_client, user, expens
 
 
 @pytest.mark.django_db
-def test_rates_are_global_data_not_per_user(auth_client, other_auth_client, expense_category, other_user_expense_category, rates):
+def test_rates_are_global_data_not_per_user(
+    auth_client, other_auth_client, expense_category, other_user_expense_category, rates
+):
     mine = _create(auth_client, expense_category, amount="15000", currency="HUF").json()
     theirs = _create(other_auth_client, other_user_expense_category, amount="15000", currency="HUF").json()
 

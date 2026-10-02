@@ -48,13 +48,25 @@ def finances(user, food_category, transport_category, salary_category):
         _expense(user, category, amount, day, description)
     Budget.objects.create(user=user, category=food_category, amount=Decimal("200.00"), **SEP)
     Budget.objects.create(user=user, category=None, amount=Decimal("150.00"), **SEP)  # overall: 195.50 spent
-    for name, amount, frequency in [("Netflix", "17.99", Frequency.MONTHLY), ("Gym", "360.00", Frequency.YEARLY), ("Spotify", "11.99", Frequency.MONTHLY)]:
+    for name, amount, frequency in [
+        ("Netflix", "17.99", Frequency.MONTHLY),
+        ("Gym", "360.00", Frequency.YEARLY),
+        ("Spotify", "11.99", Frequency.MONTHLY),
+    ]:
         Subscription.objects.create(
-            user=user, category=food_category, name=name, amount=Decimal(amount), frequency=frequency,
-            start_date=date(2026, 1, 5), next_occurrence_date=date(2026, 1, 5),
+            user=user,
+            category=food_category,
+            name=name,
+            amount=Decimal(amount),
+            frequency=frequency,
+            start_date=date(2026, 1, 5),
+            next_occurrence_date=date(2026, 1, 5),
         )
     SavingsGoal.objects.create(
-        user=user, name="Japan trip", target_amount=Decimal("3000.00"), current_amount=Decimal("750.00"),
+        user=user,
+        name="Japan trip",
+        target_amount=Decimal("3000.00"),
+        current_amount=Decimal("750.00"),
         target_date=date(2027, 3, 15),
     )
     return {"food": food_category, "transport": transport_category}
@@ -130,8 +142,13 @@ def test_another_users_data_never_appears(user, other_user, finances, name, argu
     _expense(other_user, theirs, "7777.77", date(2026, 8, 5), "Their secret shop")
     Budget.objects.create(user=other_user, category=theirs, amount=Decimal("7777.77"), **SEP)
     Subscription.objects.create(
-        user=other_user, category=theirs, name="Their secret subscription", amount=Decimal("7777.77"),
-        frequency=Frequency.MONTHLY, start_date=date(2026, 1, 1), next_occurrence_date=date(2026, 1, 1),
+        user=other_user,
+        category=theirs,
+        name="Their secret subscription",
+        amount=Decimal("7777.77"),
+        frequency=Frequency.MONTHLY,
+        start_date=date(2026, 1, 1),
+        next_occurrence_date=date(2026, 1, 1),
     )
     SavingsGoal.objects.create(user=other_user, name="Their secret goal", target_amount=Decimal("7777.77"))
 
@@ -148,7 +165,11 @@ def test_monthly_spending(user, finances):
     data = run(user, "get_monthly_spending", **SEP)
 
     assert data["period"] == {
-        "label": "September 2026", "from": "2026-09-01", "to": "2026-09-30", "state": "in_progress", "data_until": "2026-09-15",
+        "label": "September 2026",
+        "from": "2026-09-01",
+        "to": "2026-09-30",
+        "state": "in_progress",
+        "data_until": "2026-09-15",
     }
     assert data["currency"] == "EUR"
     assert (data["total_expenses"], data["total_income"], data["balance"]) == ("195.50", "2000.00", "1804.50")
@@ -169,7 +190,9 @@ def test_a_month_without_transactions_has_no_data(user, finances):
 
 
 @pytest.mark.django_db
-@pytest.mark.parametrize("name", ["get_monthly_spending", "get_category_spending", "get_budget_status", "get_month_comparison"])
+@pytest.mark.parametrize(
+    "name", ["get_monthly_spending", "get_category_spending", "get_budget_status", "get_month_comparison"]
+)
 def test_a_future_month_has_no_data(user, finances, name):
     data = run(user, name, year=2026, month=11)
 
@@ -189,7 +212,9 @@ def test_category_spending_lists_every_category(user, finances):
 
 
 @pytest.mark.django_db
-@pytest.mark.parametrize(("requested", "expected"), [("FOOD", "Food"), ("food and drinks", "Food"), ("transp", "Transport")])
+@pytest.mark.parametrize(
+    ("requested", "expected"), [("FOOD", "Food"), ("food and drinks", "Food"), ("transp", "Transport")]
+)
 def test_category_lookup_is_case_insensitive_and_partial(user, finances, requested, expected):
     data = run(user, "get_category_spending", category=requested, **SEP)
 
@@ -222,14 +247,22 @@ def test_merchant_spending(user, finances):
     assert [row["merchant"] for row in data["merchants"]] == ["Tesco", "MOL", "Pizza Place"]
     tesco = data["merchants"][0]
     assert tesco == {
-        "merchant": "Tesco", "total": "120.00", "payments": 1, "average_payment": "120.00", "share_percentage": 61.38,
-        "previous_month_total": "100.00", "change_percentage": 20.0, "last_payment_date": "2026-09-03",
+        "merchant": "Tesco",
+        "total": "120.00",
+        "payments": 1,
+        "average_payment": "120.00",
+        "share_percentage": 61.38,
+        "previous_month_total": "100.00",
+        "change_percentage": 20.0,
+        "last_payment_date": "2026-09-03",
     }
 
 
 @pytest.mark.django_db
 def test_merchant_lookup(user, finances):
-    assert [row["merchant"] for row in run(user, "get_merchant_spending", merchant="pizza", **SEP)["merchants"]] == ["Pizza Place"]
+    assert [row["merchant"] for row in run(user, "get_merchant_spending", merchant="pizza", **SEP)["merchants"]] == [
+        "Pizza Place"
+    ]
 
     missing = run(user, "get_merchant_spending", merchant="Lidl", **SEP)
     assert missing["has_data"] is False and missing["merchants"] == []
@@ -240,7 +273,9 @@ def test_budget_status(user, finances):
     data = run(user, "get_budget_status", **SEP)
 
     assert data["month_elapsed_percentage"] == 50.0
-    assert {row["budget"]: (row["covers"], row["spent"], row["remaining"], row["status"]) for row in data["budgets"]} == {
+    assert {
+        row["budget"]: (row["covers"], row["spent"], row["remaining"], row["status"]) for row in data["budgets"]
+    } == {
         "Food": ("a category", "150.50", "49.50", "ahead_of_pace"),
         "Overall": ("all expenses", "195.50", "-45.50", "over_budget"),
     }
@@ -278,20 +313,36 @@ def test_subscription_costs_most_expensive_first(user, finances):
 def test_no_subscriptions_means_no_data(user):
     data = run(user, "get_subscription_costs")
 
-    assert data == {"as_of": "2026-09-15", "currency": "EUR", "has_data": False, "note": "The user has no subscriptions recorded."}
+    assert data == {
+        "as_of": "2026-09-15",
+        "currency": "EUR",
+        "has_data": False,
+        "note": "The user has no subscriptions recorded.",
+    }
 
 
 @pytest.mark.django_db
 def test_savings_progress_finds_the_goal_by_how_the_user_says_it(user, finances):
-    SavingsGoal.objects.create(user=user, name="Laptop", target_amount=Decimal("1500.00"), status=SavingsGoalStatus.ARCHIVED)
+    SavingsGoal.objects.create(
+        user=user, name="Laptop", target_amount=Decimal("1500.00"), status=SavingsGoalStatus.ARCHIVED
+    )
 
     data = run(user, "get_savings_progress", goal="Japan Trip savings goal")
 
     assert data["goals"] == [
         {
-            "name": "Japan trip", "status": "active", "currency": "EUR", "saved": "750.00", "target": "3000.00",
-            "progress_percentage": 25.0, "still_needed": "2250.00", "target_date": "2027-03-15", "days_left": 181,
-            "monthly_saving_needed": "375.00", "saved_in_base_currency": "750.00", "target_in_base_currency": "3000.00",
+            "name": "Japan trip",
+            "status": "active",
+            "currency": "EUR",
+            "saved": "750.00",
+            "target": "3000.00",
+            "progress_percentage": 25.0,
+            "still_needed": "2250.00",
+            "target_date": "2027-03-15",
+            "days_left": 181,
+            "monthly_saving_needed": "375.00",
+            "saved_in_base_currency": "750.00",
+            "target_in_base_currency": "3000.00",
         }
     ]
     assert data["totals_of_goals_not_archived"]["saved"] == "750.00"
@@ -351,9 +402,17 @@ def test_comparison_without_the_earlier_month_has_no_data(user, finances):
 @pytest.mark.parametrize(
     ("name", "arguments", "problem"),
     [
-        ("get_monthly_spending", {"year": 2026, "month": 13}, {"invalid_arguments": {"month": ["Ensure this value is less than or equal to 12."]}}),
+        (
+            "get_monthly_spending",
+            {"year": 2026, "month": 13},
+            {"invalid_arguments": {"month": ["Ensure this value is less than or equal to 12."]}},
+        ),
         ("get_monthly_spending", {"month": 9}, {"invalid_arguments": {"year": ["This field is required."]}}),
-        ("get_month_comparison", {**SEP, "against": "last_week"}, {"invalid_arguments": {"against": ['"last_week" is not a valid choice.']}}),
+        (
+            "get_month_comparison",
+            {**SEP, "against": "last_week"},
+            {"invalid_arguments": {"against": ['"last_week" is not a valid choice.']}},
+        ),
         ("get_monthly_spending", ["2026", "9"], "Arguments must be a JSON object."),
         ("delete_everything", {}, "Unknown tool 'delete_everything'. Available tools: " + ", ".join(TOOLS) + "."),
     ],
@@ -386,9 +445,15 @@ def test_a_failing_tool_is_reported_not_raised(user, monkeypatch, caplog):
     ("source", "expected"),
     [
         ({"tool": "get_monthly_spending", "arguments": SEP}, ("Monthly spending", "September 2026")),
-        ({"tool": "get_category_spending", "arguments": {**SEP, "category": "Food"}}, ("Spending by category", "September 2026 · Food")),
+        (
+            {"tool": "get_category_spending", "arguments": {**SEP, "category": "Food"}},
+            ("Spending by category", "September 2026 · Food"),
+        ),
         ({"tool": "get_month_comparison", "arguments": SEP}, ("Month comparison", "September 2026 vs August 2026")),
-        ({"tool": "get_month_comparison", "arguments": {**SEP, "against": "previous_year"}}, ("Month comparison", "September 2026 vs September 2025")),
+        (
+            {"tool": "get_month_comparison", "arguments": {**SEP, "against": "previous_year"}},
+            ("Month comparison", "September 2026 vs September 2025"),
+        ),
         ({"tool": "get_savings_progress", "arguments": {"goal": "Japan trip"}}, ("Savings goals", "Japan trip")),
         ({"tool": "get_subscription_costs", "arguments": {}}, ("Subscriptions", None)),
         ({"tool": "a_removed_tool", "arguments": {}}, ("a_removed_tool", None)),

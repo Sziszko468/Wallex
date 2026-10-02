@@ -149,6 +149,7 @@ def _not_found(path: str) -> dict[str, Any]:
         {"NotFound": {"detail": f"No {model} matches the given query."}},
     )
 
+
 THROTTLED = {
     **_json_error(
         "Rate limit exceeded (see *Rate limits* in the introduction). Retry after `Retry-After` seconds.",
@@ -162,6 +163,7 @@ THROTTLED = {
 UNTHROTTLED_PREFIXES = ("/api/health/",)
 
 # Resources whose viewsets use ConditionalWriteMixin (tests/test_sync.py keeps the two in step).
+DETAIL_PATH_PARTS = 3  # api / <resource> / {id}
 CONDITIONAL_RESOURCES = {
     "transactions",
     "categories",
@@ -225,7 +227,7 @@ def _precondition_failed(object_schema: dict) -> dict[str, Any]:
 
 def _document_conditional_writes(path: str, operations: dict) -> None:
     parts = path.strip("/").split("/")  # ["api", "<resource>", "{id}"]
-    if len(parts) != 3 or parts[1] not in CONDITIONAL_RESOURCES or parts[2] != "{id}":
+    if len(parts) != DETAIL_PATH_PARTS or parts[1] not in CONDITIONAL_RESOURCES or parts[2] != "{id}":
         return
     object_schema = operations["get"]["responses"]["200"]["content"]["application/json"]["schema"]
     for method, operation in operations.items():
@@ -279,7 +281,9 @@ _READINESS = inline_serializer(
             "ReadinessChecks",
             {
                 "database": serializers.ChoiceField(choices=HEALTH_STATUS_CHOICES),
-                "cache": serializers.ChoiceField(choices=HEALTH_STATUS_CHOICES, help_text="Holds the rate-limit counters."),
+                "cache": serializers.ChoiceField(
+                    choices=HEALTH_STATUS_CHOICES, help_text="Holds the rate-limit counters."
+                ),
             },
         ),
     },

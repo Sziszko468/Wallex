@@ -95,7 +95,10 @@ def check(schema, components):
 
         body_schema = _to_json_schema(content["application/json"]["schema"])
         validator = Draft7Validator({"allOf": [body_schema], "components": components})
-        errors = [f"{'/'.join(map(str, e.absolute_path)) or '<root>'}: {e.message}" for e in validator.iter_errors(response.json())]
+        errors = [
+            f"{'/'.join(map(str, e.absolute_path)) or '<root>'}: {e.message}"
+            for e in validator.iter_errors(response.json())
+        ]
         assert not errors, f"{method.upper()} {path} {code} doesn't match the docs:\n" + "\n".join(errors)
 
     return _check
@@ -144,7 +147,7 @@ def test_every_operation_is_fully_documented(schema):
 def test_every_api_route_is_in_the_schema(schema):
     from tests.test_security import _api_routes
 
-    documented = {path for path in schema["paths"]}
+    documented = set(schema["paths"])
     routes = {
         "/" + route.replace("^", "").replace("$", "").replace("(?P<pk>[^/.]+)", "{id}").replace("(?P<pk>\\d+)", "{id}")
         for route, name in _api_routes()
@@ -185,8 +188,14 @@ def ledger(user):
     Budget.objects.create(user=user, category=food, amount=Decimal("100.00"), **AUG)  # exceeded
     Budget.objects.create(user=user, category=None, amount=Decimal("200.00"), **AUG)  # overall, 85 % used
     RecurringTransaction.objects.create(
-        user=user, category=housing, name="Rent", type=TransactionType.EXPENSE, amount=Decimal("600.00"),
-        frequency=Frequency.MONTHLY, start_date=date(2026, 1, 1), next_occurrence_date=date(2026, 1, 1),
+        user=user,
+        category=housing,
+        name="Rent",
+        type=TransactionType.EXPENSE,
+        amount=Decimal("600.00"),
+        frequency=Frequency.MONTHLY,
+        start_date=date(2026, 1, 1),
+        next_occurrence_date=date(2026, 1, 1),
     )
     return {"food": food, "transport": transport, "housing": housing, "salary": salary}
 
@@ -198,7 +207,11 @@ def test_authentication_contract(api_client, check, monkeypatch):
 
     check("/api/auth/register/", "post", api_client.post(reverse("auth-register"), register, format="json"))
     check("/api/auth/register/", "post", api_client.post(reverse("auth-register"), register, format="json"))  # 400
-    check("/api/auth/login/", "post", api_client.post(reverse("auth-login"), {**creds, "password": "wrong"}, format="json"))
+    check(
+        "/api/auth/login/",
+        "post",
+        api_client.post(reverse("auth-login"), {**creds, "password": "wrong"}, format="json"),
+    )
     check("/api/auth/login/", "post", api_client.post(reverse("auth-login"), {}, format="json"))
     login = api_client.post(reverse("auth-login"), creds, format="json")
     check("/api/auth/login/", "post", login)
@@ -206,7 +219,9 @@ def test_authentication_contract(api_client, check, monkeypatch):
     old_refresh = login.json()["refresh"]
     refreshed = api_client.post(reverse("auth-refresh"), {"refresh": old_refresh}, format="json")
     check("/api/auth/refresh/", "post", refreshed)
-    check("/api/auth/refresh/", "post", api_client.post(reverse("auth-refresh"), {"refresh": old_refresh}, format="json"))
+    check(
+        "/api/auth/refresh/", "post", api_client.post(reverse("auth-refresh"), {"refresh": old_refresh}, format="json")
+    )
 
     check("/api/auth/me/", "get", api_client.get(reverse("auth-me")))  # 401
     api_client.credentials(HTTP_AUTHORIZATION="Bearer not-a-jwt")
@@ -214,9 +229,15 @@ def test_authentication_contract(api_client, check, monkeypatch):
     api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {refreshed.json()['access']}")
     check("/api/auth/me/", "get", api_client.get(reverse("auth-me")))
     check("/api/auth/logout/", "post", api_client.post(reverse("auth-logout"), {}, format="json"))
-    check("/api/auth/logout/", "post", api_client.post(reverse("auth-logout"), {"refresh": refreshed.json()["refresh"]}, format="json"))
+    check(
+        "/api/auth/logout/",
+        "post",
+        api_client.post(reverse("auth-logout"), {"refresh": refreshed.json()["refresh"]}, format="json"),
+    )
 
-    monkeypatch.setattr(ScopedRateThrottle, "THROTTLE_RATES", {**ScopedRateThrottle.THROTTLE_RATES, "auth_login": "1/hour"})
+    monkeypatch.setattr(
+        ScopedRateThrottle, "THROTTLE_RATES", {**ScopedRateThrottle.THROTTLE_RATES, "auth_login": "1/hour"}
+    )
     api_client.post(reverse("auth-login"), creds, format="json")
     throttled = api_client.post(reverse("auth-login"), creds, format="json")
     assert throttled.status_code == 429
@@ -236,7 +257,9 @@ def test_account_security_contract(user, check, monkeypatch):
     login = browser.post(reverse("auth-login"), creds, format="json", HTTP_X_AUTH_TRANSPORT="cookie")
     check("/api/auth/login/", "post", login)  # access only; the refresh token is a cookie
     check("/api/auth/refresh/", "post", browser.post(reverse("auth-refresh"), HTTP_X_AUTH_TRANSPORT="cookie"))
-    check("/api/auth/refresh/", "post", APIClient().post(reverse("auth-refresh"), HTTP_X_AUTH_TRANSPORT="cookie"))  # 401
+    check(
+        "/api/auth/refresh/", "post", APIClient().post(reverse("auth-refresh"), HTTP_X_AUTH_TRANSPORT="cookie")
+    )  # 401
 
     client = APIClient()
     client.credentials(HTTP_AUTHORIZATION=f"Bearer {login.json()['access']}")
@@ -248,7 +271,11 @@ def test_account_security_contract(user, check, monkeypatch):
     check("/api/auth/sessions/{id}/", "delete", client.delete(reverse("session-detail", args=[phone_id])))  # 404 now
     assert phone["refresh"]
 
-    check("/api/auth/password/", "post", client.post(reverse("auth-password"), {"current_password": "x", "new_password": "y"}, format="json"))
+    check(
+        "/api/auth/password/",
+        "post",
+        client.post(reverse("auth-password"), {"current_password": "x", "new_password": "y"}, format="json"),
+    )
     check("/api/auth/2fa/", "get", client.get(reverse("auth-2fa")))
     check("/api/auth/2fa/setup/", "post", client.post(reverse("auth-2fa-setup"), {"password": "wrong"}, format="json"))
     check("/api/auth/2fa/setup/", "post", client.post(reverse("auth-2fa-setup"), {"password": password}, format="json"))
@@ -263,14 +290,34 @@ def test_account_security_contract(user, check, monkeypatch):
     challenge = APIClient().post(reverse("auth-login"), creds, format="json")
     check("/api/auth/login/", "post", challenge)  # mfa_required
     token = challenge.json()["mfa_token"]
-    check("/api/auth/login/verify/", "post", APIClient().post(reverse("auth-login-verify"), {"mfa_token": token, "code": "000000"}, format="json"))
+    check(
+        "/api/auth/login/verify/",
+        "post",
+        APIClient().post(reverse("auth-login-verify"), {"mfa_token": token, "code": "000000"}, format="json"),
+    )
     check("/api/auth/login/verify/", "post", APIClient().post(reverse("auth-login-verify"), {}, format="json"))
-    check("/api/auth/login/verify/", "post", APIClient().post(reverse("auth-login-verify"), {"mfa_token": token, "code": code(1)}, format="json"))
+    check(
+        "/api/auth/login/verify/",
+        "post",
+        APIClient().post(reverse("auth-login-verify"), {"mfa_token": token, "code": code(1)}, format="json"),
+    )
 
     recovery = confirmed.json()["recovery_codes"]
-    check("/api/auth/2fa/recovery-codes/", "post", client.post(reverse("auth-2fa-recovery-codes"), {"password": password, "code": "000000"}, format="json"))
-    check("/api/auth/2fa/recovery-codes/", "post", client.post(reverse("auth-2fa-recovery-codes"), {"password": password, "code": recovery[0]}, format="json"))
-    check("/api/auth/2fa/disable/", "post", client.post(reverse("auth-2fa-disable"), {"password": password, "code": code(-1)}, format="json"))
+    check(
+        "/api/auth/2fa/recovery-codes/",
+        "post",
+        client.post(reverse("auth-2fa-recovery-codes"), {"password": password, "code": "000000"}, format="json"),
+    )
+    check(
+        "/api/auth/2fa/recovery-codes/",
+        "post",
+        client.post(reverse("auth-2fa-recovery-codes"), {"password": password, "code": recovery[0]}, format="json"),
+    )
+    check(
+        "/api/auth/2fa/disable/",
+        "post",
+        client.post(reverse("auth-2fa-disable"), {"password": password, "code": code(-1)}, format="json"),
+    )
 
     check("/api/auth/security-events/", "get", client.get(reverse("auth-security-events")))
     check("/api/auth/security-events/", "get", client.get(reverse("auth-security-events"), {"category": "login"}))
@@ -283,7 +330,15 @@ def test_account_security_contract(user, check, monkeypatch):
     assert locked.status_code == 429
     check("/api/auth/login/", "post", locked)
 
-    check("/api/auth/password/", "post", client.post(reverse("auth-password"), {"current_password": password, "new_password": "a sturdy passphrase 2026"}, format="json"))
+    check(
+        "/api/auth/password/",
+        "post",
+        client.post(
+            reverse("auth-password"),
+            {"current_password": password, "new_password": "a sturdy passphrase 2026"},
+            format="json",
+        ),
+    )
     check("/api/auth/logout-all/", "post", client.post(reverse("auth-logout-all")))
     check("/api/auth/logout-all/", "post", client.post(reverse("auth-logout-all")))  # 401: this session ended too
 
@@ -294,14 +349,24 @@ def test_categories_contract(user, auth_client, other_auth_client, check):
     system = Category.objects.filter(user=user, is_system=True).first()
 
     check("/api/categories/", "get", auth_client.get("/api/categories/"))
-    created = auth_client.post("/api/categories/", {"name": "Gym", "type": "expense", "color": "#16A34A"}, format="json")
+    created = auth_client.post(
+        "/api/categories/", {"name": "Gym", "type": "expense", "color": "#16A34A"}, format="json"
+    )
     check("/api/categories/", "post", created)
-    check("/api/categories/", "post", auth_client.post("/api/categories/", {"name": "gym", "type": "expense"}, format="json"))
+    check(
+        "/api/categories/",
+        "post",
+        auth_client.post("/api/categories/", {"name": "gym", "type": "expense"}, format="json"),
+    )
     url = f"/api/categories/{created.json()['id']}/"
     check("/api/categories/{id}/", "get", auth_client.get(url))
     check("/api/categories/{id}/", "patch", auth_client.patch(url, {"icon": "dumbbell"}, format="json"))
     check("/api/categories/{id}/", "get", other_auth_client.get(url))  # 404
-    check("/api/categories/{id}/", "patch", auth_client.patch(f"/api/categories/{system.id}/", {"name": "X"}, format="json"))
+    check(
+        "/api/categories/{id}/",
+        "patch",
+        auth_client.patch(f"/api/categories/{system.id}/", {"name": "X"}, format="json"),
+    )
     Transaction.objects.create(
         user=user, category_id=created.json()["id"], type="expense", amount=Decimal("5.00"), date=date(2026, 8, 1)
     )
@@ -322,7 +387,11 @@ def test_transactions_contract(auth_client, ledger, check):
     created = auth_client.post("/api/transactions/", offline, format="json")
     check("/api/transactions/", "post", created)
     check("/api/transactions/", "post", auth_client.post("/api/transactions/", offline, format="json"))  # 200 replay
-    check("/api/transactions/", "post", auth_client.post("/api/transactions/", {**body, "type": "income", "amount": "0"}, format="json"))
+    check(
+        "/api/transactions/",
+        "post",
+        auth_client.post("/api/transactions/", {**body, "type": "income", "amount": "0"}, format="json"),
+    )
 
     url = f"/api/transactions/{created.json()['id']}/"
     check("/api/transactions/{id}/", "get", auth_client.get(url))
@@ -345,7 +414,9 @@ def test_csv_import_contract(auth_client, ledger, check):
     check("/api/transactions/import/", "post", post(_csv(good)))
     check("/api/transactions/import/", "post", post(_csv("when,what\n1,2\n")))
     check("/api/transactions/import/", "post", post(_csv(good, name="bank.txt")))
-    check("/api/transactions/import/", "post", post(_csv("date,description,amount\n" + "x" * (2 * 1024 * 1024 + 70_000))))
+    check(
+        "/api/transactions/import/", "post", post(_csv("date,description,amount\n" + "x" * (2 * 1024 * 1024 + 70_000)))
+    )
 
 
 @pytest.mark.django_db
@@ -366,22 +437,37 @@ def test_budgets_contract(auth_client, ledger, check):
 def test_recurring_transactions_contract(auth_client, ledger, check):
     check("/api/recurring-transactions/", "get", auth_client.get("/api/recurring-transactions/"))
     body = {
-        "name": "Gym", "category": ledger["food"].id, "type": "expense", "amount": "45.90",
-        "frequency": "weekly", "start_date": "2026-10-01", "end_date": "2027-10-01",
+        "name": "Gym",
+        "category": ledger["food"].id,
+        "type": "expense",
+        "amount": "45.90",
+        "frequency": "weekly",
+        "start_date": "2026-10-01",
+        "end_date": "2027-10-01",
     }
     created = auth_client.post("/api/recurring-transactions/", body, format="json")
     check("/api/recurring-transactions/", "post", created)
-    check("/api/recurring-transactions/", "post", auth_client.post("/api/recurring-transactions/", {**body, "end_date": "2026-01-01"}, format="json"))
+    check(
+        "/api/recurring-transactions/",
+        "post",
+        auth_client.post("/api/recurring-transactions/", {**body, "end_date": "2026-01-01"}, format="json"),
+    )
     url = f"/api/recurring-transactions/{created.json()['id']}/"
     check("/api/recurring-transactions/{id}/", "get", auth_client.get(url))
-    check("/api/recurring-transactions/{id}/", "patch", auth_client.patch(url, {"is_active": False, "end_date": None}, format="json"))
+    check(
+        "/api/recurring-transactions/{id}/",
+        "patch",
+        auth_client.patch(url, {"is_active": False, "end_date": None}, format="json"),
+    )
     check("/api/recurring-transactions/{id}/", "delete", auth_client.delete(url))
 
 
 @pytest.mark.django_db
 def test_achievements_contract(user, auth_client, ledger, check):
     check("/api/achievements/", "get", auth_client.get("/api/achievements/"))  # unlocked, in progress and locked
-    SavingsGoal.objects.create(user=user, name="Trip", target_amount=Decimal("3000.00"), current_amount=Decimal("412.50"))
+    SavingsGoal.objects.create(
+        user=user, name="Trip", target_amount=Decimal("3000.00"), current_amount=Decimal("412.50")
+    )
     check("/api/achievements/", "get", auth_client.get("/api/achievements/"))  # money progress
     check("/api/achievements/mark-seen/", "post", auth_client.post("/api/achievements/mark-seen/"))
 
@@ -393,9 +479,17 @@ def test_savings_goals_contract(auth_client, check, add_rates):
     body = {"name": "Japan trip", "target_amount": "3000.00", "current_amount": "1850.00", "target_date": "2099-04-01"}
     created = auth_client.post("/api/savings-goals/", body, format="json")
     check("/api/savings-goals/", "post", created)
-    check("/api/savings-goals/", "post", auth_client.post("/api/savings-goals/", {**body, "target_date": "2020-01-01"}, format="json"))
-    auth_client.post("/api/savings-goals/", {"name": "New York", "currency": "USD", "target_amount": "5000.00"}, format="json")
-    auth_client.post("/api/savings-goals/", {"name": "London", "currency": "GBP", "target_amount": "800.00"}, format="json")  # no rate
+    check(
+        "/api/savings-goals/",
+        "post",
+        auth_client.post("/api/savings-goals/", {**body, "target_date": "2020-01-01"}, format="json"),
+    )
+    auth_client.post(
+        "/api/savings-goals/", {"name": "New York", "currency": "USD", "target_amount": "5000.00"}, format="json"
+    )
+    auth_client.post(
+        "/api/savings-goals/", {"name": "London", "currency": "GBP", "target_amount": "800.00"}, format="json"
+    )  # no rate
     check("/api/savings-goals/", "get", auth_client.get("/api/savings-goals/"))  # nullable base values included
     check("/api/savings-goals/summary/", "get", auth_client.get("/api/savings-goals/summary/"))
 
@@ -403,15 +497,39 @@ def test_savings_goals_contract(auth_client, check, add_rates):
     check("/api/savings-goals/{id}/", "get", auth_client.get(url))
     check("/api/savings-goals/{id}/", "patch", auth_client.patch(url, {"target_amount": "3500.00"}, format="json"))
     check("/api/savings-goals/{id}/", "patch", auth_client.patch(url, {"status": "completed"}, format="json"))  # 400
-    check("/api/savings-goals/{id}/deposit/", "post", auth_client.post(f"{url}deposit/", {"amount": "200.00"}, format="json"))
-    check("/api/savings-goals/{id}/deposit/", "post", auth_client.post(f"{url}deposit/", {"amount": "0"}, format="json"))
-    check("/api/savings-goals/{id}/withdraw/", "post", auth_client.post(f"{url}withdraw/", {"amount": "50.00"}, format="json"))
-    check("/api/savings-goals/{id}/withdraw/", "post", auth_client.post(f"{url}withdraw/", {"amount": "99999.00"}, format="json"))
-    check("/api/savings-goals/{id}/", "patch", auth_client.patch(url, {"status": "archived"}, format="json"))  # figures null
-    check("/api/savings-goals/{id}/deposit/", "post", auth_client.post(f"{url}deposit/", {"amount": "1.00"}, format="json"))
+    check(
+        "/api/savings-goals/{id}/deposit/",
+        "post",
+        auth_client.post(f"{url}deposit/", {"amount": "200.00"}, format="json"),
+    )
+    check(
+        "/api/savings-goals/{id}/deposit/", "post", auth_client.post(f"{url}deposit/", {"amount": "0"}, format="json")
+    )
+    check(
+        "/api/savings-goals/{id}/withdraw/",
+        "post",
+        auth_client.post(f"{url}withdraw/", {"amount": "50.00"}, format="json"),
+    )
+    check(
+        "/api/savings-goals/{id}/withdraw/",
+        "post",
+        auth_client.post(f"{url}withdraw/", {"amount": "99999.00"}, format="json"),
+    )
+    check(
+        "/api/savings-goals/{id}/", "patch", auth_client.patch(url, {"status": "archived"}, format="json")
+    )  # figures null
+    check(
+        "/api/savings-goals/{id}/deposit/",
+        "post",
+        auth_client.post(f"{url}deposit/", {"amount": "1.00"}, format="json"),
+    )
     check("/api/savings-goals/{id}/", "delete", auth_client.delete(url))
     check("/api/savings-goals/{id}/", "get", auth_client.get(url))  # 404
-    check("/api/savings-goals/{id}/deposit/", "post", auth_client.post(f"{url}deposit/", {"amount": "1.00"}, format="json"))
+    check(
+        "/api/savings-goals/{id}/deposit/",
+        "post",
+        auth_client.post(f"{url}deposit/", {"amount": "1.00"}, format="json"),
+    )
 
 
 @pytest.mark.django_db
@@ -419,20 +537,33 @@ def test_subscriptions_contract(auth_client, ledger, check, add_rates):
     add_rates(timezone.localdate() - timedelta(days=1), USD="1.17")
     check("/api/subscriptions/", "get", auth_client.get("/api/subscriptions/"))  # empty list
     body = {
-        "name": "Netflix", "merchant": "Netflix International B.V.", "amount": "15.49", "currency": "USD",
-        "category": ledger["food"].id, "frequency": "monthly", "start_date": "2026-01-05",
+        "name": "Netflix",
+        "merchant": "Netflix International B.V.",
+        "amount": "15.49",
+        "currency": "USD",
+        "category": ledger["food"].id,
+        "frequency": "monthly",
+        "start_date": "2026-01-05",
     }
     created = auth_client.post("/api/subscriptions/", body, format="json")
     check("/api/subscriptions/", "post", created)
-    check("/api/subscriptions/", "post", auth_client.post("/api/subscriptions/", {**body, "category": ledger["salary"].id}, format="json"))
+    check(
+        "/api/subscriptions/",
+        "post",
+        auth_client.post("/api/subscriptions/", {**body, "category": ledger["salary"].id}, format="json"),
+    )
     # No GBP rate: base costs are null and GBP is reported as unconverted.
-    auth_client.post("/api/subscriptions/", {**body, "name": "BBC", "currency": "GBP", "frequency": "yearly"}, format="json")
+    auth_client.post(
+        "/api/subscriptions/", {**body, "name": "BBC", "currency": "GBP", "frequency": "yearly"}, format="json"
+    )
     check("/api/subscriptions/", "get", auth_client.get("/api/subscriptions/"))
     check("/api/subscriptions/summary/", "get", auth_client.get("/api/subscriptions/summary/"))
 
     url = f"/api/subscriptions/{created.json()['id']}/"
     check("/api/subscriptions/{id}/", "get", auth_client.get(url))
-    check("/api/subscriptions/{id}/", "patch", auth_client.patch(url, {"active": False}, format="json"))  # paused: nulls
+    check(
+        "/api/subscriptions/{id}/", "patch", auth_client.patch(url, {"active": False}, format="json")
+    )  # paused: nulls
     check("/api/subscriptions/{id}/", "patch", auth_client.patch(url, {"end_date": "2025-01-01"}, format="json"))
     check("/api/subscriptions/{id}/", "delete", auth_client.delete(url))
     check("/api/subscriptions/{id}/", "get", auth_client.get(url))  # 404
@@ -445,7 +576,9 @@ def test_analytics_and_insights_contract(auth_client, ledger, check):
         check(f"/api/analytics/{path}/", "get", response)
         check(f"/api/analytics/{path}/", "get", auth_client.get(f"/api/analytics/{path}/", {"year": 1999, "month": 13}))
     check("/api/analytics/monthly/", "get", auth_client.get("/api/analytics/monthly/", {"year": 2026}))
-    check("/api/analytics/dashboard/", "get", auth_client.get("/api/analytics/dashboard/", {"year": 2030, "month": 1}))  # empty
+    check(
+        "/api/analytics/dashboard/", "get", auth_client.get("/api/analytics/dashboard/", {"year": 2030, "month": 1})
+    )  # empty
 
     # Trends, comparisons, merchants and spending patterns.
     comparison = "/api/analytics/comparison/"
@@ -460,8 +593,13 @@ def test_analytics_and_insights_contract(auth_client, ledger, check):
     insights = auth_client.get("/api/analytics/insights/", AUG).json()["insights"]
     # The fixture is built to exercise every type the docs describe (nullable fields included).
     assert {i["type"] for i in insights} == {
-        "budget_exceeded", "budget_warning", "savings", "category_increase", "category_decrease",
-        "recurring_share", "top_category",
+        "budget_exceeded",
+        "budget_warning",
+        "savings",
+        "category_increase",
+        "category_decrease",
+        "recurring_share",
+        "top_category",
     }
 
 
@@ -479,10 +617,18 @@ def test_currencies_contract(auth_client, check, add_rates):
 @pytest.mark.django_db
 def test_foreign_currency_transaction_contract(auth_client, ledger, check, add_rates):
     add_rates(date(2026, 8, 18), HUF="390.10")
-    body = {"amount": "15000", "currency": "HUF", "type": "expense", "category": ledger["food"].id, "date": "2026-08-20"}
+    body = {
+        "amount": "15000",
+        "currency": "HUF",
+        "type": "expense",
+        "category": ledger["food"].id,
+        "date": "2026-08-20",
+    }
 
     check("/api/transactions/", "post", auth_client.post("/api/transactions/", body, format="json"))
-    check("/api/transactions/", "post", auth_client.post("/api/transactions/", {**body, "currency": "GBP"}, format="json"))
+    check(
+        "/api/transactions/", "post", auth_client.post("/api/transactions/", {**body, "currency": "GBP"}, format="json")
+    )
 
 
 @pytest.mark.django_db
@@ -517,13 +663,20 @@ def test_receipt_scanning_contract(auth_client, ledger, check, settings):
 
 @pytest.mark.django_db
 def test_assistant_contract(auth_client, ledger, check, settings):
-    settings.AI_ASSISTANT = {**settings.AI_ASSISTANT, "ENABLED": True, "CLIENT": "apps.analytics.conftest.FakeAnthropic"}
+    settings.AI_ASSISTANT = {
+        **settings.AI_ASSISTANT,
+        "ENABLED": True,
+        "CLIENT": "apps.analytics.conftest.FakeAnthropic",
+    }
     FakeAnthropic.requests, FakeAnthropic.timeouts = [], []
     conversations = "/api/assistant/conversations/"
     ask = lambda url, message: auth_client.post(url, {"message": message}, format="json")  # noqa: E731
 
     check("/api/assistant/", "get", auth_client.get("/api/assistant/"))
-    FakeAnthropic.script = [tool_call_reply(("get_monthly_spending", AUG)), text_reply("You spent **170.00 EUR** in August.")]
+    FakeAnthropic.script = [
+        tool_call_reply(("get_monthly_spending", AUG)),
+        text_reply("You spent **170.00 EUR** in August."),
+    ]
     created = ask(conversations, "What did I spend in August?")
     check("/api/assistant/conversations/", "post", created)
     check("/api/assistant/conversations/", "post", ask(conversations, ""))
@@ -550,13 +703,25 @@ def test_notifications_contract(auth_client, check):
     created = auth_client.post("/api/devices/", device, format="json")
     check("/api/devices/", "post", created)
     check("/api/devices/", "post", auth_client.post("/api/devices/", device, format="json"))  # 200 re-register
-    check("/api/devices/", "post", auth_client.post("/api/devices/", {"expo_push_token": "x", "platform": "web"}, format="json"))
+    check(
+        "/api/devices/",
+        "post",
+        auth_client.post("/api/devices/", {"expo_push_token": "x", "platform": "web"}, format="json"),
+    )
     check("/api/devices/", "get", auth_client.get("/api/devices/"))
     check("/api/devices/{id}/", "delete", auth_client.delete(f"/api/devices/{created.json()['id']}/"))
 
     check("/api/notifications/preferences/", "get", auth_client.get("/api/notifications/preferences/"))
-    check("/api/notifications/preferences/", "patch", auth_client.patch("/api/notifications/preferences/", {"insights": False}, format="json"))
-    check("/api/notifications/preferences/", "patch", auth_client.patch("/api/notifications/preferences/", {"recurring_reminder_days": 9}, format="json"))
+    check(
+        "/api/notifications/preferences/",
+        "patch",
+        auth_client.patch("/api/notifications/preferences/", {"insights": False}, format="json"),
+    )
+    check(
+        "/api/notifications/preferences/",
+        "patch",
+        auth_client.patch("/api/notifications/preferences/", {"recurring_reminder_days": 9}, format="json"),
+    )
 
 
 @pytest.mark.django_db
@@ -564,7 +729,9 @@ def test_notification_inbox_contract(user, auth_client, ledger, check):
     check("/api/notifications/", "get", auth_client.get("/api/notifications/"))  # empty
     # A budget warning (with a related object) and a monthly summary (without one), made by the real rules.
     today = timezone.localdate()
-    Budget.objects.create(user=user, category=ledger["food"], amount=Decimal("10.00"), year=today.year, month=today.month)
+    Budget.objects.create(
+        user=user, category=ledger["food"], amount=Decimal("10.00"), year=today.year, month=today.month
+    )
     auth_client.post(
         "/api/transactions/",
         {"category": ledger["food"].id, "type": "expense", "amount": "9.00", "date": today.isoformat()},
@@ -597,10 +764,18 @@ def test_sync_contract(user, auth_client, ledger, check):
     check("/api/transactions/{id}/", "patch", auth_client.patch(url, {"description": "x"}, format="json", **stale))
     check("/api/transactions/{id}/", "delete", auth_client.delete(url, **stale))
     version = auth_client.get(url).json()["updated_at"]
-    check("/api/transactions/{id}/", "patch", auth_client.patch(url, {"description": "x"}, format="json", HTTP_IF_MATCH=f'"{version}"'))
+    check(
+        "/api/transactions/{id}/",
+        "patch",
+        auth_client.patch(url, {"description": "x"}, format="json", HTTP_IF_MATCH=f'"{version}"'),
+    )
 
     budget = Budget.objects.filter(user=user).first()
-    check("/api/budgets/{id}/", "patch", auth_client.patch(f"/api/budgets/{budget.id}/", {"amount": "1.00"}, format="json", **stale))
+    check(
+        "/api/budgets/{id}/",
+        "patch",
+        auth_client.patch(f"/api/budgets/{budget.id}/", {"amount": "1.00"}, format="json", **stale),
+    )
 
 
 @pytest.mark.django_db

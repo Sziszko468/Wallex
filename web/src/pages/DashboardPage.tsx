@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import {
   getCategoryAnalytics,
@@ -56,8 +57,9 @@ function currentPeriod() {
 }
 
 export function DashboardPage() {
+  const { t } = useTranslation();
   const { user } = useAuth();
-  usePageTitle("Dashboard");
+  usePageTitle(t("nav.items.dashboard"));
   const [{ year, month }, setPeriod] = useState(currentPeriod);
   // On a phone the deeper analysis starts folded away, so the page opens on what matters most.
   const isTabletOrWider = useMediaQuery("(min-width: 768px)", true);
@@ -130,7 +132,9 @@ export function DashboardPage() {
     setPeriod({ year: nextYear, month: nextMonth });
   }, []);
 
-  const greeting = user?.first_name ? `${greetingFor()}, ${user.first_name}` : greetingFor();
+  const greeting = user?.first_name
+    ? t("dashboard.greeting.withName", { greeting: greetingFor(), name: user.first_name })
+    : greetingFor();
 
   return (
     <div className={pageStyles.page}>
@@ -140,27 +144,27 @@ export function DashboardPage() {
       />
 
       {stats.error ? (
-        <DashboardCard title="Overview">
+        <DashboardCard title={t("dashboard.overview")}>
           <ErrorState error={stats.error} onRetry={stats.refetch} />
         </DashboardCard>
       ) : (
         <DashboardHero stats={stats.data} year={year} month={month} isLoading={stats.isLoading} />
       )}
 
-      <DashboardCard title="Insights" description="What deserves your attention this month">
+      <DashboardCard title={t("dashboard.insights.title")} description={t("dashboard.insights.description")}>
         <SectionBody isLoading={insights.isLoading} error={insights.error} onRetry={insights.refetch} height={150}>
           {insights.data && <InsightsList insights={insights.data.insights} />}
         </SectionBody>
       </DashboardCard>
 
       <div className={styles.split}>
-        <DashboardCard title="Monthly spending" description={`Income and expenses in ${year}`}>
+        <DashboardCard title={t("dashboard.monthly.title")} description={t("dashboard.monthly.description", { year })}>
           <SectionBody isLoading={monthly.isLoading} error={monthly.error} onRetry={monthly.refetch} height={300}>
             {monthly.data && <MonthlySpendingChart data={monthly.data.months} highlightMonth={month} />}
           </SectionBody>
         </DashboardCard>
 
-        <DashboardCard title="Spending by category">
+        <DashboardCard title={t("dashboard.byCategory.title")}>
           <SectionBody
             isLoading={categoryBreakdown.isLoading}
             error={categoryBreakdown.error}
@@ -178,13 +182,13 @@ export function DashboardPage() {
       </div>
 
       <div className={styles.split}>
-        <DashboardCard title="Budget overview" description="How this month is tracking against your limits">
+        <DashboardCard title={t("dashboard.budgets.title")} description={t("dashboard.budgets.description")}>
           <SectionBody isLoading={stats.isLoading} error={stats.error} onRetry={stats.refetch} height={260}>
             {stats.data && <BudgetOverview budgets={stats.data.budget_usage} categoriesById={categoriesById} />}
           </SectionBody>
         </DashboardCard>
 
-        <DashboardCard title="Recent transactions" action={<Link to="/transactions">View all</Link>}>
+        <DashboardCard title={t("dashboard.recent.title")} action={<Link to="/transactions">{t("dashboard.recent.viewAll")}</Link>}>
           <SectionBody
             isLoading={recentTransactions.isLoading || categories.isLoading}
             error={recentTransactions.error ?? categories.error}
@@ -202,7 +206,7 @@ export function DashboardPage() {
       </div>
 
       <div className={styles.plans}>
-        <DashboardCard title="Savings progress">
+        <DashboardCard title={t("dashboard.savings.title")}>
           <SectionBody
             isLoading={savingsSummary.isLoading || savingsGoals.isLoading}
             error={savingsSummary.error ?? savingsGoals.error}
@@ -218,13 +222,13 @@ export function DashboardPage() {
           </SectionBody>
         </DashboardCard>
 
-        <DashboardCard title="Subscriptions">
+        <DashboardCard title={t("dashboard.subscriptions.title")}>
           <SectionBody isLoading={stats.isLoading} error={stats.error} onRetry={stats.refetch} height={220}>
             {stats.data && <SubscriptionsOverview subscriptions={stats.data.subscriptions} />}
           </SectionBody>
         </DashboardCard>
 
-        <DashboardCard title="Achievements">
+        <DashboardCard title={t("dashboard.achievements.title")}>
           <SectionBody isLoading={achievements.isLoading} error={achievements.error} onRetry={achievements.refetch} height={220}>
             {achievements.data && <AchievementsOverview achievements={achievements.data} />}
           </SectionBody>
@@ -232,18 +236,18 @@ export function DashboardPage() {
       </div>
 
       <Disclosure
-        title="Spending analysis"
-        description="Trends, comparisons and habits"
+        title={t("dashboard.analysis.title")}
+        description={t("dashboard.analysis.description")}
         defaultOpen={isTabletOrWider}
       >
         <div className={styles.split}>
-          <DashboardCard title="Spending trend">
+          <DashboardCard title={t("dashboard.trend.title")}>
             <SectionBody isLoading={trends.isLoading} error={trends.error} onRetry={trends.refetch} height={300}>
               {trends.data && <SpendingTrend trends={trends.data} />}
             </SectionBody>
           </DashboardCard>
 
-          <DashboardCard title="Comparison">
+          <DashboardCard title={t("dashboard.comparison.title")}>
             <SectionBody isLoading={comparison.isLoading} error={comparison.error} onRetry={comparison.refetch} height={300}>
               {comparison.data && (
                 <MonthComparison comparison={comparison.data} against={against} onAgainstChange={setAgainst} />
@@ -253,20 +257,20 @@ export function DashboardPage() {
         </div>
 
         <div className={styles.even}>
-          <DashboardCard title="Category trends">
+          <DashboardCard title={t("dashboard.categoryTrends.title")}>
             <SectionBody isLoading={trends.isLoading} error={trends.error} onRetry={trends.refetch} height={240}>
               {trends.data && <CategoryTrendsTable trends={trends.data} colorFor={colorForCategory} />}
             </SectionBody>
           </DashboardCard>
 
-          <DashboardCard title="Top merchants">
+          <DashboardCard title={t("dashboard.merchants.title")}>
             <SectionBody isLoading={merchants.isLoading} error={merchants.error} onRetry={merchants.refetch} height={240}>
               {merchants.data && <TopMerchantsList merchants={merchants.data.merchants} />}
             </SectionBody>
           </DashboardCard>
         </div>
 
-        <DashboardCard title="Spending patterns">
+        <DashboardCard title={t("dashboard.patterns.title")}>
           <SectionBody isLoading={patterns.isLoading} error={patterns.error} onRetry={patterns.refetch} height={280}>
             {patterns.data && <SpendingPatternsCard patterns={patterns.data} />}
           </SectionBody>

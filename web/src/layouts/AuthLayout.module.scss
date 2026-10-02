@@ -128,7 +128,12 @@
 }
 
 // Under the card on phones and tablets; pinned to the corner on desktop.
-.theme {
+.preferences {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-3);
+
   @include m.desktop-up {
     position: absolute;
     right: var(--space-6);

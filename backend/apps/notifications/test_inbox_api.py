@@ -124,7 +124,12 @@ def test_list_query_count_does_not_grow(auth_client, user, make_notification, dj
     for month in range(1, 13):
         budget = Budget.objects.create(user=user, amount=Decimal("100.00"), year=2026, month=month)
         services.notify(
-            user, NotificationKind.BUDGET_WARNING, title="t", body="b", dedupe_key=f"b:{month}", related=(Budget, budget.id)
+            user,
+            NotificationKind.BUDGET_WARNING,
+            title="t",
+            body="b",
+            dedupe_key=f"b:{month}",
+            related=(Budget, budget.id),
         )
     for _ in range(3):
         make_notification(user)
@@ -157,7 +162,9 @@ def test_only_the_read_state_can_change(auth_client, make_notification, user):
     notification = make_notification(user)
 
     response = auth_client.patch(
-        _detail(notification), {"is_read": True, "title": "Hacked", "body": "x", "kind": "budget_exceeded"}, format="json"
+        _detail(notification),
+        {"is_read": True, "title": "Hacked", "body": "x", "kind": "budget_exceeded"},
+        format="json",
     )
 
     assert response.status_code == 200
@@ -216,7 +223,9 @@ def test_a_new_expense_reaches_the_inbox(auth_client, user):
 
     food = Category.objects.create(user=user, name="Food", type="expense")
     today = timezone.localdate()
-    budget = Budget.objects.create(user=user, category=food, amount=Decimal("100.00"), year=today.year, month=today.month)
+    budget = Budget.objects.create(
+        user=user, category=food, amount=Decimal("100.00"), year=today.year, month=today.month
+    )
 
     auth_client.post(
         reverse("transaction-list"),
@@ -247,4 +256,8 @@ def test_update_new_preferences(auth_client, user):
 
     assert response.status_code == 200
     preferences = services.get_preferences(user)
-    assert (preferences.monthly_summary, preferences.unusual_spending, preferences.savings_goals) == (False, False, True)
+    assert (preferences.monthly_summary, preferences.unusual_spending, preferences.savings_goals) == (
+        False,
+        False,
+        True,
+    )

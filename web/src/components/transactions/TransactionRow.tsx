@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { Category } from "../../types/category";
 import type { Transaction } from "../../types/transaction";
 import { formatDate } from "../../utils/format";
@@ -22,7 +23,8 @@ interface TransactionRowProps {
  * No borders between rows — space and a soft hover do the separating.
  */
 export function TransactionRow({ transaction, category, showDate = false, onOpen, onEdit, onDelete }: TransactionRowProps) {
-  const name = transaction.description || category?.name || "Transaction";
+  const { t } = useTranslation();
+  const name = transaction.description || category?.name || t("transactions.fallbackName");
   // With no description the category is already the title; don't say it twice.
   const meta = [transaction.description ? category?.name : undefined, showDate ? formatDate(transaction.date) : undefined]
     .filter(Boolean)
@@ -50,8 +52,8 @@ export function TransactionRow({ transaction, category, showDate = false, onOpen
       )}
       {(onEdit || onDelete) && (
         <div className={styles.actions}>
-          {onEdit && <IconButton icon="pencil" label={`Edit ${name}`} size="sm" onClick={() => onEdit(transaction)} />}
-          {onDelete && <IconButton icon="trash" label={`Delete ${name}`} variant="danger" size="sm" onClick={() => onDelete(transaction)} />}
+          {onEdit && <IconButton icon="pencil" label={t("common.item.edit", { name })} size="sm" onClick={() => onEdit(transaction)} />}
+          {onDelete && <IconButton icon="trash" label={t("common.item.delete", { name })} variant="danger" size="sm" onClick={() => onDelete(transaction)} />}
         </div>
       )}
     </li>

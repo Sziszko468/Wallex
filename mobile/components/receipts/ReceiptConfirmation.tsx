@@ -1,4 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
+import { t } from "i18next";
+import { APP_NAME } from "../../config/app";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Button } from "../Button";
 import { TextField } from "../TextField";
@@ -35,16 +38,16 @@ interface ReceiptConfirmationProps {
 
 function hintFor(field: ScannedField<string>, missing: string): string | undefined {
   if (field.value === null) return missing;
-  if (field.confidence === "low") return "We weren't sure about this — please check it.";
+  if (field.confidence === "low") return t("receipts.confirm.hints.lowConfidence");
   return undefined;
 }
 
 function currencyHint(scan: ReceiptScan, baseCurrency: CurrencyCode): string | undefined {
   if (scan.unsupported_currency) {
-    return `This receipt is in ${scan.unsupported_currency}, which Spendly can't record yet. Choose a currency and enter the amount in it.`;
+    return t("receipts.confirm.hints.currencyUnsupported", { currency: scan.unsupported_currency, appName: APP_NAME });
   }
-  if (scan.currency.value === null) return `Currency not found on the receipt — set to ${baseCurrency}, please check.`;
-  if (scan.currency.confidence === "low") return "The receipt shows several currencies — please check this one.";
+  if (scan.currency.value === null) return t("receipts.confirm.hints.currencyMissing", { currency: baseCurrency });
+  if (scan.currency.confidence === "low") return t("receipts.confirm.hints.currencyMixed");
   return undefined;
 }
 
@@ -61,6 +64,7 @@ export function ReceiptConfirmation({
   onSave,
   onRetake,
 }: ReceiptConfirmationProps) {
+  const { t } = useTranslation();
   const [merchant, setMerchant] = useState(scan.merchant.value ?? "");
   const [amount, setAmount] = useState(scan.amount.value ?? "");
   const [currency, setCurrency] = useState<CurrencyCode>(scan.currency.value ?? baseCurrency);
@@ -77,18 +81,18 @@ export function ReceiptConfirmation({
   const expenseCategories = useMemo(() => categories.filter((category) => category.type === "expense"), [categories]);
 
   const hints = {
-    merchant: hintFor(scan.merchant, "Merchant not found on the receipt — please enter it."),
-    amount: hintFor(scan.amount, "Total not found on the receipt — please enter it."),
+    merchant: hintFor(scan.merchant, t("receipts.confirm.hints.merchantMissing")),
+    amount: hintFor(scan.amount, t("receipts.confirm.hints.amountMissing")),
     currency: currencyHint(scan, baseCurrency),
-    date: hintFor(scan.date, "Date not found on the receipt — set to today, please check."),
+    date: hintFor(scan.date, t("receipts.confirm.hints.dateMissing")),
   };
   const categoryHint =
     categoryId === null
-      ? "Choose a category."
+      ? t("common.validation.categoryRequired")
       : scan.category?.id === categoryId
         ? scan.category.source === "history"
-          ? "Suggested: what you chose for this merchant last time."
-          : "Suggested from the merchant name."
+          ? t("receipts.confirm.hints.categoryFromHistory")
+          : t("receipts.confirm.hints.categoryFromName")
         : undefined;
   // Items are printed in the receipt's own currency (when it's one we know).
   const itemCurrency = scan.currency.value ?? currency;
@@ -97,12 +101,12 @@ export function ReceiptConfirmation({
     const errors: FieldErrors = {};
     const normalizedAmount = amount.trim().replace(",", ".");
     const numericAmount = Number(normalizedAmount);
-    if (!merchant.trim()) errors.merchant = "Merchant is required.";
-    if (!amount.trim()) errors.amount = "Amount is required.";
-    else if (!Number.isFinite(numericAmount) || numericAmount <= 0) errors.amount = "Amount must be greater than 0.";
-    else if (!hasValidPrecision(normalizedAmount, currency)) errors.amount = `${currency} amounts can't have decimals.`;
-    if (!isValidIsoDate(date)) errors.date = "Enter a valid date (YYYY-MM-DD).";
-    if (categoryId === null) errors.category = "Choose a category.";
+    if (!merchant.trim()) errors.merchant = t("receipts.confirm.errors.merchantRequired");
+    if (!amount.trim()) errors.amount = t("common.validation.amountRequired");
+    else if (!Number.isFinite(numericAmount) || numericAmount <= 0) errors.amount = t("common.validation.amountPositive");
+    else if (!hasValidPrecision(normalizedAmount, currency)) errors.amount = t("common.validation.noDecimals", { currency });
+    if (!isValidIsoDate(date)) errors.date = t("common.validation.dateInvalid");
+    if (categoryId === null) errors.category = t("common.validation.categoryRequired");
     return errors;
   }
 
@@ -121,7 +125,7 @@ export function ReceiptConfirmation({
         date,
         category: categoryId,
       });
-      setSavedLabel(savedOffline ? "Saved offline — will sync ✓" : "Saved ✓");
+      setSavedLabel(savedOffline ? t("common.savedOffline") : t("common.saved"));
     } catch (error) {
       // The backend validates again — show its field errors next to the fields.
       const serverErrors = extractFieldErrors(error);
@@ -138,20 +142,18 @@ export function ReceiptConfirmation({
 
   return (
     <View>
-      <Text style={styles.heading}>Check the details</Text>
+      <Text style={styles.heading}>{t("receipts.confirm.heading")}</Text>
       <Text style={styles.subheading}>
-        {scan.text_found
-          ? "Nothing is saved until you press Save."
-          : "We couldn't read any text on this photo. Enter the details yourself, or retake it in better light."}
+        {scan.text_found ? t("receipts.confirm.subFound") : t("receipts.confirm.subNone")}
       </Text>
       <ErrorBanner message={errorMessage} />
 
       <Field hint={hints.merchant}>
-        <TextField label="Merchant" value={merchant} onChangeText={setMerchant} error={fieldErrors.merchant} />
+        <TextField label={t("receipts.confirm.merchant")} value={merchant} onChangeText={setMerchant} error={fieldErrors.merchant} />
       </Field>
       <Field hint={hints.amount}>
         <TextField
-          label="Amount"
+          label={t("common.form.amount")}
           placeholder={currency === "HUF" || currency === "JPY" ? "0" : "0.00"}
           keyboardType="decimal-pad"
           value={amount}
@@ -161,7 +163,7 @@ export function ReceiptConfirmation({
       </Field>
       <Field hint={hints.currency}>
         <View style={styles.field}>
-          <Text style={styles.label}>Currency</Text>
+          <Text style={styles.label}>{t("receipts.confirm.currency")}</Text>
           <CurrencyChipPicker selected={currency} onSelect={setCurrency} />
           {fieldErrors.currency && <Text style={styles.errorText}>{fieldErrors.currency}</Text>}
         </View>
@@ -171,7 +173,7 @@ export function ReceiptConfirmation({
       </Field>
 
       <View style={styles.field}>
-        <Text style={styles.label}>Category</Text>
+        <Text style={styles.label}>{t("common.form.category")}</Text>
         <CategoryChipPicker categories={expenseCategories} selectedId={categoryId} onSelect={setCategoryId} />
         {fieldErrors.category ? (
           <Text style={styles.errorText}>{fieldErrors.category}</Text>
@@ -188,12 +190,12 @@ export function ReceiptConfirmation({
             onPress={() => setShowItems((shown) => !shown)}
           >
             <Text style={styles.itemsToggle}>
-              {showItems ? "▾" : "▸"} Items on the receipt ({scan.items.length})
+              {showItems ? "▾" : "▸"} {t("receipts.confirm.items", { count: scan.items.length })}
             </Text>
           </Pressable>
           {showItems && (
             <View style={styles.items}>
-              <Text style={styles.itemsNote}>As read from the photo — only the total above is saved.</Text>
+              <Text style={styles.itemsNote}>{t("receipts.confirm.itemsNote")}</Text>
               {scan.items.map((item, index) => (
                 <View key={`${index}-${item.name}`} style={styles.itemRow}>
                   <Text style={styles.itemName} numberOfLines={1}>
@@ -208,7 +210,7 @@ export function ReceiptConfirmation({
       )}
 
       <Button
-        title={savedLabel ?? (isOffline ? "Save offline" : "Save Transaction")}
+        title={savedLabel ?? (isOffline ? t("common.saveOffline") : t("receipts.confirm.save"))}
         variant={savedLabel ? "success" : "primary"}
         size="large"
         onPress={handleSave}
@@ -216,7 +218,7 @@ export function ReceiptConfirmation({
         disabled={savedLabel !== null}
       />
       <View style={styles.spacer} />
-      <Button title="Retake photo" variant="secondary" onPress={onRetake} disabled={isSaving || savedLabel !== null} />
+      <Button title={t("receipts.confirm.retake")} variant="secondary" onPress={onRetake} disabled={isSaving || savedLabel !== null} />
     </View>
   );
 }

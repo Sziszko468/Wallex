@@ -1,3 +1,4 @@
+from django.utils.translation import gettext_lazy as _
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
@@ -26,7 +27,7 @@ class DeviceSerializer(serializers.ModelSerializer):
 
     def validate_expo_push_token(self, value: str) -> str:
         if not is_expo_push_token(value):
-            raise serializers.ValidationError("Not a valid Expo push token.")
+            raise serializers.ValidationError(_("Not a valid Expo push token."))
         return value
 
 

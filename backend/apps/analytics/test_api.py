@@ -11,8 +11,11 @@ from apps.transactions.models import Transaction
 
 def _expense(user, category, amount, day, month=9):
     return Transaction.objects.create(
-        user=user, category=category, type=TransactionType.EXPENSE,
-        amount=Decimal(amount), date=date(2026, month, day),
+        user=user,
+        category=category,
+        type=TransactionType.EXPENSE,
+        amount=Decimal(amount),
+        date=date(2026, month, day),
     )
 
 

@@ -11,7 +11,6 @@ from decimal import Decimal
 
 import pytest
 from django.urls import URLPattern, URLResolver, get_resolver, reverse
-from rest_framework import status
 
 from apps.analytics.models import AssistantConversation, AssistantMessage
 from apps.budgets.models import Budget, SavingsGoal
@@ -62,9 +61,7 @@ PROTECTED_ROUTES = sorted({(route, name) for route, name in _api_routes() if nam
 def test_every_non_public_endpoint_requires_authentication(api_client, route, name):
     path = _concrete_path(route)
 
-    statuses = {
-        method: getattr(api_client, method)(path).status_code for method in ("get", "post", "patch", "delete")
-    }
+    statuses = {method: getattr(api_client, method)(path).status_code for method in ("get", "post", "patch", "delete")}
 
     # Every method is either refused for missing credentials or not offered at all — never served.
     assert all(code in (401, 405) for code in statuses.values()), statuses
@@ -74,7 +71,7 @@ def test_every_non_public_endpoint_requires_authentication(api_client, route, na
 def test_public_routes_still_exist():
     """Guards the allowlist above against typos / renamed routes silently widening it."""
     names = {name for _, name in _api_routes()}
-    assert PUBLIC_ROUTES <= names
+    assert names >= PUBLIC_ROUTES
 
 
 # --- User isolation: another user's objects -----------------------------------------
@@ -86,8 +83,11 @@ def _category(user):
 
 def _transaction(user):
     return Transaction.objects.create(
-        user=user, category=_category(user), type=TransactionType.EXPENSE,
-        amount=Decimal("10.00"), date=date(2026, 9, 1),
+        user=user,
+        category=_category(user),
+        type=TransactionType.EXPENSE,
+        amount=Decimal("10.00"),
+        date=date(2026, 9, 1),
     )
 
 
@@ -97,9 +97,14 @@ def _budget(user):
 
 def _recurring(user):
     return RecurringTransaction.objects.create(
-        user=user, category=_category(user), name="Rent", type=TransactionType.EXPENSE,
-        amount=Decimal("500.00"), frequency=Frequency.MONTHLY,
-        start_date=date(2026, 1, 1), next_occurrence_date=date(2026, 1, 1),
+        user=user,
+        category=_category(user),
+        name="Rent",
+        type=TransactionType.EXPENSE,
+        amount=Decimal("500.00"),
+        frequency=Frequency.MONTHLY,
+        start_date=date(2026, 1, 1),
+        next_occurrence_date=date(2026, 1, 1),
     )
 
 
@@ -111,8 +116,13 @@ def _savings_goal(user):
 
 def _subscription(user):
     return Subscription.objects.create(
-        user=user, category=_category(user), name="Netflix", amount=Decimal("17.99"),
-        frequency=Frequency.MONTHLY, start_date=date(2026, 1, 5), next_occurrence_date=date(2026, 1, 5),
+        user=user,
+        category=_category(user),
+        name="Netflix",
+        amount=Decimal("17.99"),
+        frequency=Frequency.MONTHLY,
+        start_date=date(2026, 1, 5),
+        next_occurrence_date=date(2026, 1, 5),
     )
 
 
@@ -179,9 +189,7 @@ def test_other_users_objects_are_invisible_and_untouchable(auth_client, other_us
     assert obj.pk not in {row["id"] for row in rows}
 
 
-OBJECT_ACTIONS = sorted(
-    name for route, name in _api_routes() if "(?P<pk>" in route and not name.endswith("-detail")
-)
+OBJECT_ACTIONS = sorted(name for route, name in _api_routes() if "(?P<pk>" in route and not name.endswith("-detail"))
 
 
 def test_object_actions_belong_to_isolated_resources():
@@ -220,7 +228,8 @@ def test_analytics_never_include_other_users_money(auth_client, other_user):
 
 @pytest.mark.django_db
 @pytest.mark.parametrize(
-    "resource", ["category", "transaction", "budget", "savingsgoal", "recurringtransaction", "subscription", "notification"]
+    "resource",
+    ["category", "transaction", "budget", "savingsgoal", "recurringtransaction", "subscription", "notification"],
 )
 def test_owner_cannot_be_changed_by_mass_assignment(auth_client, user, other_user, resource):
     obj = OWNED_RESOURCES[resource](user)

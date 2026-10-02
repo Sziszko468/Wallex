@@ -148,7 +148,7 @@ describe("ScanReceiptScreen", () => {
     picker.requestCameraPermissionsAsync.mockResolvedValueOnce({ granted: false, canAskAgain: true });
     await takePhoto();
 
-    expect(await screen.findByText("Spendly needs camera access to scan receipts.")).toBeTruthy();
+    expect(await screen.findByText("WALLEX needs camera access to scan receipts.")).toBeTruthy();
     expect(mockedScan).not.toHaveBeenCalled();
   });
 });

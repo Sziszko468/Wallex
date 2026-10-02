@@ -1,4 +1,3 @@
-import calendar
 from calendar import monthrange
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
@@ -6,9 +5,12 @@ from decimal import ROUND_HALF_UP, Decimal
 from django.db.models import Count, DecimalField, Q, Sum, Value
 from django.db.models.functions import Coalesce, ExtractMonth
 from django.utils import timezone
+from django.utils.dates import MONTHS
 
 from apps.budgets.models import Budget, usage_figures
+from apps.categories.defaults import display_name, overall_label
 from apps.categories.models import TransactionType
+from apps.common.constants import MONTHS_PER_YEAR
 from apps.currencies.rates import MissingExchangeRateError, RateTable
 from apps.subscriptions.services import get_month_overview as get_subscription_month_overview
 from apps.transactions.models import RecurringTransaction, Transaction
@@ -48,7 +50,7 @@ def percentage_change(previous: Decimal, current: Decimal) -> Decimal | None:
 
 def shift_month(year: int, month: int, months: int) -> tuple[int, int]:
     """(year, month) moved by `months`, across year boundaries."""
-    years, month_index = divmod(month - 1 + months, 12)
+    years, month_index = divmod(month - 1 + months, MONTHS_PER_YEAR)
     return year + years, month_index + 1
 
 
@@ -107,7 +109,7 @@ def get_category_breakdown(user, year, month):
         breakdown.append(
             {
                 "category_id": row["category_id"],
-                "category_name": row["category__name"],
+                "category_name": display_name(row["category__name"]),
                 "amount": row["total"],
                 "percentage": percentage,
             }
@@ -121,7 +123,7 @@ def get_top_spending_category(category_rows):
     top = category_rows[0]
     return {
         "category_id": top["category_id"],
-        "category_name": top["category__name"],
+        "category_name": display_name(top["category__name"]),
         "amount": top["total"],
     }
 
@@ -165,7 +167,7 @@ def get_budget_usage(user, year, month, today: date | None = None):
             {
                 "budget_id": budget.id,
                 "category_id": budget.category_id,
-                "category_name": budget.category.name if budget.category_id else "Overall",
+                "category_name": display_name(budget.category.name) if budget.category_id else overall_label(),
                 "budget_amount": budget.amount,
                 "spent_amount": budget.spent,
                 "remaining_amount": remaining,
@@ -211,14 +213,14 @@ def get_monthly_analytics(user, year):
     by_month = {row["month_num"]: row for row in rows}
 
     months = []
-    for month_num in range(1, 13):
+    for month_num in range(1, MONTHS_PER_YEAR + 1):
         row = by_month.get(month_num, {"income": ZERO, "expenses": ZERO})
         income = row["income"]
         expenses = row["expenses"]
         months.append(
             {
                 "month": month_num,
-                "month_name": calendar.month_name[month_num],
+                "month_name": str(MONTHS[month_num]),
                 "income": income,
                 "expenses": expenses,
                 "balance": income - expenses,
@@ -269,7 +271,7 @@ def get_category_comparison(user, current_range, previous_range):
     return [
         {
             "category_id": row["category_id"],
-            "category_name": row["category__name"],
+            "category_name": display_name(row["category__name"]),
             "current_amount": row["current"],
             "previous_amount": row["previous"],
             "change_amount": row["current"] - row["previous"],

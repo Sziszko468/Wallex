@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
 from apps.categories.models import Category, TransactionType
@@ -71,9 +72,7 @@ class BudgetSerializer(serializers.ModelSerializer):
         month = attrs.get("month", getattr(self.instance, "month", None))
 
         if category is not None and category.type != TransactionType.EXPENSE:
-            raise serializers.ValidationError(
-                {"category": "Budgets can only be set for expense categories."}
-            )
+            raise serializers.ValidationError({"category": _("Budgets can only be set for expense categories.")})
         # A budget is in the user's base currency.
         check_amount_precision(attrs.get("amount"), request.user.base_currency)
 
@@ -81,7 +80,7 @@ class BudgetSerializer(serializers.ModelSerializer):
         if self.instance is not None:
             queryset = queryset.exclude(pk=self.instance.pk)
         if queryset.exists():
-            raise serializers.ValidationError("A budget for this category and month already exists.")
+            raise serializers.ValidationError(_("A budget for this category and month already exists."))
 
         return attrs
 
@@ -89,8 +88,13 @@ class BudgetSerializer(serializers.ModelSerializer):
 # --- Savings goals ---------------------------------------------------------------------------
 
 
+DERIVED_MONEY_MAX_DIGITS = 15
+
+
 def _money(help_text: str, **kwargs) -> serializers.DecimalField:
-    return serializers.DecimalField(max_digits=15, decimal_places=2, read_only=True, help_text=help_text, **kwargs)
+    return serializers.DecimalField(
+        max_digits=DERIVED_MONEY_MAX_DIGITS, decimal_places=2, read_only=True, help_text=help_text, **kwargs
+    )
 
 
 class SavingsGoalSerializer(serializers.ModelSerializer):
@@ -167,14 +171,14 @@ class SavingsGoalSerializer(serializers.ModelSerializer):
     def validate_status(self, value):
         if value == SavingsGoalStatus.COMPLETED:
             raise serializers.ValidationError(
-                "A goal is completed automatically when the saved amount reaches the target."
+                _("A goal is completed automatically when the saved amount reaches the target.")
             )
         return value
 
     def validate_target_date(self, value):
         unchanged = self.instance is not None and value == self.instance.target_date
         if value is not None and not unchanged and value < timezone.localdate():
-            raise serializers.ValidationError("The target date can't be in the past.")
+            raise serializers.ValidationError(_("The target date can't be in the past."))
         return value
 
     def validate(self, attrs):
@@ -184,12 +188,14 @@ class SavingsGoalSerializer(serializers.ModelSerializer):
         )
         if instance is not None and currency != instance.currency and instance.current_amount > 0:
             raise serializers.ValidationError(
-                {"currency": ["The currency can't change once money is saved in the goal."]}
+                {"currency": [_("The currency can't change once money is saved in the goal.")]}
             )
         for field in ("target_amount", "current_amount"):
             amount = attrs.get(field, getattr(instance, field, None))
             if amount is not None and not has_valid_precision(amount, currency):
-                raise serializers.ValidationError({field: [f"{currency} amounts can't have decimals."]})
+                raise serializers.ValidationError(
+                    {field: [_("%(currency)s amounts can't have decimals.") % {"currency": currency}]}
+                )
         return attrs
 
     def create(self, validated_data):
@@ -226,7 +232,7 @@ class MoneyMovementSerializer(serializers.Serializer):
     def validate_amount(self, value):
         currency = self.context["goal"].currency
         if not has_valid_precision(value, currency):
-            raise serializers.ValidationError(f"{currency} amounts can't have decimals.")
+            raise serializers.ValidationError(_("%(currency)s amounts can't have decimals.") % {"currency": currency})
         return value
 
 

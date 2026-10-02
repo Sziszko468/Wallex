@@ -73,12 +73,22 @@ def test_notify_stores_the_related_object(user):
 def test_a_subscription_keeps_its_own_type(user, entertainment):
     """Subscription is a proxy of RecurringTransaction; the notification must still say "subscription"."""
     subscription = Subscription.objects.create(
-        user=user, category=entertainment, name="Netflix", amount=D("17.99"),
-        frequency=Frequency.MONTHLY, start_date=date(2026, 1, 5), next_occurrence_date=date(2026, 1, 5),
+        user=user,
+        category=entertainment,
+        name="Netflix",
+        amount=D("17.99"),
+        frequency=Frequency.MONTHLY,
+        start_date=date(2026, 1, 5),
+        next_occurrence_date=date(2026, 1, 5),
     )
 
     notification = services.notify(
-        user, NotificationKind.SUBSCRIPTION_DUE, title="t", body="b", dedupe_key="k", related=(Subscription, subscription.id)
+        user,
+        NotificationKind.SUBSCRIPTION_DUE,
+        title="t",
+        body="b",
+        dedupe_key="k",
+        related=(Subscription, subscription.id),
     )
 
     assert notification.content_type == ContentType.objects.get_for_model(Subscription, for_concrete_model=False)
@@ -111,15 +121,27 @@ def test_budget_notifications_point_at_the_budget(auth_client, user):
 
 def _subscription(user, category, name="Netflix", start=date(2026, 1, 28), **fields):
     return Subscription.objects.create(
-        user=user, category=category, name=name, amount=D("17.99"), frequency=Frequency.MONTHLY,
-        start_date=start, next_occurrence_date=start, **fields,
+        user=user,
+        category=category,
+        name=name,
+        amount=D("17.99"),
+        frequency=Frequency.MONTHLY,
+        start_date=start,
+        next_occurrence_date=start,
+        **fields,
     )
 
 
 def _rent(user, category, start=date(2026, 1, 28)):
     return RecurringTransaction.objects.create(
-        user=user, category=category, name="Rent", type=TransactionType.EXPENSE, amount=D("800.00"),
-        frequency=Frequency.MONTHLY, start_date=start, next_occurrence_date=start,
+        user=user,
+        category=category,
+        name="Rent",
+        type=TransactionType.EXPENSE,
+        amount=D("800.00"),
+        frequency=Frequency.MONTHLY,
+        start_date=start,
+        next_occurrence_date=start,
     )
 
 
@@ -252,7 +274,11 @@ def test_lowering_the_target_can_cross_a_milestone(auth_client, user, goal):
 
 @pytest.mark.django_db
 def test_new_goals_and_archived_goals_are_quiet(auth_client, user, goal):
-    auth_client.post(reverse("savingsgoal-list"), {"name": "Car", "target_amount": "100.00", "current_amount": "60.00"}, format="json")
+    auth_client.post(
+        reverse("savingsgoal-list"),
+        {"name": "Car", "target_amount": "100.00", "current_amount": "60.00"},
+        format="json",
+    )
     goal.status = SavingsGoalStatus.ARCHIVED
     goal.save()
 
@@ -348,9 +374,7 @@ def test_monthly_summary(user, two_months, preferences):
     notification = _only(user)
     assert notification.kind == NotificationKind.MONTHLY_SUMMARY
     assert notification.title == "Your August summary"
-    assert notification.body == (
-        "You spent €920.50 and earned €2,000 in August. Spending was 8% lower than in July."
-    )
+    assert notification.body == ("You spent €920.50 and earned €2,000 in August. Spending was 8% lower than in July.")
     assert notification.related_object is None
     assert notification.data == {"screen": "dashboard", "year": 2026, "month": 8}
 

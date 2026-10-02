@@ -72,7 +72,13 @@ SUBSCRIPTION_VIEWSET_SCHEMA = extend_schema_view(
             OpenApiExample(
                 "Monthly, in the base currency",
                 request_only=True,
-                value={"name": "Spotify", "amount": "10.99", "category": 205, "frequency": "monthly", "start_date": "2026-01-14"},
+                value={
+                    "name": "Spotify",
+                    "amount": "10.99",
+                    "category": 205,
+                    "frequency": "monthly",
+                    "start_date": "2026-01-14",
+                },
             ),
             OpenApiExample(
                 "Billed in another currency",
@@ -91,7 +97,9 @@ SUBSCRIPTION_VIEWSET_SCHEMA = extend_schema_view(
             OpenApiExample("Created", response_only=True, status_codes=["201"], value=_EXAMPLE),
         ],
     ),
-    retrieve=extend_schema(tags=["Subscriptions"], summary="Get a subscription", responses={200: SubscriptionSerializer}),
+    retrieve=extend_schema(
+        tags=["Subscriptions"], summary="Get a subscription", responses={200: SubscriptionSerializer}
+    ),
     partial_update=extend_schema(
         tags=["Subscriptions"],
         summary="Update a subscription",

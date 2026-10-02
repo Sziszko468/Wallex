@@ -1,8 +1,7 @@
 import { useEffect } from "react";
+import { APP_NAME } from "../config/app";
 
-const APP_NAME = "Spendly";
-
-/** Sets the browser tab title for the current page ("Budgets · Spendly") — it names the page for screen readers and history too. */
+/** Sets the browser tab title for the current page ("Budgets · WALLEX") — it names the page for screen readers and history too. */
 export function usePageTitle(title: string) {
   useEffect(() => {
     document.title = `${title} · ${APP_NAME}`;

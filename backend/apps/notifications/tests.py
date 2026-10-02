@@ -188,9 +188,7 @@ def test_nothing_is_pushed_before_commit(auth_client, user, shopping, shopping_b
 
 
 def _notification(user, key="event:1"):
-    return Notification.objects.create(
-        user=user, kind=NotificationKind.INSIGHT, title="T", body="B", dedupe_key=key
-    )
+    return Notification.objects.create(user=user, kind=NotificationKind.INSIGHT, title="T", body="B", dedupe_key=key)
 
 
 @pytest.mark.django_db

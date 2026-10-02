@@ -1,4 +1,5 @@
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
 from apps.categories.models import TransactionType
@@ -8,10 +9,14 @@ from apps.transactions.serializers import RecurringScheduleSerializer
 from . import services
 from .models import Subscription
 
+DERIVED_MONEY_MAX_DIGITS = 20
+
 
 def _money(help_text: str, **kwargs) -> serializers.DecimalField:
     # Derived values (yearly cost of a weekly payment, converted to yen…) can outgrow numeric(12, 2).
-    return serializers.DecimalField(max_digits=20, decimal_places=2, read_only=True, help_text=help_text, **kwargs)
+    return serializers.DecimalField(
+        max_digits=DERIVED_MONEY_MAX_DIGITS, decimal_places=2, read_only=True, help_text=help_text, **kwargs
+    )
 
 
 class SubscriptionSerializer(RecurringScheduleSerializer):
@@ -91,7 +96,7 @@ class SubscriptionSerializer(RecurringScheduleSerializer):
         category = attrs.get("category", getattr(self.instance, "category", None))
         if category is not None and category.type != TransactionType.EXPENSE:
             raise serializers.ValidationError(
-                {"category": ["Subscriptions are expenses: choose an expense category."]}
+                {"category": [_("Subscriptions are expenses: choose an expense category.")]}
             )
         return self.validate_schedule_and_amount(attrs)
 
@@ -137,13 +142,17 @@ class UpcomingPaymentSerializer(serializers.Serializer):
 
 
 class SubscriptionSummarySerializer(serializers.Serializer):
-    currency = serializers.ChoiceField(choices=Currency.choices, help_text="The user's base currency: every total is in it.")
+    currency = serializers.ChoiceField(
+        choices=Currency.choices, help_text="The user's base currency: every total is in it."
+    )
     active_count = serializers.IntegerField(help_text="Subscriptions with payments ahead.")
     paused_count = serializers.IntegerField()
     ended_count = serializers.IntegerField(help_text="Active, but past their `end_date`.")
     monthly_total = _money("What the active subscriptions cost per month, e.g. `95.96`.")
     yearly_total = _money("Yearly projection: what the active subscriptions cost per year, e.g. `1151.52`.")
-    by_category = CategoryCostSerializer(many=True, help_text="Categories of the active subscriptions, costliest first.")
+    by_category = CategoryCostSerializer(
+        many=True, help_text="Categories of the active subscriptions, costliest first."
+    )
     upcoming = UpcomingPaymentSerializer(
         many=True, help_text=f"Payments due in the next {services.UPCOMING_DAYS} days (today included), soonest first."
     )

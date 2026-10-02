@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   deleteRecurringTransaction,
   listRecurringTransactions,
@@ -28,7 +29,8 @@ interface FormModalState {
 }
 
 export function RecurringTransactionsPage() {
-  usePageTitle("Recurring");
+  const { t } = useTranslation();
+  usePageTitle(t("nav.items.recurring"));
   const toast = useToast();
   const fetchItems = useCallback(() => listRecurringTransactions(), []);
   const items = useAsyncData(fetchItems);
@@ -61,7 +63,7 @@ export function RecurringTransactionsPage() {
   }
 
   function handleSaved() {
-    toast.success(formModal.item ? "Changes saved" : "Recurring transaction added");
+    toast.success(formModal.item ? t("recurring.toast.saved") : t("recurring.toast.added"));
     closeFormModal();
     items.refetch();
   }
@@ -77,7 +79,7 @@ export function RecurringTransactionsPage() {
     try {
       await deleteRecurringTransaction(deleteTarget.id);
       setDeleteTarget(null);
-      toast.success("Recurring transaction deleted");
+      toast.success(t("recurring.toast.deleted"));
       items.refetch();
     } catch (error) {
       setActionError(extractErrorMessage(error));
@@ -109,11 +111,11 @@ export function RecurringTransactionsPage() {
       return (
         <EmptyState
           icon="recurring"
-          title="No recurring transactions yet"
-          message="Add rent, your salary or regular bills to keep track of everything that repeats."
+          title={t("recurring.empty.title")}
+          message={t("recurring.empty.message")}
           action={
             <Button leadingIcon="plus" onClick={openCreateModal}>
-              Add recurring transaction
+              {t("recurring.add")}
             </Button>
           }
         />
@@ -134,11 +136,11 @@ export function RecurringTransactionsPage() {
   return (
     <div className={styles.page}>
       <PageHeader
-        title="Recurring transactions"
-        description="Income and payments that repeat on a schedule."
+        title={t("recurring.title")}
+        description={t("recurring.description")}
         actions={
           <Button type="button" leadingIcon="plus" onClick={openCreateModal}>
-            Add recurring transaction
+            {t("recurring.add")}
           </Button>
         }
       />
@@ -157,9 +159,9 @@ export function RecurringTransactionsPage() {
 
       <ConfirmDialog
         isOpen={deleteTarget !== null}
-        title="Delete recurring transaction"
-        message={`Delete "${deleteTarget?.name ?? ""}"? This can't be undone.`}
-        confirmLabel="Delete"
+        title={t("recurring.delete.title")}
+        message={t("common.confirm.deleteMessage", { name: deleteTarget?.name ?? "" })}
+        confirmLabel={t("common.actions.delete")}
         isConfirming={isDeleting}
         onConfirm={confirmDelete}
         onClose={() => setDeleteTarget(null)}

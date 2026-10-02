@@ -1,13 +1,14 @@
 import logging
 
+from django.conf import settings
+from django.utils.translation import gettext_lazy as _
 from rest_framework import permissions, status
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
-from django.conf import settings
-
+from apps.categories.defaults import display_name
 from apps.common.uploads import declared_body_exceeds, file_too_large
 
 from .ocr import OcrUnavailableError
@@ -36,11 +37,11 @@ class ReceiptScanView(APIView):
 
     def post(self, request):
         if declared_body_exceeds(request, settings.RECEIPT_MAX_UPLOAD_BYTES):
-            return file_too_large("image", settings.RECEIPT_MAX_UPLOAD_BYTES, noun="photo")
+            return file_too_large("image", settings.RECEIPT_MAX_UPLOAD_BYTES, photo=True)
 
         image = request.FILES.get("image")
         if image is None:
-            return Response({"image": ["This field is required."]}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"image": [_("This field is required.")]}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             scan = scan_receipt(request.user, image)
@@ -49,7 +50,7 @@ class ReceiptScanView(APIView):
         except OcrUnavailableError:
             logger.exception("Receipt OCR engine unavailable")
             return Response(
-                {"detail": "Receipt scanning is temporarily unavailable. Please add the transaction manually."},
+                {"detail": _("Receipt scanning is temporarily unavailable. Please add the transaction manually.")},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
@@ -66,7 +67,7 @@ class ReceiptScanView(APIView):
                 "category": (
                     {
                         "id": scan.category.category.id,
-                        "name": scan.category.category.name,
+                        "name": display_name(scan.category.category.name),
                         "source": scan.category.source.value,
                     }
                     if scan.category

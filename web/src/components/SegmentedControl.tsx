@@ -3,6 +3,8 @@ import { Icon } from "./icons/Icon";
 import type { IconName } from "./icons/iconPaths";
 import styles from "./SegmentedControl.module.scss";
 
+const ICON_SIZE = { sm: 15, md: 17 } as const;
+
 export interface SegmentedOption<T extends string> {
   value: T;
   label: string;
@@ -86,7 +88,7 @@ export function SegmentedControl<T extends string>({
             className={classes}
             onClick={() => onChange(option.value)}
           >
-            {option.icon && <Icon name={option.icon} size={size === "sm" ? 15 : 17} />}
+            {option.icon && <Icon name={option.icon} size={ICON_SIZE[size]} />}
             <span>{option.label}</span>
           </button>
         );

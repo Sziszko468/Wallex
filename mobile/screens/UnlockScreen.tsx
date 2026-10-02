@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
+import { APP_NAME } from "../config/app";
 import { useAuth } from "../hooks/useAuth";
 import { Button } from "../components/Button";
 import { ErrorBanner } from "../components/ErrorBanner";
@@ -7,8 +9,9 @@ import { Screen } from "../components/Screen";
 import { colors, fontSize, spacing } from "../utils/theme";
 
 export function UnlockScreen() {
+  const { t } = useTranslation();
   const { unlock, logout, biometricCapability } = useAuth();
-  const label = biometricCapability?.label ?? "Biometrics";
+  const label = biometricCapability?.label ?? t("settings.biometrics.generic");
 
   const [isUnlocking, setIsUnlocking] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -52,15 +55,15 @@ export function UnlockScreen() {
   return (
     <Screen>
       <View style={styles.container}>
-        <Text style={styles.brand}>Spendly</Text>
-        <Text style={styles.heading}>Spendly is locked</Text>
-        <Text style={styles.text}>Use {label} to continue where you left off.</Text>
+        <Text style={styles.brand}>{APP_NAME}</Text>
+        <Text style={styles.heading}>{t("auth.unlock.heading")}</Text>
+        <Text style={styles.text}>{t("auth.unlock.text", { method: label })}</Text>
 
         <ErrorBanner message={errorMessage} />
 
         {canRetry && (
           <Button
-            title={`Unlock with ${label}`}
+            title={t("auth.unlock.unlockWith", { method: label })}
             size="large"
             onPress={handleUnlock}
             isLoading={isUnlocking}
@@ -69,7 +72,7 @@ export function UnlockScreen() {
         )}
         <View style={styles.spacer} />
         <Button
-          title="Sign in with password"
+          title={t("auth.unlock.signInWithPassword")}
           variant="secondary"
           onPress={handleSignOut}
           isLoading={isSigningOut}

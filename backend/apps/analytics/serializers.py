@@ -1,12 +1,13 @@
 from django.utils import timezone
+from django.utils.translation import gettext as _
 from rest_framework import serializers
 
 from apps.currencies.models import Currency
 
 from . import achievements
 from .merchants import DEFAULT_LIMIT as DEFAULT_MERCHANTS
-from .models import AchievementCategory, AchievementUnit
 from .merchants import MAX_LIMIT as MAX_MERCHANTS
+from .models import AchievementCategory, AchievementUnit
 from .services import Against
 from .trends import DEFAULT_MONTHS, MAX_MONTHS, MIN_MONTHS
 
@@ -99,7 +100,9 @@ class AchievementSerializer(serializers.Serializer):
     )
     target = serializers.DecimalField(max_digits=12, decimal_places=2, help_text="The value to reach.")
     target_currency = serializers.ChoiceField(
-        choices=Currency.choices, allow_null=True, help_text="Currency of `target` and `progress` for `money`; else `null`."
+        choices=Currency.choices,
+        allow_null=True,
+        help_text="Currency of `target` and `progress` for `money`; else `null`.",
     )
     progress = serializers.DecimalField(
         max_digits=12,
@@ -117,10 +120,10 @@ class AchievementSerializer(serializers.Serializer):
         return super().to_representation(
             {
                 "code": achievement.code,
-                "name": achievement.name,
+                "name": _(achievement.name),
                 "title": title,
                 "detail": detail,
-                "description": achievement.description,
+                "description": _(achievement.description),
                 "icon": achievement.icon,
                 "category": achievement.category,
                 "unit": achievement.unit,

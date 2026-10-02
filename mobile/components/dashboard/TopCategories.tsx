@@ -1,5 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import type { CategoryBreakdownEntry } from "../../types/dashboard";
+import { FULL_PERCENT } from "../../config/budget";
 import { formatCurrency, formatPercentage } from "../../utils/format";
 import { useBaseCurrency } from "../../hooks/useBaseCurrency";
 import { colors, fontSize, spacing } from "../../utils/theme";
@@ -12,9 +14,10 @@ interface TopCategoriesProps {
 const MAX_ITEMS = 5;
 
 export function TopCategories({ categories, colorByCategoryId }: TopCategoriesProps) {
+  const { t } = useTranslation();
   const baseCurrency = useBaseCurrency();
   if (categories.length === 0) {
-    return <Text style={styles.empty}>No expenses yet this month.</Text>;
+    return <Text style={styles.empty}>{t("dashboard.topCategories.empty")}</Text>;
   }
 
   return (
@@ -40,13 +43,15 @@ export function TopCategories({ categories, colorByCategoryId }: TopCategoriesPr
               style={[
                 styles.fill,
                 {
-                  width: `${Math.min(100, entry.percentage)}%`,
+                  width: `${Math.min(FULL_PERCENT, entry.percentage)}%`,
                   backgroundColor: colorByCategoryId.get(entry.category_id) ?? colors.primary,
                 },
               ]}
             />
           </View>
-          <Text style={styles.percentage}>{formatPercentage(entry.percentage)} of expenses</Text>
+          <Text style={styles.percentage}>
+            {t("dashboard.topCategories.share", { percentage: formatPercentage(entry.percentage) })}
+          </Text>
         </View>
       ))}
     </View>

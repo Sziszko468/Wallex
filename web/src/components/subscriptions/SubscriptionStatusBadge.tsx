@@ -1,5 +1,5 @@
 import type { SubscriptionStatus } from "../../types/subscription";
-import { STATUS_LABELS } from "../../utils/subscriptions";
+import { statusLabel } from "../../utils/subscriptions";
 import { Badge, type BadgeTone } from "../Badge";
 import type { IconName } from "../icons/iconPaths";
 
@@ -13,7 +13,7 @@ export function SubscriptionStatusBadge({ status }: { status: SubscriptionStatus
   const style = STATUS_STYLE[status];
   return (
     <Badge tone={style.tone} icon={style.icon} variant={style.outline ? "outline" : "soft"}>
-      {STATUS_LABELS[status]}
+      {statusLabel(status)}
     </Badge>
   );
 }

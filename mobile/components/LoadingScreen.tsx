@@ -1,15 +1,17 @@
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import { colors, fontSize, spacing } from "../utils/theme";
 
 interface LoadingScreenProps {
   label?: string;
 }
 
-export function LoadingScreen({ label = "Loading…" }: LoadingScreenProps) {
+export function LoadingScreen({ label }: LoadingScreenProps) {
+  const { t } = useTranslation();
   return (
     <View style={styles.container}>
       <ActivityIndicator color={colors.primary} size="large" />
-      <Text style={styles.label}>{label}</Text>
+      <Text style={styles.label}>{label ?? t("common.states.loading")}</Text>
     </View>
   );
 }

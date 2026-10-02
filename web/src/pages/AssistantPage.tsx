@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { deleteConversation, getAssistantStatus } from "../services/assistantService";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { useAssistantChat } from "../hooks/useAssistantChat";
@@ -32,7 +33,8 @@ function parseConversationId(param: string | undefined): number | null {
 
 /** /assistant — a new chat; /assistant/:conversationId — a conversation from the history. */
 export function AssistantPage() {
-  usePageTitle("Assistant");
+  const { t } = useTranslation();
+  usePageTitle(t("nav.items.assistant"));
   const { conversationId } = useParams();
   const activeId = parseConversationId(conversationId);
   const navigate = useNavigate();
@@ -94,7 +96,7 @@ export function AssistantPage() {
   function renderThread() {
     if (chat.isLoading) {
       return (
-        <div className={styles.loading} aria-label="Loading conversation">
+        <div className={styles.loading} aria-label={t("assistant.loadingConversation")}>
           <Skeleton height={44} width="60%" borderRadius={16} />
           <Skeleton height={88} width="80%" borderRadius={16} />
         </div>
@@ -103,8 +105,8 @@ export function AssistantPage() {
     if (chat.loadError) {
       return isNotFound(chat.loadError) ? (
         <div className={styles.gone} role="alert">
-          <p>This conversation no longer exists — it may have been deleted on another device.</p>
-          <Link to="/assistant">Start a new chat</Link>
+          <p>{t("assistant.gone")}</p>
+          <Link to="/assistant">{t("assistant.startNew")}</Link>
         </div>
       ) : (
         <ErrorState error={chat.loadError} onRetry={chat.reload} />
@@ -113,7 +115,7 @@ export function AssistantPage() {
     if (isNewChat) {
       return (
         <div className={styles.welcome}>
-          <p className={styles.welcomeTitle}>What would you like to know about your money?</p>
+          <p className={styles.welcomeTitle}>{t("assistant.welcome")}</p>
           {status.isLoading ? (
             <Skeleton height={96} />
           ) : (
@@ -132,8 +134,8 @@ export function AssistantPage() {
   return (
     <div className={pageStyles.page}>
       <PageHeader
-        title="AI Assistant"
-        description="Ask about your spending, budgets, subscriptions and savings goals. Answers are based only on your Spendly data."
+        title={t("assistant.title")}
+        description={t("assistant.description")}
         actions={
           <>
             <Button
@@ -144,10 +146,10 @@ export function AssistantPage() {
               aria-expanded={isHistoryOpen}
               aria-controls="assistant-history"
             >
-              {isHistoryOpen ? "Hide history" : "History"}
+              {isHistoryOpen ? t("assistant.hideHistory") : t("assistant.history")}
             </Button>
             <ButtonLink to="/assistant" leadingIcon="plus" onClick={() => setIsHistoryOpen(false)}>
-              New chat
+              {t("assistant.newChat")}
             </ButtonLink>
           </>
         }
@@ -171,10 +173,10 @@ export function AssistantPage() {
           />
         </Card>
 
-        <section className={styles.chat} aria-label="Chat">
+        <section className={styles.chat} aria-label={t("assistant.chat")}>
           {status.data && !status.data.available && (
             <Notice tone="warning" role="note">
-              The AI assistant isn&apos;t set up on this server yet: it needs a model API key (ANTHROPIC_API_KEY).
+              {t("assistant.notConfigured")}
             </Notice>
           )}
           {status.error !== null && (
@@ -193,8 +195,7 @@ export function AssistantPage() {
               disabled={!available || chat.isAsking || chat.isLoading || chat.loadError !== null}
             />
             <p className={styles.disclaimer}>
-              The assistant only reads your data — it can&apos;t change anything. It can make mistakes, so check
-              important figures in the app.
+              {t("assistant.disclaimer")}
             </p>
           </div>
         </section>
@@ -202,12 +203,9 @@ export function AssistantPage() {
 
       <ConfirmDialog
         isOpen={toDelete !== null}
-        title="Delete conversation?"
-        message={
-          deleteError ??
-          `"${toDelete?.title ?? ""}" and its messages will be deleted on all your devices. This can't be undone.`
-        }
-        confirmLabel="Delete"
+        title={t("assistant.deleteDialog.title")}
+        message={deleteError ?? t("assistant.deleteDialog.message", { title: toDelete?.title ?? "" })}
+        confirmLabel={t("common.actions.delete")}
         isConfirming={isDeleting}
         onConfirm={() => void confirmDelete()}
         onClose={() => setToDelete(null)}

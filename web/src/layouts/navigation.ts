@@ -1,47 +1,49 @@
 import type { IconName } from "../components/icons/iconPaths";
+import type { TranslationKey } from "../i18n/types";
 
 export interface NavItem {
   to: string;
-  label: string;
+  /** A translation key, resolved where the item is drawn. */
+  labelKey: TranslationKey;
   icon: IconName;
 }
 
 export interface NavGroup {
-  label: string;
+  labelKey: TranslationKey;
   items: NavItem[];
 }
 
 /** Every signed-in destination, grouped the way people think about them. The sidebar shows them all. */
 export const NAV_GROUPS: NavGroup[] = [
   {
-    label: "Overview",
+    labelKey: "nav.groups.overview",
     items: [
-      { to: "/dashboard", label: "Dashboard", icon: "dashboard" },
-      { to: "/assistant", label: "Assistant", icon: "assistant" },
+      { to: "/dashboard", labelKey: "nav.items.dashboard", icon: "dashboard" },
+      { to: "/assistant", labelKey: "nav.items.assistant", icon: "assistant" },
     ],
   },
   {
-    label: "Money",
+    labelKey: "nav.groups.money",
     items: [
-      { to: "/transactions", label: "Transactions", icon: "transactions" },
-      { to: "/budgets", label: "Budgets", icon: "budgets" },
-      { to: "/goals", label: "Goals", icon: "goals" },
-      { to: "/subscriptions", label: "Subscriptions", icon: "subscriptions" },
-      { to: "/recurring", label: "Recurring", icon: "recurring" },
+      { to: "/transactions", labelKey: "nav.items.transactions", icon: "transactions" },
+      { to: "/budgets", labelKey: "nav.items.budgets", icon: "budgets" },
+      { to: "/goals", labelKey: "nav.items.goals", icon: "goals" },
+      { to: "/subscriptions", labelKey: "nav.items.subscriptions", icon: "subscriptions" },
+      { to: "/recurring", labelKey: "nav.items.recurring", icon: "recurring" },
     ],
   },
   {
-    label: "Library",
+    labelKey: "nav.groups.library",
     items: [
-      { to: "/categories", label: "Categories", icon: "categories" },
-      { to: "/import", label: "Import", icon: "import" },
-      { to: "/achievements", label: "Achievements", icon: "achievements" },
+      { to: "/categories", labelKey: "nav.items.categories", icon: "categories" },
+      { to: "/import", labelKey: "nav.items.import", icon: "import" },
+      { to: "/achievements", labelKey: "nav.items.achievements", icon: "achievements" },
     ],
   },
 ];
 
-export const SETTINGS_ITEM: NavItem = { to: "/settings", label: "Settings", icon: "settings" };
-export const SECURITY_ITEM: NavItem = { to: "/settings/security", label: "Security", icon: "security" };
+export const SETTINGS_ITEM: NavItem = { to: "/settings", labelKey: "nav.items.settings", icon: "settings" };
+export const SECURITY_ITEM: NavItem = { to: "/settings/security", labelKey: "nav.items.security", icon: "security" };
 
 /** The three destinations in the phone's bottom bar; everything else lives behind "More". */
 const BOTTOM_BAR_PATHS = ["/dashboard", "/transactions", "/budgets"];

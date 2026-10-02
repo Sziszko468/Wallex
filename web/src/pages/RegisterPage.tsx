@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { useLanguage } from "../hooks/useLanguage";
 import { usePageTitle } from "../hooks/usePageTitle";
 import { extractErrorMessage, extractFieldErrors, type FieldErrors } from "../utils/errors";
 import { Button } from "../components/Button";
@@ -10,9 +12,11 @@ import formStyles from "../components/form.module.scss";
 import styles from "./AuthPages.module.scss";
 
 export function RegisterPage() {
+  const { t } = useTranslation();
   const { register } = useAuth();
+  const { language } = useLanguage();
   const navigate = useNavigate();
-  usePageTitle("Create your account");
+  usePageTitle(t("auth.register.title"));
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -35,6 +39,7 @@ export function RegisterPage() {
         password_confirm: passwordConfirm,
         first_name: firstName,
         last_name: lastName,
+        language,
       });
       navigate("/dashboard", { replace: true });
     } catch (error) {
@@ -48,14 +53,14 @@ export function RegisterPage() {
   return (
     <>
       <div className={styles.header}>
-        <h1 className={styles.title}>Create your account</h1>
-        <p className={styles.subtitle}>It takes a minute, and your data stays yours.</p>
+        <h1 className={styles.title}>{t("auth.register.title")}</h1>
+        <p className={styles.subtitle}>{t("auth.register.subtitle")}</p>
       </div>
       <ErrorBanner message={errorMessage} />
       <form onSubmit={handleSubmit} noValidate className={styles.stack}>
         <div className={formStyles.row}>
           <TextField
-            label="First name"
+            label={t("auth.fields.firstName")}
             name="first_name"
             autoComplete="given-name"
             value={firstName}
@@ -63,7 +68,7 @@ export function RegisterPage() {
             error={fieldErrors.first_name}
           />
           <TextField
-            label="Last name"
+            label={t("auth.fields.lastName")}
             name="last_name"
             autoComplete="family-name"
             value={lastName}
@@ -72,7 +77,7 @@ export function RegisterPage() {
           />
         </div>
         <TextField
-          label="Email"
+          label={t("auth.fields.email")}
           type="email"
           name="email"
           autoComplete="email"
@@ -82,7 +87,7 @@ export function RegisterPage() {
           required
         />
         <TextField
-          label="Password"
+          label={t("auth.fields.password")}
           type="password"
           name="password"
           autoComplete="new-password"
@@ -92,7 +97,7 @@ export function RegisterPage() {
           required
         />
         <TextField
-          label="Confirm password"
+          label={t("auth.fields.confirmPassword")}
           type="password"
           name="password_confirm"
           autoComplete="new-password"
@@ -102,11 +107,11 @@ export function RegisterPage() {
           required
         />
         <Button type="submit" size="lg" fullWidth isLoading={isSubmitting}>
-          Register
+          {t("auth.register.submit")}
         </Button>
       </form>
       <p className={styles.switch}>
-        Already have an account? <Link to="/login">Log in</Link>
+        {t("auth.register.haveAccount")} <Link to="/login">{t("auth.register.loginLink")}</Link>
       </p>
     </>
   );

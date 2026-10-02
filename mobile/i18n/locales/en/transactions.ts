@@ -1,0 +1,70 @@
+export const transactions = {
+  search: "Search transactions",
+  clearSearch: "Clear search",
+  presets: {
+    all: "All time",
+    thisMonth: "This month",
+    lastMonth: "Last month",
+  },
+  allCategories: "All",
+  empty: "No transactions match your filters.",
+  endOfList: "That's every transaction.",
+  itemLabel: "{{title}}, {{category}}, {{date}}, {{amount}}",
+  itemLabelConverted: "{{title}}, {{category}}, {{date}}, {{amount}}, {{converted}}",
+  pending: {
+    heading: "Not synced yet",
+    failed: "Failed",
+    pending: "Pending",
+    retry: "Retry",
+    discard: "Discard",
+    category: "Category",
+  },
+  details: {
+    description: "Description",
+    date: "Date",
+    inCurrency: "In {{currency}}",
+    type: "Type",
+    deleteTitle: "Delete transaction",
+    thisTransaction: "this transaction",
+    conflictTitle: "Changed on another device",
+    conflictMessage:
+      "This transaction was just changed on another device, so it wasn't deleted. Its latest version is shown now.",
+    couldntDelete: "Couldn't delete",
+  },
+  form: {
+    scanInstead: "📷  Scan a receipt instead",
+    offlineEdit: "You're offline. Editing needs a connection — try again once you're back online.",
+    conflict:
+      "This transaction was just changed on another device. Its latest version is shown — make your change again and save.",
+    gone: "This transaction no longer exists — it was deleted on another device.",
+  },
+} as const;
+
+export const recurring = {
+  empty: "No recurring transactions yet. Tap + to add rent, subscriptions, or bills.",
+  add: "Add recurring transaction",
+  deleteTitle: "Delete recurring transaction",
+  couldntDelete: "Couldn't delete",
+  couldntUpdate: "Couldn't update",
+  next: "Next: {{date}}",
+  active: "Active",
+  paused: "Paused",
+  pauseLabel: "Pause {{name}}",
+  resumeLabel: "Resume {{name}}",
+  editLabel: "Edit {{name}}",
+  deleteLabel: "Delete {{name}}",
+  frequency: {
+    weekly: "Weekly",
+    monthly: "Monthly",
+    yearly: "Yearly",
+  },
+  form: {
+    namePlaceholder: "e.g. Rent, Netflix, Spotify",
+    frequency: "Frequency",
+    endDate: "End date (optional)",
+    descriptionPlaceholder: "e.g. Apartment on Main St.",
+    active: "Active",
+    startRequired: "Start date is required.",
+    endBeforeStart: "End date must be on or after the start date.",
+  },
+} as const;

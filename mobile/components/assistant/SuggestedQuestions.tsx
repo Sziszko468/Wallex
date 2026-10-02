@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import { colors, fontSize, radius, spacing } from "../../utils/theme";
 
 interface SuggestedQuestionsProps {
@@ -8,10 +9,11 @@ interface SuggestedQuestionsProps {
 }
 
 export function SuggestedQuestions({ questions, onPick, disabled = false }: SuggestedQuestionsProps) {
+  const { t } = useTranslation();
   if (questions.length === 0) return null;
   return (
-    <View style={styles.container} accessibilityLabel="Suggested questions">
-      <Text style={styles.heading}>Try asking</Text>
+    <View style={styles.container} accessibilityLabel={t("assistant.suggestions.label")}>
+      <Text style={styles.heading}>{t("assistant.suggestions.heading")}</Text>
       {questions.map((question) => (
         <Pressable
           key={question}

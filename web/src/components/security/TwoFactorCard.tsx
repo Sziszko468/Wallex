@@ -1,4 +1,5 @@
 import { useCallback, useState, type FormEvent } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { useAsyncData } from "../../hooks/useAsyncData";
 import {
   confirmMfa,
@@ -34,6 +35,7 @@ function groupKey(secret: string): string {
 }
 
 export function TwoFactorCard() {
+  const { t } = useTranslation();
   const status = useAsyncData(useCallback(() => getMfaStatus(), []));
   const [step, setStep] = useState<Step>({ name: "idle" });
   const [password, setPassword] = useState("");
@@ -92,7 +94,7 @@ export function TwoFactorCard() {
 
   const passwordField = (
     <TextField
-      label="Password"
+      label={t("auth.fields.password")}
       type="password"
       autoComplete="current-password"
       value={password}
@@ -114,17 +116,14 @@ export function TwoFactorCard() {
   );
   const cancel = (
     <Button type="button" variant="secondary" onClick={() => goTo({ name: "idle" })}>
-      Cancel
+      {t("common.actions.cancel")}
     </Button>
   );
 
   return (
     <Card padding="lg" className={styles.card}>
-      <h2 className={styles.title}>Two-factor authentication</h2>
-      <p className={styles.hint}>
-        Signing in also asks for a code from an authenticator app (Google Authenticator, Microsoft Authenticator,
-        1Password…), so a stolen password alone isn&apos;t enough.
-      </p>
+      <h2 className={styles.title}>{t("security.twoFactor.title")}</h2>
+      <p className={styles.hint}>{t("security.twoFactor.hint")}</p>
       <ErrorBanner message={error} />
 
       {status.isLoading ? (
@@ -134,25 +133,24 @@ export function TwoFactorCard() {
       ) : step.name === "showCodes" ? (
         <div className={styles.stack}>
           <p>
-            <strong>Save these recovery codes</strong> somewhere safe (a password manager). Each one signs you in
-            once if you lose your phone. They won&apos;t be shown again.
+            <Trans i18nKey="security.twoFactor.codes.saveInstructions" components={{ strong: <strong /> }} />
           </p>
-          <ul className={styles.codes} aria-label="Recovery codes">
+          <ul className={styles.codes} aria-label={t("security.twoFactor.codes.listLabel")}>
             {step.codes.map((recoveryCode) => (
               <li key={recoveryCode}>
                 <code>{recoveryCode}</code>
               </li>
             ))}
           </ul>
-          <Button onClick={() => goTo({ name: "idle" })}>I&apos;ve saved them</Button>
+          <Button onClick={() => goTo({ name: "idle" })}>{t("security.twoFactor.codes.saved")}</Button>
         </div>
       ) : step.name === "setupPassword" ? (
         <form onSubmit={submit} noValidate className={formStyles.stack}>
-          <p>Confirm it&apos;s you to start the setup.</p>
+          <p>{t("security.twoFactor.confirmIdentity")}</p>
           {passwordField}
           <div className={formStyles.inlineActions}>
             <Button type="submit" isLoading={isBusy}>
-              Continue
+              {t("security.twoFactor.continue")}
             </Button>
             {cancel}
           </div>
@@ -160,16 +158,18 @@ export function TwoFactorCard() {
       ) : step.name === "setupCode" ? (
         <form onSubmit={submit} noValidate className={formStyles.stack}>
           <p>
-            Add Spendly to your authenticator app: on your phone,{" "}
-            <a href={step.setup.otpauth_uri}>open this setup link</a>, or type this key:
+            <Trans
+              i18nKey="security.twoFactor.setupInstructions"
+              components={{ a: <a href={step.setup.otpauth_uri} /> }}
+            />
           </p>
           <p className={styles.secret}>
-            <code aria-label="Setup key">{groupKey(step.setup.secret)}</code>
+            <code aria-label={t("security.twoFactor.setupKeyLabel")}>{groupKey(step.setup.secret)}</code>
           </p>
-          {codeField("Code from the app")}
+          {codeField(t("security.twoFactor.codeFromApp"))}
           <div className={formStyles.inlineActions}>
             <Button type="submit" isLoading={isBusy}>
-              Turn on
+              {t("security.twoFactor.turnOn")}
             </Button>
             {cancel}
           </div>
@@ -177,15 +177,13 @@ export function TwoFactorCard() {
       ) : step.name === "disable" || step.name === "regenerate" ? (
         <form onSubmit={submit} noValidate className={formStyles.stack}>
           <p>
-            {step.name === "disable"
-              ? "Turning it off makes your password the only thing protecting your account."
-              : "New codes replace all your current recovery codes."}
+            {step.name === "disable" ? t("security.twoFactor.turnOffWarning") : t("security.twoFactor.regenerateWarning")}
           </p>
           {passwordField}
-          {codeField("Authenticator or recovery code")}
+          {codeField(t("security.twoFactor.codeOrRecovery"))}
           <div className={formStyles.inlineActions}>
             <Button type="submit" variant={step.name === "disable" ? "danger" : "primary"} isLoading={isBusy}>
-              {step.name === "disable" ? "Turn off" : "Create new codes"}
+              {step.name === "disable" ? t("security.twoFactor.turnOff") : t("security.twoFactor.createNewCodes")}
             </Button>
             {cancel}
           </div>
@@ -193,21 +191,23 @@ export function TwoFactorCard() {
       ) : status.data?.enabled ? (
         <div className={styles.stack}>
           <Notice tone="success">
-            On since {status.data.enabled_at ? formatDateTime(status.data.enabled_at) : "—"} ·{" "}
-            {status.data.recovery_codes_left} recovery code{status.data.recovery_codes_left === 1 ? "" : "s"} left
+            {t("security.twoFactor.status", {
+              since: status.data.enabled_at ? formatDateTime(status.data.enabled_at) : t("common.states.notAvailable"),
+              count: status.data.recovery_codes_left,
+            })}
           </Notice>
           <div className={formStyles.inlineActions}>
             <Button variant="secondary" onClick={() => goTo({ name: "regenerate" })}>
-              New recovery codes
+              {t("security.twoFactor.newRecoveryCodes")}
             </Button>
             <Button variant="danger-quiet" onClick={() => goTo({ name: "disable" })}>
-              Turn off
+              {t("security.twoFactor.turnOff")}
             </Button>
           </div>
         </div>
       ) : (
         <Button leadingIcon="lock" onClick={() => goTo({ name: "setupPassword" })}>
-          Turn on two-factor authentication
+          {t("security.twoFactor.enable")}
         </Button>
       )}
     </Card>

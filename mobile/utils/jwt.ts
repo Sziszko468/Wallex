@@ -1,3 +1,8 @@
+import { MS_PER_SECOND } from "../config/time";
+
+/** Base64 text is padded with "=" to a multiple of this many characters. */
+const BASE64_BLOCK = 4;
+
 /**
  * Reads a JWT's `exp` claim (as epoch milliseconds) WITHOUT verifying the
  * signature. Only used to decide *when* to refresh — the backend remains the
@@ -6,7 +11,7 @@
  */
 export function getTokenExpiry(token: string): number | null {
   const exp = getClaim(token, "exp");
-  return typeof exp === "number" ? exp * 1000 : null;
+  return typeof exp === "number" ? exp * MS_PER_SECOND : null;
 }
 
 /** The `user_id` claim simplejwt puts in every token (serialized as a string), or null. */
@@ -21,7 +26,7 @@ function getClaim(token: string, name: string): unknown {
 
   try {
     const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
-    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=");
+    const padded = base64.padEnd(base64.length + ((BASE64_BLOCK - (base64.length % BASE64_BLOCK)) % BASE64_BLOCK), "=");
     const claims: unknown = JSON.parse(atob(padded));
     return typeof claims === "object" && claims !== null ? (claims as Record<string, unknown>)[name] : null;
   } catch {

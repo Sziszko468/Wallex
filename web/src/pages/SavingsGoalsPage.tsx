@@ -1,4 +1,6 @@
 import { useCallback, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { EXCHANGE_RATE_MAX_AGE_DAYS } from "../config/subscriptions";
 import { deleteSavingsGoal, getSavingsSummary, listSavingsGoals } from "../services/savingsGoalsService";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { useBaseCurrency } from "../hooks/useBaseCurrency";
@@ -33,7 +35,8 @@ interface MoneyState {
 }
 
 export function SavingsGoalsPage() {
-  usePageTitle("Goals");
+  const { t } = useTranslation();
+  usePageTitle(t("nav.items.goals"));
   const baseCurrency = useBaseCurrency();
   const toast = useToast();
 
@@ -58,7 +61,9 @@ export function SavingsGoalsPage() {
   }, [refetchGoals, refetchSummary]);
 
   function handleSaved() {
-    toast.success(form.isOpen ? (form.goal ? "Goal updated" : "Goal created") : "Savings updated");
+    toast.success(
+      form.isOpen ? (form.goal ? t("goals.toast.updated") : t("goals.toast.created")) : t("goals.toast.savingsUpdated")
+    );
     setForm({ isOpen: false, goal: null });
     setMoney((current) => ({ ...current, goal: null }));
     reload();
@@ -70,7 +75,7 @@ export function SavingsGoalsPage() {
     try {
       await deleteSavingsGoal(deleteTarget.id);
       setDeleteTarget(null);
-      toast.success("Goal deleted");
+      toast.success(t("goals.toast.deleted"));
       reload();
     } catch (error) {
       setActionError(extractErrorMessage(error));
@@ -97,11 +102,11 @@ export function SavingsGoalsPage() {
       return (
         <EmptyState
           icon="goals"
-          title="No savings goals yet"
-          message="Create one for a trip, a new laptop or an emergency fund, and watch it fill up."
+          title={t("goals.empty.title")}
+          message={t("goals.empty.message")}
           action={
             <Button leadingIcon="plus" onClick={openCreate}>
-              New goal
+              {t("goals.new")}
             </Button>
           }
         />
@@ -129,11 +134,11 @@ export function SavingsGoalsPage() {
   return (
     <div className={pageStyles.page}>
       <PageHeader
-        title="Savings goals"
-        description="Put money towards the things that matter."
+        title={t("goals.title")}
+        description={t("goals.description")}
         actions={
           <Button type="button" leadingIcon="plus" onClick={openCreate}>
-            New goal
+            {t("goals.new")}
           </Button>
         }
       />
@@ -146,21 +151,21 @@ export function SavingsGoalsPage() {
         <SummaryStrip
           items={[
             {
-              label: "Total saved",
+              label: t("goals.summary.totalSaved"),
               value: summary.data ? formatCurrency(summary.data.total_saved, baseCurrency) : undefined,
               tone: "positive",
               isLoading: summary.isLoading,
             },
             {
-              label: "Total target",
+              label: t("goals.summary.totalTarget"),
               value: summary.data ? formatCurrency(summary.data.total_target, baseCurrency) : undefined,
               isLoading: summary.isLoading,
             },
             {
-              label: "Overall progress",
+              label: t("goals.summary.overall"),
               value: summary.data
                 ? summary.data.progress_percentage === null
-                  ? "—"
+                  ? t("common.states.notAvailable")
                   : formatPercentage(summary.data.progress_percentage)
                 : undefined,
               isLoading: summary.isLoading,
@@ -171,8 +176,7 @@ export function SavingsGoalsPage() {
 
       {unconverted.length > 0 && (
         <Notice tone="warning">
-          Not included in the totals: goals saved in {unconverted.join(", ")} — no exchange rate from the last 7
-          days.
+          {t("goals.summary.unconverted", { currencies: unconverted.join(", "), days: EXCHANGE_RATE_MAX_AGE_DAYS })}
         </Notice>
       )}
 
@@ -194,9 +198,9 @@ export function SavingsGoalsPage() {
 
       <ConfirmDialog
         isOpen={deleteTarget !== null}
-        title="Delete goal"
-        message={`Delete "${deleteTarget?.name ?? ""}"? Its progress is lost. To keep it, archive it instead.`}
-        confirmLabel="Delete"
+        title={t("goals.delete.title")}
+        message={t("goals.delete.message", { name: deleteTarget?.name ?? "" })}
+        confirmLabel={t("common.actions.delete")}
         isConfirming={isDeleting}
         onConfirm={confirmDelete}
         onClose={() => setDeleteTarget(null)}

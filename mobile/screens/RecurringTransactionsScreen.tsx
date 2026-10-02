@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { Alert, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
+import { useTranslation } from "react-i18next";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { useRefetchOnFocus } from "../hooks/useRefetchOnFocus";
 import { listCategories } from "../services/categoriesService";
@@ -19,6 +20,7 @@ import { RecurringTransactionCard } from "../components/recurring/RecurringTrans
 import { colors, fontSize, spacing } from "../utils/theme";
 
 export function RecurringTransactionsScreen() {
+  const { t } = useTranslation();
   const items = useAsyncData(useCallback(() => listRecurringTransactions(), []));
   const categories = useAsyncData(useCallback(() => listCategories(), []));
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -44,9 +46,9 @@ export function RecurringTransactionsScreen() {
   }
 
   function handleDeletePress(item: RecurringTransaction) {
-    Alert.alert("Delete recurring transaction", `Delete "${item.name}"? This can't be undone.`, [
-      { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: () => confirmDelete(item) },
+    Alert.alert(t("recurring.deleteTitle"), t("common.confirm.deleteMessage", { name: item.name }), [
+      { text: t("common.actions.cancel"), style: "cancel" },
+      { text: t("common.actions.delete"), style: "destructive", onPress: () => confirmDelete(item) },
     ]);
   }
 
@@ -55,7 +57,7 @@ export function RecurringTransactionsScreen() {
       await deleteRecurringTransaction(item.id);
       items.refetch();
     } catch (error) {
-      Alert.alert("Couldn't delete", extractErrorMessage(error));
+      Alert.alert(t("recurring.couldntDelete"), extractErrorMessage(error));
     }
   }
 
@@ -65,7 +67,7 @@ export function RecurringTransactionsScreen() {
       await updateRecurringTransaction(item.id, { is_active: !item.is_active });
       items.refetch();
     } catch (error) {
-      Alert.alert("Couldn't update", extractErrorMessage(error));
+      Alert.alert(t("recurring.couldntUpdate"), extractErrorMessage(error));
     } finally {
       setTogglingId(null);
     }
@@ -93,9 +95,7 @@ export function RecurringTransactionsScreen() {
           }}
         >
           {(items.data?.length ?? 0) === 0 ? (
-            <Text style={styles.empty}>
-              No recurring transactions yet. Tap + to add rent, subscriptions, or bills.
-            </Text>
+            <Text style={styles.empty}>{t("recurring.empty")}</Text>
           ) : (
             items.data?.map((item) => (
               <RecurringTransactionCard
@@ -113,7 +113,7 @@ export function RecurringTransactionsScreen() {
       </Screen>
 
       <Fab
-        accessibilityLabel="Add recurring transaction"
+        accessibilityLabel={t("recurring.add")}
         onPress={() => router.push("/add-recurring")}
       />
     </View>

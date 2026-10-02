@@ -5,7 +5,7 @@ import staticConfig from "../../app.json";
 import appConfig, { resolveVariant } from "../../app.config";
 
 const ROOT = path.resolve(__dirname, "../..");
-const PRODUCTION_URL = "https://spendly.example.com/api";
+const PRODUCTION_URL = "https://wallex.example.com/api";
 const MANAGED_ENV = ["APP_VARIANT", "EXPO_PUBLIC_API_BASE_URL", "GOOGLE_SERVICES_JSON"] as const;
 
 /** Resolves app.config.ts exactly like Expo CLI does, with the given build environment. */
@@ -41,9 +41,9 @@ describe("app variants", () => {
   it("uses the store identity by default (expo start, eas submit, eas credentials)", () => {
     const config = resolveConfig({});
 
-    expect(config.name).toBe("Spendly");
-    expect(config.ios?.bundleIdentifier).toBe("com.szilard.spendly");
-    expect(config.android?.package).toBe("com.szilard.spendly");
+    expect(config.name).toBe("WALLEX");
+    expect(config.ios?.bundleIdentifier).toBe("com.szilard.wallex");
+    expect(config.android?.package).toBe("com.szilard.wallex");
   });
 
   it("gives development and preview builds their own identity, so all three install side by side", () => {
@@ -51,14 +51,14 @@ describe("app variants", () => {
     const preview = resolveConfig({ APP_VARIANT: "preview", EXPO_PUBLIC_API_BASE_URL: PRODUCTION_URL });
 
     expect([development.name, development.ios?.bundleIdentifier, development.android?.package]).toEqual([
-      "Spendly (Dev)",
-      "com.szilard.spendly.dev",
-      "com.szilard.spendly.dev",
+      "WALLEX (Dev)",
+      "com.szilard.wallex.dev",
+      "com.szilard.wallex.dev",
     ]);
     expect([preview.name, preview.ios?.bundleIdentifier, preview.android?.package]).toEqual([
-      "Spendly (Preview)",
-      "com.szilard.spendly.preview",
-      "com.szilard.spendly.preview",
+      "WALLEX (Preview)",
+      "com.szilard.wallex.preview",
+      "com.szilard.wallex.preview",
     ]);
   });
 
@@ -74,9 +74,9 @@ describe("production API URL", () => {
 
   it("refuses a plain-http or malformed URL for a release build", () => {
     expect(() =>
-      resolveConfig({ APP_VARIANT: "production", EXPO_PUBLIC_API_BASE_URL: "http://spendly.example.com/api" })
+      resolveConfig({ APP_VARIANT: "production", EXPO_PUBLIC_API_BASE_URL: "http://wallex.example.com/api" })
     ).toThrow(/must use https/);
-    expect(() => resolveConfig({ APP_VARIANT: "production", EXPO_PUBLIC_API_BASE_URL: "spendly.example.com" })).toThrow(
+    expect(() => resolveConfig({ APP_VARIANT: "production", EXPO_PUBLIC_API_BASE_URL: "wallex.example.com" })).toThrow(
       /not a valid URL/
     );
   });

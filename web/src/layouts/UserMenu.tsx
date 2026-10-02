@@ -1,9 +1,11 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import type { User } from "../types/auth";
 import { Avatar } from "../components/Avatar";
 import { Icon } from "../components/icons/Icon";
+import { LanguageSelector } from "../components/LanguageSelector";
 import { ThemeSelector } from "../components/ThemeSelector";
 import { SECURITY_ITEM } from "./navigation";
 import styles from "./UserMenu.module.scss";
@@ -20,6 +22,7 @@ function displayName(user: User): string {
 
 /** The account menu: who you are, the theme switch, security, and logging out. */
 export function UserMenu({ variant }: UserMenuProps) {
+  const { t } = useTranslation();
   const { user, logout } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -59,7 +62,7 @@ export function UserMenu({ variant }: UserMenuProps) {
         className={styles.trigger}
         aria-expanded={isOpen}
         aria-controls={panelId}
-        aria-label={variant === "compact" ? `Account menu, ${name}` : undefined}
+        aria-label={variant === "compact" ? t("auth.userMenu.accountMenu", { name }) : undefined}
         onClick={() => setIsOpen((open) => !open)}
       >
         <Avatar name={name} size="md" />
@@ -85,18 +88,23 @@ export function UserMenu({ variant }: UserMenuProps) {
           </div>
 
           <div className={styles.section}>
-            <p className={styles.sectionLabel}>Theme</p>
+            <p className={styles.sectionLabel}>{t("common.theme.label")}</p>
             <ThemeSelector size="sm" fullWidth />
+          </div>
+
+          <div className={styles.section}>
+            <p className={styles.sectionLabel}>{t("common.language.label")}</p>
+            <LanguageSelector size="sm" fullWidth />
           </div>
 
           <div className={styles.section}>
             <Link to={SECURITY_ITEM.to} className={styles.item} onClick={() => setIsOpen(false)}>
               <Icon name={SECURITY_ITEM.icon} size={18} />
-              {SECURITY_ITEM.label}
+              {t(SECURITY_ITEM.labelKey)}
             </Link>
             <button type="button" className={styles.item} onClick={() => void logout()}>
               <Icon name="log-out" size={18} />
-              Log out
+              {t("common.actions.logOut")}
             </button>
           </div>
         </div>

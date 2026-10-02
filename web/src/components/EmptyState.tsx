@@ -3,6 +3,8 @@ import { Icon } from "./icons/Icon";
 import type { IconName } from "./icons/iconPaths";
 import styles from "./EmptyState.module.scss";
 
+const ICON_SIZE = { panel: 26, inline: 20 } as const;
+
 interface EmptyStateProps {
   /** What's missing and what to do about it — one or two calm sentences. */
   message: string;
@@ -24,7 +26,7 @@ export function EmptyState({ message, title, icon, action }: EmptyStateProps) {
     <div className={isPanel ? `${styles.empty} ${styles.panel}` : styles.empty}>
       {icon && (
         <span className={styles.iconTile} aria-hidden="true">
-          <Icon name={icon} size={isPanel ? 26 : 20} />
+          <Icon name={icon} size={isPanel ? ICON_SIZE.panel : ICON_SIZE.inline} />
         </span>
       )}
       {title && <h2 className={styles.title}>{title}</h2>}

@@ -165,7 +165,7 @@ describe("apiClient and other tabs / devices", () => {
       const response = await apiClient.get("/categories/");
 
       expect(response.data).toEqual([{ id: 1 }]);
-      expect(request).toHaveBeenCalledWith("spendly-token-refresh", expect.any(Function));
+      expect(request).toHaveBeenCalledWith("wallex-token-refresh", expect.any(Function));
       expect(order).toEqual(["other tab done", "refresh"]);
     } finally {
       Reflect.deleteProperty(navigator, "locks");

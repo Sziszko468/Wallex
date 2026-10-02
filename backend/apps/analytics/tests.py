@@ -12,15 +12,21 @@ from apps.transactions.models import Frequency, Transaction
 
 def _expense(user, category, amount, day):
     return Transaction.objects.create(
-        user=user, category=category, type=TransactionType.EXPENSE,
-        amount=Decimal(amount), date=date(2026, 9, day),
+        user=user,
+        category=category,
+        type=TransactionType.EXPENSE,
+        amount=Decimal(amount),
+        date=date(2026, 9, day),
     )
 
 
 def _income(user, category, amount, day):
     return Transaction.objects.create(
-        user=user, category=category, type=TransactionType.INCOME,
-        amount=Decimal(amount), date=date(2026, 9, day),
+        user=user,
+        category=category,
+        type=TransactionType.INCOME,
+        amount=Decimal(amount),
+        date=date(2026, 9, day),
     )
 
 
@@ -150,16 +156,19 @@ def test_get_dashboard_empty_state_for_new_user(user):
 
 @pytest.mark.django_db
 def test_get_dashboard_query_count_constant_regardless_of_volume(django_assert_num_queries, user):
-    categories = [
-        Category.objects.create(user=user, name=f"Cat{i}", type=TransactionType.EXPENSE) for i in range(5)
-    ]
+    categories = [Category.objects.create(user=user, name=f"Cat{i}", type=TransactionType.EXPENSE) for i in range(5)]
     for category in categories:
         Budget.objects.create(user=user, category=category, amount=Decimal("100.00"), year=2026, month=9)
         for day in range(1, 6):
             _expense(user, category, "10.00", day)
         Subscription.objects.create(
-            user=user, category=category, name=f"Sub {category.name}", amount=Decimal("9.99"),
-            frequency=Frequency.MONTHLY, start_date=date(2026, 1, 1), next_occurrence_date=date(2026, 1, 1),
+            user=user,
+            category=category,
+            name=f"Sub {category.name}",
+            amount=Decimal("9.99"),
+            frequency=Frequency.MONTHLY,
+            start_date=date(2026, 1, 1),
+            next_occurrence_date=date(2026, 1, 1),
         )
 
     # summary, category rows, budgets, subscriptions
@@ -201,8 +210,11 @@ def test_get_monthly_analytics_uses_single_query(django_assert_num_queries, user
 def test_get_comparison_basic_difference(user, food_category):
     _expense(user, food_category, "100.00", 5)  # September
     Transaction.objects.create(
-        user=user, category=food_category, type=TransactionType.EXPENSE,
-        amount=Decimal("80.00"), date=date(2026, 8, 5),
+        user=user,
+        category=food_category,
+        type=TransactionType.EXPENSE,
+        amount=Decimal("80.00"),
+        date=date(2026, 8, 5),
     )
 
     comparison = services.get_comparison(user, 2026, 9)
@@ -235,8 +247,11 @@ def test_get_comparison_both_months_zero(user):
 @pytest.mark.django_db
 def test_get_comparison_january_wraps_to_previous_december(user, food_category):
     Transaction.objects.create(
-        user=user, category=food_category, type=TransactionType.EXPENSE,
-        amount=Decimal("60.00"), date=date(2025, 12, 15),
+        user=user,
+        category=food_category,
+        type=TransactionType.EXPENSE,
+        amount=Decimal("60.00"),
+        date=date(2025, 12, 15),
     )
 
     comparison = services.get_comparison(user, 2026, 1)

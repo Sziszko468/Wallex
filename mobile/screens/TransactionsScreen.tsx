@@ -9,6 +9,8 @@ import {
   View,
 } from "react-native";
 import { router } from "expo-router";
+import { useTranslation } from "react-i18next";
+import { SEARCH_DEBOUNCE_MS } from "../config/transactions";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import { usePaginatedTransactions } from "../hooks/usePaginatedTransactions";
@@ -29,8 +31,9 @@ import { PendingTransactionsList } from "../components/transactions/PendingTrans
 import { colors, fontSize, spacing } from "../utils/theme";
 
 export function TransactionsScreen() {
+  const { t } = useTranslation();
   const [search, setSearch] = useState("");
-  const debouncedSearch = useDebouncedValue(search, 400);
+  const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
   const [categoryId, setCategoryId] = useState<number | null>(null);
   const [datePreset, setDatePreset] = useState<DatePreset>("all");
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -104,7 +107,7 @@ export function TransactionsScreen() {
                 hitSlop={8}
                 style={styles.retry}
               >
-                <Text style={styles.retryText}>Retry</Text>
+                <Text style={styles.retryText}>{t("common.actions.retry")}</Text>
               </Pressable>
             </View>
           ) : (
@@ -119,7 +122,7 @@ export function TransactionsScreen() {
                 />
               )}
               ListEmptyComponent={
-                <Text style={styles.empty}>No transactions match your filters.</Text>
+                <Text style={styles.empty}>{t("transactions.empty")}</Text>
               }
               onEndReached={loadMore}
               onEndReachedThreshold={0.4}
@@ -129,7 +132,7 @@ export function TransactionsScreen() {
                     <ActivityIndicator color={colors.primary} />
                   </View>
                 ) : !hasMore && transactions.length > 0 ? (
-                  <Text style={styles.endOfList}>That's every transaction.</Text>
+                  <Text style={styles.endOfList}>{t("transactions.endOfList")}</Text>
                 ) : null
               }
               refreshControl={
@@ -148,7 +151,7 @@ export function TransactionsScreen() {
         </View>
       </Screen>
 
-      <Fab accessibilityLabel="Add transaction" onPress={() => router.push("/add-transaction")} />
+      <Fab accessibilityLabel={t("screens.addTransaction")} onPress={() => router.push("/add-transaction")} />
     </View>
   );
 }

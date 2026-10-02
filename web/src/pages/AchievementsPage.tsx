@@ -1,4 +1,5 @@
 import { useCallback, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { listAchievements, markAchievementsSeen } from "../services/achievementsService";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { usePageTitle } from "../hooks/usePageTitle";
@@ -12,12 +13,14 @@ import pageStyles from "../components/page.module.scss";
 import styles from "./AchievementsPage.module.scss";
 
 interface Section {
+  id: string;
   title: string;
   items: Achievement[];
 }
 
 export function AchievementsPage() {
-  usePageTitle("Achievements");
+  const { t } = useTranslation();
+  usePageTitle(t("achievements.title"));
   const fetchAchievements = useCallback(() => listAchievements(), []);
   const achievements = useAsyncData(fetchAchievements);
   const data = achievements.data;
@@ -30,13 +33,15 @@ export function AchievementsPage() {
 
   const sections: Section[] = data
     ? [
-        { title: "Unlocked", items: data.filter((achievement) => achievement.unlocked) },
+        { id: "unlocked", title: t("achievements.sections.unlocked"), items: data.filter((achievement) => achievement.unlocked) },
         {
-          title: "In progress",
+          id: "inProgress",
+          title: t("achievements.sections.inProgress"),
           items: data.filter((achievement) => !achievement.unlocked && achievement.progress_percentage > 0),
         },
         {
-          title: "Not started",
+          id: "notStarted",
+          title: t("achievements.sections.notStarted"),
           items: data.filter((achievement) => !achievement.unlocked && achievement.progress_percentage === 0),
         },
       ]
@@ -50,15 +55,15 @@ export function AchievementsPage() {
       return (
         <EmptyState
           icon="achievements"
-          title="No achievements yet"
-          message="Milestones appear here as you track spending, save and stay on budget."
+          title={t("achievements.empty.title")}
+          message={t("achievements.empty.message")}
         />
       );
     }
     return sections
       .filter((section) => section.items.length > 0)
       .map((section) => (
-        <section key={section.title} className={styles.section} aria-label={section.title}>
+        <section key={section.id} className={styles.section} aria-label={section.title}>
           <h2 className={styles.sectionHeading}>{section.title}</h2>
           <div className={styles.grid}>
             {section.items.map((achievement) => (
@@ -72,11 +77,11 @@ export function AchievementsPage() {
   return (
     <div className={pageStyles.page}>
       <PageHeader
-        title="Achievements"
+        title={t("achievements.title")}
         description={
           data
-            ? `${unlockedCount} of ${data.length} unlocked · milestones earned by tracking, saving and staying on budget.`
-            : "Milestones earned by tracking, saving and staying on budget."
+            ? t("achievements.descriptionWithCount", { unlocked: unlockedCount, total: data.length })
+            : t("achievements.description")
         }
       />
       {renderBody()}

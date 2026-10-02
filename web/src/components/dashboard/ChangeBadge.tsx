@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { formatSignedPercentage } from "../../utils/format";
 import { Badge } from "../Badge";
 
@@ -10,8 +11,9 @@ interface ChangeBadgeProps {
 
 /** A change vs. an earlier period: the signed percentage, an arrow, and a tone for good/bad. */
 export function ChangeBadge({ value, goodWhen = "down" }: ChangeBadgeProps) {
+  const { t } = useTranslation();
   if (value === null) {
-    return <Badge tone="neutral">new</Badge>;
+    return <Badge tone="neutral">{t("dashboard.categoryTrends.isNew")}</Badge>;
   }
   if (value === 0) {
     return <Badge tone="neutral">{formatSignedPercentage(value)}</Badge>;

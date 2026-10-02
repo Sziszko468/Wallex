@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import type { SavingsGoal } from "../../types/savingsGoal";
 import { depositToSavingsGoal, withdrawFromSavingsGoal } from "../../services/savingsGoalsService";
 import { extractErrorMessage, extractFieldErrors } from "../../utils/errors";
@@ -37,6 +38,7 @@ interface MoneyFormProps extends MoneyModalProps {
 }
 
 function MoneyForm({ goal, direction, onClose, onSaved }: MoneyFormProps) {
+  const { t } = useTranslation();
   const [amount, setAmount] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -48,11 +50,11 @@ function MoneyForm({ goal, direction, onClose, onSaved }: MoneyFormProps) {
     setErrorMessage(null);
     const numeric = Number(amount);
     if (!amount.trim() || !Number.isFinite(numeric) || numeric <= 0) {
-      setAmountError("Enter an amount greater than 0.");
+      setAmountError(t("goals.money.enterAmount"));
       return;
     }
     if (!hasValidPrecision(amount, goal.currency)) {
-      setAmountError(`${goal.currency} amounts can't have decimals.`);
+      setAmountError(t("common.validation.noDecimals", { currency: goal.currency }));
       return;
     }
     setAmountError(undefined);
@@ -75,16 +77,22 @@ function MoneyForm({ goal, direction, onClose, onSaved }: MoneyFormProps) {
     <Modal
       isOpen
       onClose={onClose}
-      title={isDeposit ? `Add money to ${goal.name}` : `Remove money from ${goal.name}`}
+      title={isDeposit ? t("goals.card.addMoneyTo", { name: goal.name }) : t("goals.card.removeMoneyFrom", { name: goal.name })}
     >
       <form onSubmit={handleSubmit} className={formStyles.stack} noValidate>
         <ErrorBanner message={errorMessage} />
         <p className={formStyles.note}>
-          Saved so far: <strong>{formatCurrency(goal.current_amount, goal.currency)}</strong> of{" "}
-          {formatCurrency(goal.target_amount, goal.currency)}
+          <Trans
+            i18nKey="goals.money.saved"
+            values={{
+              saved: formatCurrency(goal.current_amount, goal.currency),
+              target: formatCurrency(goal.target_amount, goal.currency),
+            }}
+            components={{ strong: <strong /> }}
+          />
         </p>
         <TextField
-          label={`Amount (${goal.currency})`}
+          label={t("goals.money.amount", { currency: goal.currency })}
           type="number"
           inputMode="decimal"
           step={amountStep(goal.currency)}
@@ -97,10 +105,10 @@ function MoneyForm({ goal, direction, onClose, onSaved }: MoneyFormProps) {
         />
         <div className={formStyles.actions}>
           <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
-            Cancel
+            {t("common.actions.cancel")}
           </Button>
           <Button type="submit" variant={isDeposit ? "primary" : "danger"} isLoading={isSubmitting}>
-            {isDeposit ? "Add money" : "Remove money"}
+            {isDeposit ? t("goals.money.submitAdd") : t("goals.money.submitRemove")}
           </Button>
         </div>
       </form>

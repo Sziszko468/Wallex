@@ -81,9 +81,7 @@ class Notification(models.Model):
     push delivery is retried from (`status`, `attempts`). The two are independent: a user
     without a phone still gets every notification in the app (status SKIPPED)."""
 
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifications"
-    )
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifications")
     kind = models.CharField(max_length=20, choices=NotificationKind.choices)
     title = models.CharField(max_length=100)
     body = models.CharField(max_length=255)
@@ -98,9 +96,7 @@ class Notification(models.Model):
     # the same event never produces a second notification.
     dedupe_key = models.CharField(max_length=150)
     read_at = models.DateTimeField(null=True, blank=True)
-    status = models.CharField(
-        max_length=10, choices=NotificationStatus.choices, default=NotificationStatus.PENDING
-    )
+    status = models.CharField(max_length=10, choices=NotificationStatus.choices, default=NotificationStatus.PENDING)
     attempts = models.PositiveSmallIntegerField(default=0)
     last_error = models.CharField(max_length=255, blank=True, default="")
     sent_at = models.DateTimeField(null=True, blank=True)

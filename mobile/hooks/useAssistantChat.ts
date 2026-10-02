@@ -1,9 +1,11 @@
 import axios from "axios";
+import { t } from "i18next";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { askInConversation, getConversation, startConversation } from "../services/assistantService";
 import type { AssistantExchange, AssistantMessage } from "../types/assistant";
 import { extractErrorMessage } from "../utils/errors";
 import { isOfflineError } from "../utils/network";
+import { HTTP_STATUS } from "../config/http";
 
 interface ChatState {
   messages: AssistantMessage[];
@@ -23,12 +25,10 @@ export type SendOutcome = "answered" | "failed" | "left";
 /** A message safe to show when asking failed. */
 export function askErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
-    if (error.code === "ECONNABORTED") return "The answer took too long. Please try again.";
-    if (error.response?.status === 429) {
-      return "You've asked a lot of questions in a short time. Please wait a little and try again.";
-    }
+    if (error.code === "ECONNABORTED") return t("assistant.errors.timeout");
+    if (error.response?.status === HTTP_STATUS.TOO_MANY_REQUESTS) return t("assistant.errors.rateLimited");
   }
-  if (isOfflineError(error)) return "You're offline. The assistant needs a connection to look at your data.";
+  if (isOfflineError(error)) return t("assistant.errors.offline");
   return extractErrorMessage(error);
 }
 

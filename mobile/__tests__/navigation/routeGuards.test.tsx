@@ -96,7 +96,7 @@ describe("navigation guards", () => {
     mockAuthState = { status: "unavailable", signOutReason: null };
     await renderApp("/dashboard");
 
-    expect(await screen.findByText("Can't reach Spendly")).toBeTruthy();
+    expect(await screen.findByText("Can't reach WALLEX")).toBeTruthy();
     expect(screen.getByText("Try again")).toBeTruthy();
   });
 

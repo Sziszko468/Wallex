@@ -10,19 +10,22 @@ Tracking days are the (UTC) days on which the user *recorded* a transaction (cre
 not the booking dates: back-dating a dozen receipts in one sitting is one day of tracking.
 """
 
-import calendar
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from decimal import Decimal
+from itertools import pairwise
 
 from django.db import transaction
 from django.db.models import Q
 from django.db.models.functions import TruncDate
 from django.utils import timezone
+from django.utils.dates import MONTHS
+from django.utils.translation import gettext as _
 
 from apps.budgets import savings
 from apps.budgets.models import Budget, SavingsGoal
+from apps.categories.defaults import display_name
 from apps.categories.models import TransactionType
 from apps.currencies.rates import Converter
 from apps.transactions.models import Transaction
@@ -72,9 +75,7 @@ def _saved_in(user, today: date, currencies: set[str]) -> dict[str, Decimal | No
     if not currencies:
         return {}
     total_saved = savings.get_summary(user, today)["total_saved"]
-    return {
-        currency: Converter(currency, today).to_base(total_saved, user.base_currency) for currency in currencies
-    }
+    return {currency: Converter(currency, today).to_base(total_saved, user.base_currency) for currency in currencies}
 
 
 def _latest_kept_budget(user, today: date) -> dict | None:
@@ -115,7 +116,11 @@ def load_facts(user, today: date, catalog: list[Achievement]) -> AchievementFact
         saved=_saved_in(user, today, money_currencies),
         budget_kept=_latest_kept_budget(user, today),
         completed_goal=(
-            SavingsGoal.objects.filter(user=user).reached().order_by("-updated_at").values_list("name", flat=True).first()
+            SavingsGoal.objects.filter(user=user)
+            .reached()
+            .order_by("-updated_at")
+            .values_list("name", flat=True)
+            .first()
         ),
     )
 
@@ -139,7 +144,7 @@ def current_streak(days: list[date], today: date) -> int:
     if not days or days[-1] < today - timedelta(days=1):
         return 0
     run = 1
-    for later, earlier in zip(reversed(days), list(reversed(days))[1:]):
+    for later, earlier in pairwise(reversed(days)):
         if later - earlier != timedelta(days=1):
             break
         run += 1
@@ -240,11 +245,11 @@ def title_and_detail(record: UserAchievement) -> tuple[str, str | None]:
     """The unlocked achievement as the user earned it: "Stayed Under Food Budget" · "August 2026"."""
     achievement, context = record.achievement, record.context
     if achievement.rule == AchievementRule.BUDGET_KEPT and context.get("category_name"):
-        month = f"{calendar.month_name[context['month']]} {context['year']}"
-        return f"Stayed Under {context['category_name']} Budget", month
+        month = f"{MONTHS[context['month']]} {context['year']}"
+        return _("Stayed Under %(category)s Budget") % {"category": display_name(context["category_name"])}, month
     if achievement.rule == AchievementRule.GOAL_COMPLETED and context.get("goal_name"):
-        return achievement.name, context["goal_name"]
-    return achievement.name, None
+        return _(achievement.name), context["goal_name"]
+    return _(achievement.name), None
 
 
 def progress_percentage(record: UserAchievement) -> float:

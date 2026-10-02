@@ -1,4 +1,5 @@
 import { useId, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { Category } from "../../types/category";
 import type { TransactionType } from "../../types/category";
 import { Button } from "../Button";
@@ -25,20 +26,6 @@ export const emptyTransactionFilters: TransactionFiltersValue = {
 
 type TypeFilter = TransactionType | "all";
 
-const TYPE_OPTIONS: readonly SegmentedOption<TypeFilter>[] = [
-  { value: "all", label: "All" },
-  { value: "expense", label: "Expenses" },
-  { value: "income", label: "Income" },
-];
-
-// The API sorts amounts by base_amount — their value in one currency — so 15,000 HUF ranks below 50 EUR.
-const SORT_OPTIONS = [
-  { value: "-date", label: "Newest first" },
-  { value: "date", label: "Oldest first" },
-  { value: "-base_amount", label: "Highest amount" },
-  { value: "base_amount", label: "Lowest amount" },
-];
-
 interface TransactionFiltersProps {
   value: TransactionFiltersValue;
   categories: Category[];
@@ -48,6 +35,19 @@ interface TransactionFiltersProps {
 }
 
 export function TransactionFilters({ value, categories, ordering, onChange, onOrderingChange }: TransactionFiltersProps) {
+  const { t } = useTranslation();
+  const typeOptions: readonly SegmentedOption<TypeFilter>[] = [
+    { value: "all", label: t("transactions.filters.all") },
+    { value: "expense", label: t("transactions.filters.expenses") },
+    { value: "income", label: t("transactions.filters.income") },
+  ];
+  // The API sorts amounts by base_amount — their value in one currency — so 15,000 HUF ranks below 50 EUR.
+  const sortOptions = [
+    { value: "-date", label: t("transactions.filters.sort.newest") },
+    { value: "date", label: t("transactions.filters.sort.oldest") },
+    { value: "-base_amount", label: t("transactions.filters.sort.highest") },
+    { value: "base_amount", label: t("transactions.filters.sort.lowest") },
+  ];
   const panelId = useId();
   // On phones the secondary filters fold away behind a "Filters" button; wider screens show them all.
   const [isPanelOpen, setIsPanelOpen] = useState(false);
@@ -60,14 +60,14 @@ export function TransactionFilters({ value, categories, ordering, onChange, onOr
   const activeSecondaryCount = [value.category, value.dateFrom, value.dateTo].filter(Boolean).length;
 
   return (
-    <div className={styles.filters} role="search" aria-label="Filter transactions">
+    <div className={styles.filters} role="search" aria-label={t("transactions.filters.label")}>
       <div className={styles.primary}>
         <TextField
-          label="Search"
+          label={t("transactions.filters.search")}
           hideLabel
           type="search"
           leadingIcon="search"
-          placeholder="Search transactions…"
+          placeholder={t("transactions.filters.searchPlaceholder")}
           value={value.search}
           onChange={(event) => update("search", event.target.value)}
           className={styles.search}
@@ -80,14 +80,14 @@ export function TransactionFilters({ value, categories, ordering, onChange, onOr
           aria-controls={panelId}
           onClick={() => setIsPanelOpen((open) => !open)}
         >
-          {activeSecondaryCount > 0 ? `Filters (${activeSecondaryCount})` : "Filters"}
+          {activeSecondaryCount > 0 ? t("transactions.filters.toggleActive", { count: activeSecondaryCount }) : t("transactions.filters.toggle")}
         </Button>
         <div className={styles.type}>
           <SegmentedControl
-            options={TYPE_OPTIONS}
+            options={typeOptions}
             value={value.type === "" ? "all" : value.type}
             onChange={(next) => update("type", next === "all" ? "" : next)}
-            label="Transaction type"
+            label={t("common.transactionType.label")}
             fullWidth
           />
         </div>
@@ -95,25 +95,25 @@ export function TransactionFilters({ value, categories, ordering, onChange, onOr
 
       <div id={panelId} className={isPanelOpen ? `${styles.panel} ${styles.panelOpen}` : styles.panel}>
         <Select
-          label="Category"
-          placeholder="All categories"
+          label={t("common.form.category")}
+          placeholder={t("transactions.filters.allCategories")}
           value={value.category}
           onChange={(event) => update("category", event.target.value)}
           options={categories.map((category) => ({ value: String(category.id), label: category.name }))}
           className={styles.category}
         />
-        <TextField label="From" type="date" value={value.dateFrom} onChange={(event) => update("dateFrom", event.target.value)} />
-        <TextField label="To" type="date" value={value.dateTo} onChange={(event) => update("dateTo", event.target.value)} />
+        <TextField label={t("transactions.filters.from")} type="date" value={value.dateFrom} onChange={(event) => update("dateFrom", event.target.value)} />
+        <TextField label={t("transactions.filters.to")} type="date" value={value.dateTo} onChange={(event) => update("dateTo", event.target.value)} />
         <Select
-          label="Sort by"
+          label={t("transactions.filters.sortBy")}
           value={ordering}
           onChange={(event) => onOrderingChange(event.target.value)}
-          options={SORT_OPTIONS}
+          options={sortOptions}
           className={styles.sort}
         />
         {hasActiveFilters && (
           <Button variant="ghost" leadingIcon="x" className={styles.clear} onClick={() => onChange(emptyTransactionFilters)}>
-            Clear filters
+            {t("transactions.filters.clear")}
           </Button>
         )}
       </div>

@@ -34,8 +34,13 @@ def rates(add_rates):
 
 def _tx(user, category, amount, currency="EUR", rate="1", day=RECENT):
     return Transaction.objects.create(
-        user=user, category=category, type=category.type, amount=Decimal(amount),
-        currency=currency, exchange_rate=Decimal(rate), date=day,
+        user=user,
+        category=category,
+        type=category.type,
+        amount=Decimal(amount),
+        currency=currency,
+        exchange_rate=Decimal(rate),
+        date=day,
     )
 
 
@@ -95,8 +100,14 @@ def test_budgets_are_converted_at_the_latest_rate(auth_client, user, food, rates
 @pytest.mark.django_db
 def test_recurring_amounts_keep_their_own_currency(auth_client, user, food, rates):
     rent = RecurringTransaction.objects.create(
-        user=user, category=food, name="Rent", type=TransactionType.EXPENSE, amount=Decimal("500.00"),
-        frequency=Frequency.MONTHLY, start_date=RECENT, next_occurrence_date=RECENT,
+        user=user,
+        category=food,
+        name="Rent",
+        type=TransactionType.EXPENSE,
+        amount=Decimal("500.00"),
+        frequency=Frequency.MONTHLY,
+        start_date=RECENT,
+        next_occurrence_date=RECENT,
     )
 
     _change(auth_client, "HUF")

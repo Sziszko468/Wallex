@@ -11,7 +11,9 @@ from decimal import ROUND_CEILING, Decimal
 from enum import IntEnum
 
 from django.db import transaction
+from django.utils.translation import gettext_lazy as _
 
+from apps.common.constants import MONTHS_PER_YEAR
 from apps.currencies.rates import MAX_AMOUNT, Converter, minor_unit
 
 from .models import ZERO, SavingsGoal, SavingsGoalStatus
@@ -24,7 +26,7 @@ def progress_percentage(current: Decimal, target: Decimal) -> Decimal:
 
 def full_months_between(start: date, end: date) -> int:
     """Whole calendar months from `start` to `end`: Sep 27 → Mar 27 is 6, Sep 27 → Mar 15 is 5."""
-    months = (end.year - start.year) * 12 + (end.month - start.month)
+    months = (end.year - start.year) * MONTHS_PER_YEAR + (end.month - start.month)
     return months - 1 if end.day < start.day else months
 
 
@@ -65,7 +67,7 @@ def get_summary(user, today: date) -> dict:
     base currency. One query, plus one for exchange rates when a goal is in another currency."""
     goals = list(SavingsGoal.objects.filter(user=user))
     converter = Converter(user.base_currency, today)
-    counts = {status: 0 for status in SavingsGoalStatus.values}
+    counts = dict.fromkeys(SavingsGoalStatus.values, 0)
     total_saved = total_target = ZERO
     unconverted: set[str] = set()
     for goal in goals:
@@ -117,13 +119,18 @@ def move_money(goal_id: int, amount: Decimal, direction: Direction) -> SavingsGo
     """
     goal = SavingsGoal.objects.select_for_update().get(pk=goal_id)
     if goal.status == SavingsGoalStatus.ARCHIVED:
-        raise MoneyMovementError("This goal is archived. Restore it to add or remove money.", field="non_field_errors")
+        raise MoneyMovementError(
+            _("This goal is archived. Restore it to add or remove money."), field="non_field_errors"
+        )
     if direction == Direction.WITHDRAWAL and amount > goal.current_amount:
-        raise MoneyMovementError(f"You can't remove more than the {goal.current_amount} {goal.currency} saved.")
+        raise MoneyMovementError(
+            _("You can't remove more than the %(amount)s %(currency)s saved.")
+            % {"amount": goal.current_amount, "currency": goal.currency}
+        )
 
     new_amount = goal.current_amount + direction * amount
     if new_amount > MAX_AMOUNT:
-        raise MoneyMovementError("This would make the saved amount too large.")
+        raise MoneyMovementError(_("This would make the saved amount too large."))
     goal.current_amount = new_amount
     goal.sync_status()
     goal.save(update_fields=["current_amount", "status", "updated_at"])

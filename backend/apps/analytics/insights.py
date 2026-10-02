@@ -11,6 +11,11 @@ from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 from enum import StrEnum
 
+from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy
+
+from apps.categories.defaults import display_name
+
 from . import services
 
 ZERO = Decimal("0.00")
@@ -88,7 +93,7 @@ def whole_percent(value: Decimal) -> str:
 
 
 def _totals_by_category(rows) -> dict[int, CategoryTotal]:
-    return {row["category_id"]: CategoryTotal(row["category__name"], row["total"]) for row in rows}
+    return {row["category_id"]: CategoryTotal(display_name(row["category__name"]), row["total"]) for row in rows}
 
 
 def build_context(user, year: int, month: int, today: date) -> InsightContext:
@@ -102,12 +107,8 @@ def build_context(user, year: int, month: int, today: date) -> InsightContext:
         total_income=summary["total_income"],
         total_expenses=summary["total_expenses"],
         category_totals=list(_totals_by_category(category_rows).items()),
-        comparison_current=_totals_by_category(
-            services.get_category_expense_rows_between(user, *current_range)
-        ),
-        comparison_previous=_totals_by_category(
-            services.get_category_expense_rows_between(user, *previous_range)
-        ),
+        comparison_current=_totals_by_category(services.get_category_expense_rows_between(user, *current_range)),
+        comparison_previous=_totals_by_category(services.get_category_expense_rows_between(user, *previous_range)),
         is_month_to_date=is_month_to_date,
         budget_usage=services.get_budget_usage(user, year, month),
         recurring_monthly_expenses=services.get_recurring_monthly_expenses(user, year, month, today),
@@ -127,8 +128,8 @@ def top_category_rule(ctx: InsightContext) -> list[Insight]:
             id=f"{InsightType.TOP_CATEGORY}:{category_id}",
             type=InsightType.TOP_CATEGORY,
             severity=Severity.INFO,
-            message=f"Highest spending category is {top.name} "
-            f"({whole_percent(share)}% of this month's expenses).",
+            message=_("Highest spending category is %(name)s (%(percent)s%% of this month's expenses).")
+            % {"name": top.name, "percent": whole_percent(share)},
             category_id=category_id,
             amount=top.total,
             percentage=share,
@@ -137,7 +138,6 @@ def top_category_rule(ctx: InsightContext) -> list[Insight]:
 
 
 def category_change_rule(ctx: InsightContext) -> list[Insight]:
-    period = "the same period last month" if ctx.is_month_to_date else "last month"
     candidates = []
     # Categories with no spending last month are skipped: there is no baseline to compare with.
     for category_id, previous in ctx.comparison_previous.items():
@@ -156,13 +156,13 @@ def category_change_rule(ctx: InsightContext) -> list[Insight]:
     for category_id, name, difference, change in candidates[:MAX_CATEGORY_CHANGE_INSIGHTS]:
         increased = difference > 0
         insight_type = InsightType.CATEGORY_INCREASE if increased else InsightType.CATEGORY_DECREASE
-        verb = "increased" if increased else "decreased"
+        message = _CHANGE_MESSAGES[(increased, ctx.is_month_to_date)] % {"name": name, "percent": whole_percent(change)}
         insights.append(
             Insight(
                 id=f"{insight_type}:{category_id}",
                 type=insight_type,
                 severity=Severity.WARNING if increased else Severity.POSITIVE,
-                message=f"{name} spending {verb} by {whole_percent(change)}% compared to {period}.",
+                message=message,
                 category_id=category_id,
                 amount=abs(difference),
                 percentage=change,
@@ -180,27 +180,37 @@ def budget_rule(ctx: InsightContext) -> list[Insight]:
 
         if spent > budget_amount:
             over = spent - budget_amount
-            subject = "Total spending" if is_overall else usage["category_name"]
-            target = "the overall monthly budget" if is_overall else "its budget"
+            percent = whole_percent(_percent(over, budget_amount))
+            message = (
+                _("Total spending exceeded the overall monthly budget by %(percent)s%%.") % {"percent": percent}
+                if is_overall
+                else _("%(name)s exceeded its budget by %(percent)s%%.")
+                % {"name": usage["category_name"], "percent": percent}
+            )
             insights.append(
                 Insight(
                     id=f"{InsightType.BUDGET_EXCEEDED}:{usage['budget_id']}",
                     type=InsightType.BUDGET_EXCEEDED,
                     severity=Severity.ALERT,
-                    message=f"{subject} exceeded {target} by {whole_percent(_percent(over, budget_amount))}%.",
+                    message=message,
                     category_id=usage["category_id"],
                     amount=over,
                     percentage=used,
                 )
             )
         elif used >= BUDGET_WARNING_PERCENT:
-            name = "your overall budget" if is_overall else f"the {usage['category_name']} budget"
+            message = (
+                _("You have used %(percent)s%% of your overall budget.") % {"percent": whole_percent(used)}
+                if is_overall
+                else _("You have used %(percent)s%% of the %(name)s budget.")
+                % {"percent": whole_percent(used), "name": usage["category_name"]}
+            )
             insights.append(
                 Insight(
                     id=f"{InsightType.BUDGET_WARNING}:{usage['budget_id']}",
                     type=InsightType.BUDGET_WARNING,
                     severity=Severity.WARNING,
-                    message=f"You have used {whole_percent(used)}% of {name}.",
+                    message=message,
                     category_id=usage["category_id"],
                     amount=budget_amount - spent,
                     percentage=used,
@@ -218,7 +228,7 @@ def recurring_share_rule(ctx: InsightContext) -> list[Insight]:
             id=InsightType.RECURRING_SHARE.value,
             type=InsightType.RECURRING_SHARE,
             severity=Severity.WARNING if share >= RECURRING_SHARE_WARNING_PERCENT else Severity.INFO,
-            message=f"Recurring expenses represent {whole_percent(share)}% of income.",
+            message=_("Recurring expenses represent %(percent)s%% of income.") % {"percent": whole_percent(share)},
             amount=ctx.recurring_monthly_expenses,
             percentage=share,
         )
@@ -238,7 +248,8 @@ def balance_rule(ctx: InsightContext) -> list[Insight]:
                 id=InsightType.OVERSPENDING.value,
                 type=InsightType.OVERSPENDING,
                 severity=Severity.ALERT,
-                message=f"Expenses exceeded income by {whole_percent(percentage)}% this month.",
+                message=_("Expenses exceeded income by %(percent)s%% this month.")
+                % {"percent": whole_percent(percentage)},
                 amount=deficit,
                 percentage=percentage,
             )
@@ -250,13 +261,22 @@ def balance_rule(ctx: InsightContext) -> list[Insight]:
                 id=InsightType.SAVINGS.value,
                 type=InsightType.SAVINGS,
                 severity=Severity.POSITIVE,
-                message=f"You saved {whole_percent(percentage)}% of your income this month.",
+                message=_("You saved %(percent)s%% of your income this month.")
+                % {"percent": whole_percent(percentage)},
                 amount=balance,
                 percentage=percentage,
             )
         ]
     return []
 
+
+# (increased?, month to date?) -> the sentence; whole sentences, as word order differs between languages.
+_CHANGE_MESSAGES = {
+    (True, True): gettext_lazy("%(name)s spending increased by %(percent)s%% compared to the same period last month."),
+    (True, False): gettext_lazy("%(name)s spending increased by %(percent)s%% compared to last month."),
+    (False, True): gettext_lazy("%(name)s spending decreased by %(percent)s%% compared to the same period last month."),
+    (False, False): gettext_lazy("%(name)s spending decreased by %(percent)s%% compared to last month."),
+}
 
 RULES = (
     budget_rule,

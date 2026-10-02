@@ -7,16 +7,12 @@ User = get_user_model()
 
 @pytest.fixture
 def user(db):
-    return User.objects.create_user(
-        username="testuser", email="testuser@example.com", password="testpass123"
-    )
+    return User.objects.create_user(username="testuser", email="testuser@example.com", password="testpass123")
 
 
 @pytest.fixture
 def other_user(db):
-    return User.objects.create_user(
-        username="otheruser", email="otheruser@example.com", password="testpass123"
-    )
+    return User.objects.create_user(username="otheruser", email="otheruser@example.com", password="testpass123")
 
 
 @pytest.fixture
@@ -98,10 +94,43 @@ def reset_throttle_counters():
 
 
 def refuse_model_client():
-    raise AssertionError("Tests must not call the real model API; use the `fake_model` fixture (apps/analytics/conftest.py).")
+    raise AssertionError(
+        "Tests must not call the real model API; use the `fake_model` fixture (apps/analytics/conftest.py)."
+    )
 
 
 @pytest.fixture(autouse=True)
 def no_model_calls(settings):
     """No test may reach the Anthropic API, even when an ANTHROPIC_API_KEY is configured locally."""
     settings.AI_ASSISTANT = {**settings.AI_ASSISTANT, "CLIENT": "conftest.refuse_model_client"}
+
+
+@pytest.fixture(scope="session", autouse=True)
+def compiled_translations():
+    """The compiled catalogs (.mo) are build artifacts, not kept in git: compile them once per run."""
+    import shutil
+
+    from django.core.management import call_command
+
+    if shutil.which("msgfmt") is None:
+        pytest.fail("GNU gettext (msgfmt) is needed to compile the translations: install the `gettext` package.")
+    call_command("compilemessages", ignore_patterns=[".venv", "node_modules"], verbosity=0)
+
+
+@pytest.fixture(autouse=True)
+def reset_active_language():
+    """A request leaves its language active on the thread; no test may inherit the previous one's."""
+    from django.utils import translation
+
+    translation.deactivate()
+    yield
+    translation.deactivate()
+
+
+@pytest.fixture
+def hungarian():
+    """Everything in the test runs with the Hungarian catalog active (as for an `Accept-Language: hu` request)."""
+    from django.utils import translation
+
+    with translation.override("hu"):
+        yield

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { TransactionType } from "../types/category";
 import { SegmentedControl, type SegmentedOption } from "./SegmentedControl";
 
@@ -6,12 +7,12 @@ interface TypeToggleProps {
   onChange: (type: TransactionType) => void;
 }
 
-// Each option carries an icon as well as its colour: money leaving vs. arriving.
-const OPTIONS: readonly SegmentedOption<TransactionType>[] = [
-  { value: "expense", label: "Expense", icon: "arrow-up-right", tone: "expense" },
-  { value: "income", label: "Income", icon: "arrow-down-left", tone: "income" },
-];
-
 export function TypeToggle({ value, onChange }: TypeToggleProps) {
-  return <SegmentedControl options={OPTIONS} value={value} onChange={onChange} label="Transaction type" fullWidth />;
+  const { t } = useTranslation();
+  // Each option carries an icon as well as its colour: money leaving vs. arriving.
+  const options: readonly SegmentedOption<TransactionType>[] = [
+    { value: "expense", label: t("common.transactionType.expense"), icon: "arrow-up-right", tone: "expense" },
+    { value: "income", label: t("common.transactionType.income"), icon: "arrow-down-left", tone: "income" },
+  ];
+  return <SegmentedControl options={options} value={value} onChange={onChange} label={t("common.transactionType.label")} fullWidth />;
 }

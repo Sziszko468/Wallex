@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { CategoryBreakdownEntry } from "../../types/dashboard";
 import { formatCurrency, formatPercentage } from "../../utils/format";
 import { useBaseCurrency } from "../../hooks/useBaseCurrency";
@@ -12,6 +13,7 @@ interface TopCategoriesListProps {
 
 /** The donut's key: the biggest categories with their amount and share. Empty months are the chart's message to give. */
 export function TopCategoriesList({ categories, colorFor, limit = 5 }: TopCategoriesListProps) {
+  const { t } = useTranslation();
   const baseCurrency = useBaseCurrency();
   if (categories.length === 0) return null;
 
@@ -19,7 +21,7 @@ export function TopCategoriesList({ categories, colorFor, limit = 5 }: TopCatego
   const topCategories = categories.slice(0, limit);
 
   return (
-    <ul className={styles.list} aria-label="Top categories">
+    <ul className={styles.list} aria-label={t("dashboard.byCategory.top")}>
       {topCategories.map((entry) => (
         <li key={entry.category_id} className={styles.item}>
           <CategoryDot color={colorFor(entry.category_id)} />

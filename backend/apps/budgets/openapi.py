@@ -10,11 +10,14 @@ from .serializers import BudgetSerializer, MoneyMovementSerializer, SavingsGoalS
 _VALIDATION = validation_error(
     ("Duplicate", {"non_field_errors": ["A budget for this category and month already exists."]}),
     ("Income category", {"category": ["Budgets can only be set for expense categories."]}),
-    ("Out of range", {
-        "amount": ["Ensure this value is greater than or equal to 0.01."],
-        "year": ["Ensure this value is greater than or equal to 2000."],
-        "month": ["Ensure this value is less than or equal to 12."],
-    }),
+    (
+        "Out of range",
+        {
+            "amount": ["Ensure this value is greater than or equal to 0.01."],
+            "year": ["Ensure this value is greater than or equal to 2000."],
+            "month": ["Ensure this value is less than or equal to 12."],
+        },
+    ),
 )
 
 _EXAMPLE = {
@@ -54,10 +57,14 @@ BUDGET_VIEWSET_SCHEMA = extend_schema_view(
         responses={201: OpenApiResponse(BudgetSerializer, description="Created."), 400: _VALIDATION},
         examples=[
             OpenApiExample(
-                "Category budget", request_only=True, value={"category": 206, "amount": "60.00", "year": 2026, "month": 9}
+                "Category budget",
+                request_only=True,
+                value={"category": 206, "amount": "60.00", "year": 2026, "month": 9},
             ),
             OpenApiExample(
-                "Overall budget", request_only=True, value={"category": None, "amount": "1500.00", "year": 2026, "month": 9}
+                "Overall budget",
+                request_only=True,
+                value={"category": None, "amount": "1500.00", "year": 2026, "month": 9},
             ),
             OpenApiExample("Created", response_only=True, status_codes=["201"], value=_EXAMPLE),
         ],

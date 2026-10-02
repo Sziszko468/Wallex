@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { Category } from "../../types/category";
 import type { BudgetUsageEntry } from "../../types/dashboard";
 import { EmptyState } from "../EmptyState";
@@ -10,12 +11,10 @@ interface BudgetOverviewProps {
 }
 
 export function BudgetOverview({ budgets, categoriesById }: BudgetOverviewProps) {
+  const { t } = useTranslation();
   if (budgets.length === 0) {
     return (
-      <EmptyState
-        icon="budgets"
-        message="No budgets set for this month yet."
-      />
+      <EmptyState icon="budgets" message={t("dashboard.budgets.empty")} />
     );
   }
 

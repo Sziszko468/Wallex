@@ -2,6 +2,7 @@ import uuid
 
 from django.conf import settings
 from django.db import IntegrityError, transaction
+from django.utils.translation import gettext_lazy as _
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
@@ -102,13 +103,11 @@ class TransactionViewSet(AuditedDeleteMixin, ConditionalWriteMixin, viewsets.Mod
 
         uploaded_file = request.FILES.get("file")
         if uploaded_file is None:
-            return Response({"file": ["This field is required."]}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"file": [_("This field is required.")]}, status=status.HTTP_400_BAD_REQUEST)
         if uploaded_file.size > limit:
             return file_too_large("file", limit)
         if not uploaded_file.name.lower().endswith(".csv"):
-            return Response(
-                {"file": ["Please upload a .csv file."]}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"file": [_("Please upload a .csv file.")]}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             summary = import_transactions_from_csv(request.user, uploaded_file)
@@ -132,8 +131,7 @@ class TransactionViewSet(AuditedDeleteMixin, ConditionalWriteMixin, viewsets.Mod
                 "skipped": summary.skipped,
                 "failed": summary.failed,
                 "details": [
-                    {"row": item.row, "status": item.status, "reason": item.reason}
-                    for item in summary.details
+                    {"row": item.row, "status": item.status, "reason": item.reason} for item in summary.details
                 ],
             },
             status=status.HTTP_200_OK,

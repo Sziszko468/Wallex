@@ -15,8 +15,13 @@ SEP = {"year": 2026, "month": 9}
 
 def _tx(user, category, amount, currency="EUR", rate="1", day=date(2026, 9, 10)):
     return Transaction.objects.create(
-        user=user, category=category, type=category.type, amount=Decimal(amount),
-        currency=currency, exchange_rate=Decimal(rate), date=day,
+        user=user,
+        category=category,
+        type=category.type,
+        amount=Decimal(amount),
+        currency=currency,
+        exchange_rate=Decimal(rate),
+        date=day,
     )
 
 
@@ -67,8 +72,14 @@ def test_comparison_and_insights_use_base_amounts(auth_client, user, food_catego
 
 def _recurring(user, category, amount, currency="EUR"):
     return RecurringTransaction.objects.create(
-        user=user, category=category, name=f"{amount} {currency}", type=category.type, amount=Decimal(amount),
-        currency=currency, frequency=Frequency.MONTHLY, start_date=date(2026, 1, 1),
+        user=user,
+        category=category,
+        name=f"{amount} {currency}",
+        type=category.type,
+        amount=Decimal(amount),
+        currency=currency,
+        frequency=Frequency.MONTHLY,
+        start_date=date(2026, 1, 1),
         next_occurrence_date=date(2026, 1, 1),
     )
 

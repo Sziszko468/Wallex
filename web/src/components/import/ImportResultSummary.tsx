@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { ImportSummary } from "../../types/csvImport";
 import { Badge } from "../Badge";
 import { SummaryStrip } from "../SummaryStrip";
@@ -8,13 +9,14 @@ interface ImportResultSummaryProps {
 }
 
 export function ImportResultSummary({ summary }: ImportResultSummaryProps) {
+  const { t } = useTranslation();
   return (
     <div className={styles.result}>
       <SummaryStrip
         items={[
-          { label: "Imported", value: String(summary.imported), tone: "positive" },
-          { label: "Skipped", value: String(summary.skipped), tone: summary.skipped > 0 ? "warning" : undefined },
-          { label: "Failed", value: String(summary.failed), tone: summary.failed > 0 ? "negative" : undefined },
+          { label: t("importCsv.result.imported"), value: String(summary.imported), tone: "positive" },
+          { label: t("importCsv.result.skipped"), value: String(summary.skipped), tone: summary.skipped > 0 ? "warning" : undefined },
+          { label: t("importCsv.result.failed"), value: String(summary.failed), tone: summary.failed > 0 ? "negative" : undefined },
         ]}
       />
 
@@ -23,9 +25,9 @@ export function ImportResultSummary({ summary }: ImportResultSummaryProps) {
           <table className={styles.detailsTable}>
             <thead>
               <tr>
-                <th scope="col">Row</th>
-                <th scope="col">Status</th>
-                <th scope="col">Reason</th>
+                <th scope="col">{t("importCsv.result.row")}</th>
+                <th scope="col">{t("common.labels.status")}</th>
+                <th scope="col">{t("importCsv.result.reason")}</th>
               </tr>
             </thead>
             <tbody>
@@ -34,7 +36,7 @@ export function ImportResultSummary({ summary }: ImportResultSummaryProps) {
                   <td>{detail.row}</td>
                   <td>
                     <Badge tone={detail.status === "failed" ? "danger" : "warning"} icon={detail.status === "failed" ? "alert-circle" : "alert-triangle"}>
-                      {detail.status === "failed" ? "Failed" : "Skipped"}
+                      {detail.status === "failed" ? t("importCsv.result.failed") : t("importCsv.result.skipped")}
                     </Badge>
                   </td>
                   <td>{detail.reason}</td>

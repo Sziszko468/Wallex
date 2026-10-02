@@ -3,6 +3,16 @@
   "plugins": ["react", "typescript", "oxc"],
   "rules": {
     "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
+    "react/only-export-components": ["warn", { "allowConstantExport": true }],
+    "eslint/no-magic-numbers": [
+      "warn",
+      { "ignore": [-1, 0, 1, 2, 100], "ignoreArrayIndexes": true, "ignoreDefaultValues": true }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["**/*.test.ts", "**/*.test.tsx", "src/test/**"],
+      "rules": { "eslint/no-magic-numbers": "off" }
+    }
+  ]
 }

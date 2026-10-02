@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 /**
- * Spendly's icon set: one style for the whole app — 24×24 grid, 1.75px rounded strokes,
+ * WALLEX's icon set: one style for the whole app — 24×24 grid, 1.75px rounded strokes,
  * no fills (except the three dots of "more"). Drawn in-house, so the app ships no icon library.
  * Add an icon by adding its name to ICON_NAMES and its geometry below; <Icon> does the rest.
  */

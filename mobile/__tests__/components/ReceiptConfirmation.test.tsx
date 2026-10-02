@@ -130,7 +130,7 @@ describe("ReceiptConfirmation", () => {
     expect(screen.getByText(/Currency not found on the receipt — set to EUR/)).toBeTruthy();
   });
 
-  it("explains a receipt in a currency Spendly can't record", async () => {
+  it("explains a receipt in a currency WALLEX can't record", async () => {
     await renderConfirmation({
       ...confidentScan,
       currency: { value: null, confidence: "low" },
@@ -138,7 +138,7 @@ describe("ReceiptConfirmation", () => {
       outcome: "incomplete",
     });
 
-    expect(screen.getByText(/This receipt is in CZK, which Spendly can't record yet/)).toBeTruthy();
+    expect(screen.getByText(/This receipt is in CZK, which WALLEX can't record yet/)).toBeTruthy();
   });
 
   it("refuses decimals in a whole-number currency", async () => {

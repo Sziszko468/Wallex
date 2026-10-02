@@ -77,7 +77,12 @@ NOTIFICATION_VIEWSET_SCHEMA = extend_schema_view(
             OpenApiExample(
                 "Page",
                 response_only=True,
-                value={"count": 2, "next": None, "previous": None, "results": [_NOTIFICATION_EXAMPLE, _SUMMARY_EXAMPLE]},
+                value={
+                    "count": 2,
+                    "next": None,
+                    "previous": None,
+                    "results": [_NOTIFICATION_EXAMPLE, _SUMMARY_EXAMPLE],
+                },
             )
         ],
     ),
@@ -109,7 +114,11 @@ UNREAD_COUNT_SCHEMA = extend_schema(
     tags=["Notifications"],
     summary="Count unread notifications",
     description="For the badge on the notifications icon. Cheap: poll it on app start and when the app returns to the foreground.",
-    responses={200: OpenApiResponse(UnreadCountSerializer, examples=[OpenApiExample("Three unread", value={"unread_count": 3})])},
+    responses={
+        200: OpenApiResponse(
+            UnreadCountSerializer, examples=[OpenApiExample("Three unread", value={"unread_count": 3})]
+        )
+    },
     filters=False,
 )
 
@@ -160,7 +169,11 @@ DEVICE_VIEWSET_SCHEMA = extend_schema_view(
             OpenApiExample(
                 "Register",
                 request_only=True,
-                value={"expo_push_token": "ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]", "platform": "android", "name": "Pixel 8"},
+                value={
+                    "expo_push_token": "ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]",
+                    "platform": "android",
+                    "name": "Pixel 8",
+                },
             ),
             OpenApiExample("Registered", response_only=True, status_codes=["201"], value=_DEVICE_EXAMPLE),
         ],

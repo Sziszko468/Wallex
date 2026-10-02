@@ -33,7 +33,7 @@ export interface ReceiptScan {
   date: ScannedField<string>;
   /** A supported currency printed on the receipt; null if none was found. */
   currency: ScannedField<CurrencyCode>;
-  /** A currency on the receipt Spendly can't record (e.g. "CZK"); null otherwise. */
+  /** A currency on the receipt WALLEX can't record (e.g. "CZK"); null otherwise. */
   unsupported_currency: string | null;
   items: ReceiptItem[];
   category: { id: number; name: string; source: "history" | "rules" } | null;

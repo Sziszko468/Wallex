@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
+import { useTranslation } from "react-i18next";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { useBaseCurrency } from "../hooks/useBaseCurrency";
 import { useRefetchOnFocus } from "../hooks/useRefetchOnFocus";
@@ -14,6 +15,7 @@ import { SectionState } from "../components/SectionState";
 import { colors, fontSize, radius, spacing } from "../utils/theme";
 
 export function TransactionDetailsScreen() {
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const transactionId = Number(id);
   const baseCurrency = useBaseCurrency();
@@ -34,10 +36,10 @@ export function TransactionDetailsScreen() {
   }
 
   function handleDeletePress() {
-    const label = transaction.data?.description || category?.name || "this transaction";
-    Alert.alert("Delete transaction", `Delete "${label}"? This can't be undone.`, [
-      { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: confirmDelete },
+    const label = transaction.data?.description || category?.name || t("transactions.details.thisTransaction");
+    Alert.alert(t("transactions.details.deleteTitle"), t("common.confirm.deleteMessage", { name: label }), [
+      { text: t("common.actions.cancel"), style: "cancel" },
+      { text: t("common.actions.delete"), style: "destructive", onPress: confirmDelete },
     ]);
   }
 
@@ -55,14 +57,11 @@ export function TransactionDetailsScreen() {
       }
       setIsDeleting(false);
       if (isConflict(error)) {
-        Alert.alert(
-          "Changed on another device",
-          "This transaction was just changed on another device, so it wasn't deleted. Its latest version is shown now."
-        );
+        Alert.alert(t("transactions.details.conflictTitle"), t("transactions.details.conflictMessage"));
         void transaction.revalidate();
         return;
       }
-      Alert.alert("Couldn't delete", extractErrorMessage(error));
+      Alert.alert(t("transactions.details.couldntDelete"), extractErrorMessage(error));
     }
   }
 
@@ -97,28 +96,31 @@ export function TransactionDetailsScreen() {
             </View>
 
             <View style={styles.card}>
-              <DetailRow label="Description" value={transaction.data.description || "—"} />
-              <DetailRow label="Date" value={formatFullDate(transaction.data.date)} />
+              <DetailRow
+                label={t("transactions.details.description")}
+                value={transaction.data.description || t("common.states.notAvailable")}
+              />
+              <DetailRow label={t("transactions.details.date")} value={formatFullDate(transaction.data.date)} />
               {transaction.data.currency !== baseCurrency && (
                 // Computed by the API with the ECB rate of the transaction's date.
                 <DetailRow
-                  label={`In ${baseCurrency}`}
+                  label={t("transactions.details.inCurrency", { currency: baseCurrency })}
                   value={formatCurrency(transaction.data.base_amount, baseCurrency)}
                 />
               )}
               <DetailRow
-                label="Type"
-                value={transaction.data.type === "income" ? "Income" : "Expense"}
+                label={t("transactions.details.type")}
+                value={transaction.data.type === "income" ? t("common.transactionType.income") : t("common.transactionType.expense")}
               />
             </View>
 
             <View style={styles.actions}>
               <View style={styles.actionButton}>
-                <Button title="Edit" variant="secondary" onPress={handleEdit} />
+                <Button title={t("common.actions.edit")} variant="secondary" onPress={handleEdit} />
               </View>
               <View style={styles.actionButton}>
                 <Button
-                  title="Delete"
+                  title={t("common.actions.delete")}
                   variant="danger"
                   onPress={handleDeletePress}
                   isLoading={isDeleting}

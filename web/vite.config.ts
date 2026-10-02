@@ -8,7 +8,7 @@ const DEFAULT_API_BASE_URL = 'http://localhost:8000/api'
 /** Adds the CSP <meta> tag to the production build only (dev needs inline scripts for HMR). */
 function contentSecurityPolicy(apiBaseUrl: string): Plugin {
   return {
-    name: 'spendly-content-security-policy',
+    name: 'wallex-content-security-policy',
     apply: 'build',
     transformIndexHtml: () => [
       {

@@ -1,7 +1,9 @@
 import { useCallback, useState } from "react";
 import { ActivityIndicator, Image, Linking, Platform, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
+import { useTranslation } from "react-i18next";
 import * as ImagePicker from "expo-image-picker";
+import { APP_NAME } from "../config/app";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { useBaseCurrency } from "../hooks/useBaseCurrency";
 import { useCreateTransaction } from "../hooks/useCreateTransaction";
@@ -34,6 +36,7 @@ type Step =
 type PickerResult = ImagePicker.ImagePickerResult;
 
 export function ScanReceiptScreen() {
+  const { t } = useTranslation();
   const [step, setStep] = useState<Step>({ kind: "capture" });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [cameraBlocked, setCameraBlocked] = useState(false);
@@ -81,7 +84,7 @@ export function ScanReceiptScreen() {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
       setCameraBlocked(!permission.canAskAgain);
-      setErrorMessage("Spendly needs camera access to scan receipts.");
+      setErrorMessage(t("receipts.scan.cameraNeeded", { appName: APP_NAME }));
       return;
     }
     await processPick(() => ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: 0.9 }));
@@ -111,7 +114,7 @@ export function ScanReceiptScreen() {
         <View style={styles.center}>
           <Image source={{ uri: step.photoUri }} style={styles.preview} resizeMode="contain" />
           <ActivityIndicator color={colors.primary} size="large" />
-          <Text style={styles.muted}>Reading your receipt…</Text>
+          <Text style={styles.muted}>{t("receipts.scan.reading")}</Text>
         </View>
       </Screen>
     );
@@ -149,28 +152,26 @@ export function ScanReceiptScreen() {
   const canScan = !isOffline;
   return (
     <Screen>
-      <Text style={styles.heading}>Scan a receipt</Text>
-      <Text style={styles.muted}>
-        Take a photo of the whole receipt, flat and well lit. You'll check every detail before anything is saved.
-      </Text>
+      <Text style={styles.heading}>{t("receipts.scan.title")}</Text>
+      <Text style={styles.muted}>{t("receipts.scan.intro")}</Text>
       <View style={styles.spacerLarge} />
 
       {!canScan && (
-        <ErrorBanner message="You're offline. Scanning needs a connection — add the transaction manually instead." />
+        <ErrorBanner message={t("receipts.scan.offline")} />
       )}
       <ErrorBanner message={errorMessage} />
       {cameraBlocked && Platform.OS !== "web" && (
         <>
-          <Button title="Open settings" variant="secondary" onPress={() => void Linking.openSettings()} />
+          <Button title={t("receipts.scan.openSettings")} variant="secondary" onPress={() => void Linking.openSettings()} />
           <View style={styles.spacer} />
         </>
       )}
 
-      <Button title="Take photo" size="large" onPress={handleTakePhoto} disabled={!canScan} />
+      <Button title={t("receipts.scan.takePhoto")} size="large" onPress={handleTakePhoto} disabled={!canScan} />
       <View style={styles.spacer} />
-      <Button title="Choose from library" variant="secondary" onPress={handleChoosePhoto} disabled={!canScan} />
+      <Button title={t("receipts.scan.choose")} variant="secondary" onPress={handleChoosePhoto} disabled={!canScan} />
       <View style={styles.spacerLarge} />
-      <Button title="Enter manually instead" variant="secondary" onPress={() => router.replace("/add-transaction")} />
+      <Button title={t("receipts.scan.manual")} variant="secondary" onPress={() => router.replace("/add-transaction")} />
     </Screen>
   );
 }

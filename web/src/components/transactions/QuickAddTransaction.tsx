@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { listCategories } from "../../services/categoriesService";
 import { useAsyncData } from "../../hooks/useAsyncData";
 import { ErrorState } from "../ErrorState";
@@ -23,15 +24,16 @@ export function QuickAddTransaction({ isOpen, onClose }: QuickAddTransactionProp
 }
 
 function QuickAddDialog({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation();
   const toast = useToast();
   const fetchCategories = useCallback(() => listCategories(), []);
   const categories = useAsyncData(fetchCategories, { live: false });
 
   if (categories.isLoading || categories.error) {
     return (
-      <Modal isOpen onClose={onClose} title="New transaction">
+      <Modal isOpen onClose={onClose} title={t("nav.newTransaction")}>
         {categories.error ? (
-          <ErrorState error={categories.error} onRetry={categories.refetch} title="We couldn't load your categories" />
+          <ErrorState error={categories.error} onRetry={categories.refetch} title={t("transactions.quickAdd.categoriesFailed")} />
         ) : (
           <SkeletonRows count={3} rowHeight={52} />
         )}
@@ -44,11 +46,11 @@ function QuickAddDialog({ onClose }: { onClose: () => void }) {
       isOpen
       transaction={null}
       categories={categories.data ?? []}
-      title="New transaction"
+      title={t("nav.newTransaction")}
       onClose={onClose}
       onSaved={() => {
         onClose();
-        toast.success("Transaction added");
+        toast.success(t("transactions.toast.added"));
       }}
     />
   );

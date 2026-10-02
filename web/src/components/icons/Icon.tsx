@@ -9,7 +9,7 @@ interface IconProps extends Omit<SVGProps<SVGSVGElement>, "name" | "children"> {
   title?: string;
 }
 
-/** One line-icon from the Spendly set (see iconPaths.tsx). Takes its colour from `currentColor`. */
+/** One line-icon from the WALLEX set (see iconPaths.tsx). Takes its colour from `currentColor`. */
 export function Icon({ name, size = 20, title, ...rest }: IconProps) {
   return (
     <svg

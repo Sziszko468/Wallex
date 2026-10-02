@@ -50,9 +50,7 @@ def test_retry_succeeds_even_if_the_payload_would_no_longer_validate(auth_client
     # that must not turn an already-successful sync into a failure.
     auth_client.post(reverse("transaction-list"), _payload(expense_category), format="json")
 
-    retry = auth_client.post(
-        reverse("transaction-list"), _payload(expense_category, category=999999), format="json"
-    )
+    retry = auth_client.post(reverse("transaction-list"), _payload(expense_category, category=999999), format="json")
 
     assert retry.status_code == status.HTTP_200_OK
     assert Transaction.objects.count() == 1
@@ -64,9 +62,7 @@ def test_same_client_id_for_different_users_are_independent(
 ):
     auth_client.post(reverse("transaction-list"), _payload(expense_category), format="json")
 
-    response = other_auth_client.post(
-        reverse("transaction-list"), _payload(other_user_expense_category), format="json"
-    )
+    response = other_auth_client.post(reverse("transaction-list"), _payload(other_user_expense_category), format="json")
 
     assert response.status_code == status.HTTP_201_CREATED
     assert Transaction.objects.count() == 2
@@ -95,9 +91,7 @@ def test_invalid_client_id_rejected(auth_client, expense_category):
 
 @pytest.mark.django_db
 def test_client_id_cannot_be_changed_later(auth_client, expense_category):
-    transaction_id = auth_client.post(
-        reverse("transaction-list"), _payload(expense_category), format="json"
-    ).data["id"]
+    transaction_id = auth_client.post(reverse("transaction-list"), _payload(expense_category), format="json").data["id"]
 
     response = auth_client.patch(
         reverse("transaction-detail", args=[transaction_id]), {"client_id": str(uuid.uuid4())}, format="json"

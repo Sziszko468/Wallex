@@ -48,7 +48,7 @@ def _me(client) -> int:
 @pytest.mark.django_db
 def test_every_sign_in_is_a_session_listed_with_its_device(user):
     laptop = _sign_in(user, "web")
-    _sign_in(user, "ios", agent="Spendly/1.0 CFNetwork Darwin")
+    _sign_in(user, "ios", agent="WALLEX/1.0 CFNetwork Darwin")
 
     rows = laptop.get(reverse("session-list")).data
 
@@ -162,7 +162,7 @@ def test_tokens_for_another_audience_are_refused(api_client, user):
     foreign = jwt.encode({**claims, "aud": "another-api"}, settings.SIMPLE_JWT["SIGNING_KEY"], algorithm="HS256")
     api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {foreign}")
 
-    assert claims["iss"] == "spendly" and claims["aud"] == "spendly-api"
+    assert claims["iss"] == "wallex" and claims["aud"] == "wallex-api"
     assert api_client.get(reverse("auth-me")).status_code == 401
 
 
@@ -322,13 +322,13 @@ def test_password_change_is_validated(user, body, field):
 @pytest.mark.django_db
 def test_sign_ins_are_logged_with_device_and_address(user):
     _attempt(user.email, "wrong", "203.0.113.7")
-    device = _sign_in(user, "ios", agent="Spendly/1.0 iPhone")
+    device = _sign_in(user, "ios", agent="WALLEX/1.0 iPhone")
 
     history = device.get(reverse("auth-security-events"), {"category": "login"}).data["results"]
 
     assert [event["action"] for event in history] == ["login_succeeded", "login_failed"]
     assert history[1]["ip_address"] == "203.0.113.7"
-    assert history[0]["user_agent"] == "Spendly/1.0 iPhone" and history[0]["category"] == "login"
+    assert history[0]["user_agent"] == "WALLEX/1.0 iPhone" and history[0]["category"] == "login"
     assert history[0]["metadata"] == {"method": "password", "platform": "ios"}
 
 
@@ -358,12 +358,17 @@ def test_imports_deletions_and_currency_changes_are_logged(user, add_rates):
     device.delete(reverse("transaction-detail", args=[doomed.pk]))
     device.patch(reverse("auth-me"), {"base_currency": "HUF"}, format="json")
 
-    data = {event["action"]: event["metadata"] for event in device.get(reverse("auth-security-events"), {"category": "data"}).data["results"]}
+    data = {
+        event["action"]: event["metadata"]
+        for event in device.get(reverse("auth-security-events"), {"category": "data"}).data["results"]
+    }
     assert data["transactions_imported"] == {"imported": 1, "skipped": 0, "failed": 0}
     assert data["object_deleted"] == {"object_type": "transaction", "object_id": doomed.pk}
     assert data["base_currency_changed"] == {"previous": "EUR", "current": "HUF"}
     session = UserSession.objects.get(user=user)
-    assert set(AuditEvent.objects.filter(action=AuditAction.OBJECT_DELETED).values_list("session_key", flat=True)) == {session.key}
+    assert set(AuditEvent.objects.filter(action=AuditAction.OBJECT_DELETED).values_list("session_key", flat=True)) == {
+        session.key
+    }
 
 
 @pytest.mark.django_db

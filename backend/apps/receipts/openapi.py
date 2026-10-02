@@ -4,7 +4,6 @@ from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema
 from rest_framework import serializers
 
 from apps.common.openapi import error_response, throttled, upload_too_large, validation_error
-
 from apps.currencies.models import Currency
 
 from .parser import Confidence, Outcome
@@ -18,7 +17,9 @@ _CONFIDENCE_HELP = "`high`: found by a specific rule (e.g. the TOTAL line). `low
 
 
 class ReceiptImageSerializer(serializers.Serializer):
-    image = serializers.ImageField(help_text="Receipt photo: JPEG, PNG or WebP, max 10 MB. Processed in memory, never stored.")
+    image = serializers.ImageField(
+        help_text="Receipt photo: JPEG, PNG or WebP, max 10 MB. Processed in memory, never stored."
+    )
 
 
 class ScannedTextSerializer(serializers.Serializer):
@@ -71,7 +72,7 @@ class ReceiptScanSerializer(serializers.Serializer):
     unsupported_currency = serializers.CharField(
         allow_null=True,
         help_text=(
-            "An ISO code printed on the receipt that Spendly can't record (e.g. `CZK`), when no supported one was "
+            "An ISO code printed on the receipt that WALLEX can't record (e.g. `CZK`), when no supported one was "
             "found; the user has to choose the currency and amount themselves. Otherwise `null`."
         ),
     )

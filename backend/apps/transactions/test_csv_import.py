@@ -61,9 +61,7 @@ def test_import_requires_file(auth_client):
 def test_import_rejects_non_csv_extension(auth_client):
     upload = SimpleUploadedFile("data.txt", b"date,description,amount\n", content_type="text/plain")
 
-    response = auth_client.post(
-        reverse("transaction-import-csv"), {"file": upload}, format="multipart"
-    )
+    response = auth_client.post(reverse("transaction-import-csv"), {"file": upload}, format="multipart")
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert "file" in response.data
@@ -73,9 +71,7 @@ def test_import_rejects_non_csv_extension(auth_client):
 def test_import_rejects_empty_file(auth_client):
     upload = _csv_file("")
 
-    response = auth_client.post(
-        reverse("transaction-import-csv"), {"file": upload}, format="multipart"
-    )
+    response = auth_client.post(reverse("transaction-import-csv"), {"file": upload}, format="multipart")
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert "file" in response.data
@@ -85,9 +81,7 @@ def test_import_rejects_empty_file(auth_client):
 def test_import_missing_required_columns_rejected(auth_client):
     upload = _csv_file("date,amount\n2026-09-10,-42.50\n")
 
-    response = auth_client.post(
-        reverse("transaction-import-csv"), {"file": upload}, format="multipart"
-    )
+    response = auth_client.post(reverse("transaction-import-csv"), {"file": upload}, format="multipart")
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert "description" in response.data["file"][0]
@@ -115,9 +109,7 @@ def test_import_creates_transactions_and_detects_categories(
     )
     upload = _csv_file(csv_content)
 
-    response = auth_client.post(
-        reverse("transaction-import-csv"), {"file": upload}, format="multipart"
-    )
+    response = auth_client.post(reverse("transaction-import-csv"), {"file": upload}, format="multipart")
 
     assert response.status_code == status.HTTP_200_OK
     assert response.data["imported"] == 4
@@ -140,9 +132,7 @@ def test_import_creates_transactions_and_detects_categories(
 def test_import_unmatched_expense_falls_back_to_other(auth_client, user, other_category):
     upload = _csv_file("date,description,amount\n2026-09-10,Some Random Shop,-9.99\n")
 
-    response = auth_client.post(
-        reverse("transaction-import-csv"), {"file": upload}, format="multipart"
-    )
+    response = auth_client.post(reverse("transaction-import-csv"), {"file": upload}, format="multipart")
 
     assert response.status_code == status.HTTP_200_OK
     assert response.data["imported"] == 1
@@ -157,9 +147,7 @@ def test_import_unmatched_income_without_default_category_fails(auth_client, use
     # attach to the wrong category.
     upload = _csv_file("date,description,amount\n2026-09-10,Mystery deposit,150.00\n")
 
-    response = auth_client.post(
-        reverse("transaction-import-csv"), {"file": upload}, format="multipart"
-    )
+    response = auth_client.post(reverse("transaction-import-csv"), {"file": upload}, format="multipart")
 
     assert response.status_code == status.HTTP_200_OK
     assert response.data["imported"] == 0
@@ -171,9 +159,7 @@ def test_import_unmatched_income_without_default_category_fails(auth_client, use
 def test_import_matches_income_salary_rule(auth_client, user, salary_category):
     upload = _csv_file("date,description,amount\n2026-09-01,September Salary,3000.00\n")
 
-    response = auth_client.post(
-        reverse("transaction-import-csv"), {"file": upload}, format="multipart"
-    )
+    response = auth_client.post(reverse("transaction-import-csv"), {"file": upload}, format="multipart")
 
     assert response.status_code == status.HTTP_200_OK
     assert response.data["imported"] == 1
@@ -187,9 +173,7 @@ def test_import_matches_income_salary_rule(auth_client, user, salary_category):
 def test_import_invalid_date_counted_as_failed(auth_client, user, other_category):
     upload = _csv_file("date,description,amount\nnot-a-date,Coffee,-3.50\n")
 
-    response = auth_client.post(
-        reverse("transaction-import-csv"), {"file": upload}, format="multipart"
-    )
+    response = auth_client.post(reverse("transaction-import-csv"), {"file": upload}, format="multipart")
 
     assert response.status_code == status.HTTP_200_OK
     assert response.data["failed"] == 1
@@ -202,9 +186,7 @@ def test_import_invalid_date_counted_as_failed(auth_client, user, other_category
 def test_import_invalid_amount_counted_as_failed(auth_client, user, other_category):
     upload = _csv_file("date,description,amount\n2026-09-10,Coffee,not-a-number\n")
 
-    response = auth_client.post(
-        reverse("transaction-import-csv"), {"file": upload}, format="multipart"
-    )
+    response = auth_client.post(reverse("transaction-import-csv"), {"file": upload}, format="multipart")
 
     assert response.status_code == status.HTTP_200_OK
     assert response.data["failed"] == 1
@@ -214,23 +196,17 @@ def test_import_invalid_amount_counted_as_failed(auth_client, user, other_catego
 def test_import_zero_amount_counted_as_failed(auth_client, user, other_category):
     upload = _csv_file("date,description,amount\n2026-09-10,Coffee,0\n")
 
-    response = auth_client.post(
-        reverse("transaction-import-csv"), {"file": upload}, format="multipart"
-    )
+    response = auth_client.post(reverse("transaction-import-csv"), {"file": upload}, format="multipart")
 
     assert response.status_code == status.HTTP_200_OK
     assert response.data["failed"] == 1
 
 
 @pytest.mark.django_db
-def test_import_amount_with_currency_symbol_and_thousands_separator(
-    auth_client, user, salary_category
-):
+def test_import_amount_with_currency_symbol_and_thousands_separator(auth_client, user, salary_category):
     upload = _csv_file('date,description,amount\n2026-09-01,Salary,"€3,000.00"\n')
 
-    response = auth_client.post(
-        reverse("transaction-import-csv"), {"file": upload}, format="multipart"
-    )
+    response = auth_client.post(reverse("transaction-import-csv"), {"file": upload}, format="multipart")
 
     assert response.status_code == status.HTTP_200_OK
     assert response.data["imported"] == 1
@@ -242,9 +218,7 @@ def test_import_amount_with_currency_symbol_and_thousands_separator(
 def test_import_accepts_ddmmyyyy_date_format(auth_client, user, other_category):
     upload = _csv_file("date,description,amount\n25/12/2026,Random Shop,-10.00\n")
 
-    response = auth_client.post(
-        reverse("transaction-import-csv"), {"file": upload}, format="multipart"
-    )
+    response = auth_client.post(reverse("transaction-import-csv"), {"file": upload}, format="multipart")
 
     assert response.status_code == status.HTTP_200_OK
     assert response.data["imported"] == 1
@@ -254,16 +228,10 @@ def test_import_accepts_ddmmyyyy_date_format(auth_client, user, other_category):
 
 @pytest.mark.django_db
 def test_import_duplicate_within_file_counted_as_skipped(auth_client, user, other_category):
-    csv_content = (
-        "date,description,amount\n"
-        "2026-09-10,Random Shop,-10.00\n"
-        "2026-09-10,Random Shop,-10.00\n"
-    )
+    csv_content = "date,description,amount\n2026-09-10,Random Shop,-10.00\n2026-09-10,Random Shop,-10.00\n"
     upload = _csv_file(csv_content)
 
-    response = auth_client.post(
-        reverse("transaction-import-csv"), {"file": upload}, format="multipart"
-    )
+    response = auth_client.post(reverse("transaction-import-csv"), {"file": upload}, format="multipart")
 
     assert response.status_code == status.HTTP_200_OK
     assert response.data["imported"] == 1
@@ -272,9 +240,7 @@ def test_import_duplicate_within_file_counted_as_skipped(auth_client, user, othe
 
 
 @pytest.mark.django_db
-def test_import_duplicate_against_existing_transaction_counted_as_skipped(
-    auth_client, user, other_category
-):
+def test_import_duplicate_against_existing_transaction_counted_as_skipped(auth_client, user, other_category):
     Transaction.objects.create(
         user=user,
         category=other_category,
@@ -285,9 +251,7 @@ def test_import_duplicate_against_existing_transaction_counted_as_skipped(
     )
     upload = _csv_file("date,description,amount\n2026-09-10,Random Shop,-10.00\n")
 
-    response = auth_client.post(
-        reverse("transaction-import-csv"), {"file": upload}, format="multipart"
-    )
+    response = auth_client.post(reverse("transaction-import-csv"), {"file": upload}, format="multipart")
 
     assert response.status_code == status.HTTP_200_OK
     assert response.data["imported"] == 0
@@ -300,9 +264,7 @@ def test_import_blank_lines_are_ignored_not_counted(auth_client, user, other_cat
     csv_content = "date,description,amount\n2026-09-10,Random Shop,-10.00\n\n\n"
     upload = _csv_file(csv_content)
 
-    response = auth_client.post(
-        reverse("transaction-import-csv"), {"file": upload}, format="multipart"
-    )
+    response = auth_client.post(reverse("transaction-import-csv"), {"file": upload}, format="multipart")
 
     assert response.status_code == status.HTTP_200_OK
     assert response.data["imported"] == 1
@@ -311,9 +273,7 @@ def test_import_blank_lines_are_ignored_not_counted(auth_client, user, other_cat
 
 
 @pytest.mark.django_db
-def test_import_summary_mixed_outcome(
-    auth_client, user, food_category, other_category, salary_category
-):
+def test_import_summary_mixed_outcome(auth_client, user, food_category, other_category, salary_category):
     Transaction.objects.create(
         user=user,
         category=food_category,
@@ -331,9 +291,7 @@ def test_import_summary_mixed_outcome(
     )
     upload = _csv_file(csv_content)
 
-    response = auth_client.post(
-        reverse("transaction-import-csv"), {"file": upload}, format="multipart"
-    )
+    response = auth_client.post(reverse("transaction-import-csv"), {"file": upload}, format="multipart")
 
     assert response.status_code == status.HTTP_200_OK
     assert response.data["imported"] == 1
@@ -343,17 +301,13 @@ def test_import_summary_mixed_outcome(
 
 
 @pytest.mark.django_db
-def test_import_only_matches_requesting_users_own_categories(
-    auth_client, user, other_user, food_category
-):
+def test_import_only_matches_requesting_users_own_categories(auth_client, user, other_user, food_category):
     # other_user's category should never be usable for user's import, even
     # if it happens to share the resolved category name.
     Category.objects.create(user=other_user, name="Food", type=TransactionType.EXPENSE)
     upload = _csv_file("date,description,amount\n2026-09-10,Albert Heijn,-20.00\n")
 
-    response = auth_client.post(
-        reverse("transaction-import-csv"), {"file": upload}, format="multipart"
-    )
+    response = auth_client.post(reverse("transaction-import-csv"), {"file": upload}, format="multipart")
 
     assert response.status_code == status.HTTP_200_OK
     transaction = Transaction.objects.get(user=user, description="Albert Heijn")

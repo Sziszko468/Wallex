@@ -1,10 +1,12 @@
 import axios, { type AxiosResponse, type InternalAxiosRequestConfig } from "axios";
+import { currentLanguage } from "../i18n";
 import { API_BASE_URL } from "../utils/apiBaseUrl";
 import { isOfflineError } from "../utils/network";
 import { getValidAccessToken, isSessionActive, refreshSession } from "./session";
 import { cacheKeyFor, readResponse, storeResponse } from "./responseCache";
 import { reportApiReachable, reportApiUnreachable, reportServedFromCache } from "./connectivity";
 import { notifyLocalWrite } from "./localWrites";
+import { HTTP_STATUS } from "../config/http";
 
 export { API_BASE_URL };
 
@@ -25,6 +27,18 @@ const READ_METHODS = ["get", "head", "options"];
 function isCacheable(config: InternalAxiosRequestConfig): boolean {
   return config.method === "get" && !NEVER_CACHED.some((path) => config.url?.includes(path));
 }
+
+/**
+ * The server answers in the interface language (validation messages, insights, notifications…).
+ * Also on the bare axios calls that skip `apiClient` (sign-in, registration, refresh).
+ */
+function addLanguageHeader(config: InternalAxiosRequestConfig): InternalAxiosRequestConfig {
+  config.headers.set("Accept-Language", currentLanguage());
+  return config;
+}
+
+axios.interceptors.request.use(addLanguageHeader);
+apiClient.interceptors.request.use(addLanguageHeader);
 
 // Proactive: attach a token that is guaranteed not to expire mid-flight.
 apiClient.interceptors.request.use(async (config) => {
@@ -86,7 +100,7 @@ apiClient.interceptors.response.use(
     // Reactive fallback: the server can still reject a token the client thought
     // was valid (clock skew, server-side revocation) — refresh once and retry.
     // If the refresh itself is rejected, session.ts signs the user out.
-    if (error.response?.status !== 401 || originalRequest._retry || !isSessionActive()) {
+    if (error.response?.status !== HTTP_STATUS.UNAUTHORIZED || originalRequest._retry || !isSessionActive()) {
       return Promise.reject(error);
     }
 

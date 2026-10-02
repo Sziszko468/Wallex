@@ -5,7 +5,7 @@ export type ThemePreference = "system" | "light" | "dark";
 export type ResolvedTheme = "light" | "dark";
 
 /** Must match public/theme-init.js, which applies the saved choice before first paint. */
-export const THEME_STORAGE_KEY = "spendly-theme";
+export const THEME_STORAGE_KEY = "wallex-theme";
 
 const DARK_QUERY = "(prefers-color-scheme: dark)";
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";

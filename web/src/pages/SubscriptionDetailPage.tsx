@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router-dom";
 import { deleteSubscription, getSubscription } from "../services/subscriptionsService";
 import { listCategories } from "../services/categoriesService";
@@ -20,13 +21,12 @@ import { SubscriptionFormModal } from "../components/subscriptions/SubscriptionF
 import { SubscriptionStatusBadge } from "../components/subscriptions/SubscriptionStatusBadge";
 import { extractErrorMessage } from "../utils/errors";
 import { formatCurrency, formatDate } from "../utils/format";
-import { FREQUENCY_LABELS, PERIOD_LABELS } from "../utils/subscriptions";
+import { frequencyLabel, periodLabel } from "../utils/subscriptions";
 import pageStyles from "../components/page.module.scss";
 import styles from "./SubscriptionDetailPage.module.scss";
 
-const BACK_LINK = { to: "/subscriptions", label: "All subscriptions" };
-
 export function SubscriptionDetailPage() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
@@ -34,7 +34,7 @@ export function SubscriptionDetailPage() {
 
   const fetchSubscription = useCallback(() => getSubscription(subscriptionId), [subscriptionId]);
   const subscription = useAsyncData(fetchSubscription);
-  usePageTitle(subscription.data?.name ?? "Subscription");
+  usePageTitle(subscription.data?.name ?? t("subscriptions.detail.fallbackTitle"));
 
   const fetchCategories = useCallback(() => listCategories(), []);
   const categories = useAsyncData(fetchCategories);
@@ -49,7 +49,7 @@ export function SubscriptionDetailPage() {
     setIsDeleting(true);
     try {
       await deleteSubscription(subscriptionId);
-      toast.success("Subscription deleted");
+      toast.success(t("subscriptions.toast.deleted"));
       navigate("/subscriptions", { replace: true });
     } catch (error) {
       setActionError(extractErrorMessage(error));
@@ -59,7 +59,7 @@ export function SubscriptionDetailPage() {
   }
 
   function handleSaved() {
-    toast.success("Changes saved");
+    toast.success(t("subscriptions.toast.saved"));
     setEditing(null);
     subscription.refetch();
   }
@@ -80,14 +80,14 @@ export function SubscriptionDetailPage() {
   return (
     <div className={pageStyles.page}>
       <PageHeader
-        backTo={BACK_LINK}
+        backTo={{ to: "/subscriptions", label: t("subscriptions.detail.backLink") }}
         title={
           data ? (
             <span className={styles.title}>
               {data.name} <SubscriptionStatusBadge status={data.status} />
             </span>
           ) : (
-            "Subscription"
+            t("subscriptions.detail.fallbackTitle")
           )
         }
         description={data?.merchant || undefined}
@@ -95,10 +95,10 @@ export function SubscriptionDetailPage() {
           data && (
             <>
               <Button type="button" variant="secondary" leadingIcon="pencil" onClick={() => setEditing(data)}>
-                Edit
+                {t("common.actions.edit")}
               </Button>
               <Button type="button" variant="danger-quiet" leadingIcon="trash" onClick={() => setIsConfirmingDelete(true)}>
-                Delete
+                {t("common.actions.delete")}
               </Button>
             </>
           )
@@ -119,9 +119,9 @@ export function SubscriptionDetailPage() {
 
       <ConfirmDialog
         isOpen={isConfirmingDelete}
-        title="Delete subscription"
-        message={`Delete "${data?.name ?? ""}"? Payments you already recorded stay in your transactions.`}
-        confirmLabel="Delete"
+        title={t("subscriptions.delete.title")}
+        message={t("subscriptions.delete.messageShort", { name: data?.name ?? "" })}
+        confirmLabel={t("common.actions.delete")}
         isConfirming={isDeleting}
         onConfirm={confirmDelete}
         onClose={() => setIsConfirmingDelete(false)}
@@ -136,6 +136,7 @@ interface SubscriptionDetailsProps {
 }
 
 function SubscriptionDetails({ subscription, categoryName }: SubscriptionDetailsProps) {
+  const { t } = useTranslation();
   const baseCurrency = useBaseCurrency();
   const isForeign = subscription.currency !== baseCurrency;
 
@@ -143,17 +144,25 @@ function SubscriptionDetails({ subscription, categoryName }: SubscriptionDetails
   function cost(value: string, baseValue: string | null) {
     const own = formatCurrency(value, subscription.currency);
     if (!isForeign) return own;
-    return baseValue === null ? `${own} (no exchange rate)` : `${own} ≈ ${formatCurrency(baseValue, baseCurrency)}`;
+    return baseValue === null
+      ? t("subscriptions.detail.noRateCost", { own })
+      : `${own} ≈ ${formatCurrency(baseValue, baseCurrency)}`;
   }
 
   const details = [
-    { label: "Category", value: categoryName ?? "—" },
-    { label: "Billing", value: FREQUENCY_LABELS[subscription.frequency] },
-    { label: "Currency", value: subscription.currency },
-    { label: "First payment", value: formatDate(subscription.start_date) },
-    { label: "Last payment", value: subscription.end_date ? formatDate(subscription.end_date) : "Open-ended" },
-    { label: "Next payment", value: subscription.next_payment_date ? formatDate(subscription.next_payment_date) : "—" },
-    ...(subscription.description ? [{ label: "Notes", value: subscription.description }] : []),
+    { label: t("common.form.category"), value: categoryName ?? t("common.states.notAvailable") },
+    { label: t("subscriptions.detail.billing"), value: frequencyLabel(subscription.frequency) },
+    { label: t("subscriptions.detail.currency"), value: subscription.currency },
+    { label: t("subscriptions.detail.firstPayment"), value: formatDate(subscription.start_date) },
+    {
+      label: t("subscriptions.detail.lastPayment"),
+      value: subscription.end_date ? formatDate(subscription.end_date) : t("subscriptions.detail.openEnded"),
+    },
+    {
+      label: t("subscriptions.detail.nextPayment"),
+      value: subscription.next_payment_date ? formatDate(subscription.next_payment_date) : t("common.states.notAvailable"),
+    },
+    ...(subscription.description ? [{ label: t("subscriptions.detail.notes"), value: subscription.description }] : []),
   ];
 
   return (
@@ -161,23 +170,23 @@ function SubscriptionDetails({ subscription, categoryName }: SubscriptionDetails
       <SummaryStrip
         items={[
           {
-            label: "Price",
-            value: `${formatCurrency(subscription.amount, subscription.currency)} / ${PERIOD_LABELS[subscription.frequency]}`,
+            label: t("subscriptions.detail.price"),
+            value: `${formatCurrency(subscription.amount, subscription.currency)} / ${periodLabel(subscription.frequency)}`,
           },
-          { label: "Monthly cost", value: cost(subscription.monthly_cost, subscription.base_monthly_cost) },
-          { label: "Yearly cost", value: cost(subscription.yearly_cost, subscription.base_yearly_cost) },
+          { label: t("subscriptions.detail.monthlyCost"), value: cost(subscription.monthly_cost, subscription.base_monthly_cost) },
+          { label: t("subscriptions.detail.yearlyCost"), value: cost(subscription.yearly_cost, subscription.base_yearly_cost) },
         ]}
       />
 
       <div className={styles.cardsRow}>
-        <DashboardCard title="Details">
+        <DashboardCard title={t("subscriptions.detail.details")}>
           <DetailList items={details} />
         </DashboardCard>
 
-        <DashboardCard title="Upcoming payments">
+        <DashboardCard title={t("subscriptions.detail.upcoming")}>
           {subscription.upcoming_payments.length === 0 ? (
             <p className={styles.muted}>
-              {subscription.status === "paused" ? "Paused — no payments ahead." : "No payments ahead."}
+              {subscription.status === "paused" ? t("subscriptions.detail.pausedNoPayments") : t("subscriptions.detail.noPayments")}
             </p>
           ) : (
             <ul className={styles.schedule}>

@@ -1,4 +1,4 @@
-# Spendly API contract — web ↔ mobile ↔ backend
+# WALLEX API contract — web ↔ mobile ↔ backend
 
 > **The complete endpoint reference is the OpenAPI document** — every endpoint, request, response,
 > validation error and status code:
@@ -46,6 +46,11 @@ rendered exactly as the API returns them.**
   money field — analytics, budgets, subscription totals and `base_*` costs — is in the base currency. Format each amount with
   its own currency; the clients never convert (`GET /api/currencies/convert/` previews a
   conversion). The exact rules are in the OpenAPI document.
+- Language: every request carries `Accept-Language` (`en` / `hu`; both clients add it in their
+  API client). All texts the server writes — error messages, insights, achievement names, the ten
+  default category names — come back in that language; notifications use the language saved on
+  the account (`language` in `GET /api/auth/me/`, `PATCH` to change it). Field names, error
+  `code`s and enum values are never translated, so clients must not match on message text.
 - Errors follow DRF's default shape: `{"detail": "..."}` for auth/permission/not-found errors,
   or `{"field_name": ["message"]}` for validation errors. Both clients parse this uniformly via
   `utils/errors.ts` (`extractErrorMessage` / `extractFieldErrors`).
@@ -688,7 +693,7 @@ the app highlights `low` fields for the user to check.
 last time for the same merchant) or `"rules"` (keyword rules shared with the CSV import).
 `currency` is read from Ft/HUF, €/EUR, $/USD, £/GBP, CHF, ¥/JPY on the receipt (`null` if none —
 the app preselects the base currency and flags it); `unsupported_currency` names a currency
-printed instead that Spendly can't record (e.g. `"CZK"`). `items` are the lines above the total,
+printed instead that WALLEX can't record (e.g. `"CZK"`). `items` are the lines above the total,
 for display only (the total is never summed from them).
 
 `outcome` tells the app which screen to show: `complete` / `incomplete` → the confirmation
@@ -876,14 +881,14 @@ token out on the next request, not after its 15 minutes.
   previous token within 30 seconds (a lost response) is accepted.
 - **Lifetime:** access 15 min; refresh 7 days of inactivity; the session itself at most
   30 days, then sign in again.
-- Tokens carry `iss: "spendly"` and `aud: "spendly-api"`; tokens without a session (issued
+- Tokens carry `iss: "wallex"` and `aud: "wallex-api"`; tokens without a session (issued
   before this version) are refused, so users sign in once after the upgrade.
 
 ### Where the refresh token lives
 
 | Client | Refresh token | Access token |
 |---|---|---|
-| Web | **HttpOnly cookie** `spendly_refresh` (Secure, SameSite=Strict, path `/api/auth/`): send `X-Auth-Transport: cookie` and `withCredentials`; the JSON has only `access` | module memory only; a reload refreshes from the cookie |
+| Web | **HttpOnly cookie** `wallex_refresh` (Secure, SameSite=Strict, path `/api/auth/`): send `X-Auth-Transport: cookie` and `withCredentials`; the JSON has only `access` | module memory only; a reload refreshes from the cookie |
 | Mobile | JSON body, stored in Keychain / Keystore (`WHEN_UNLOCKED_THIS_DEVICE_ONLY`) behind the optional biometric lock | memory only |
 
 The cookie is read only together with the `X-Auth-Transport` header (CSRF protection).

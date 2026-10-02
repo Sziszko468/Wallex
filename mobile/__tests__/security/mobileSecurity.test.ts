@@ -22,15 +22,15 @@ describe("API base URL", () => {
   });
 
   it("a release build refuses a non-https API URL (tokens would travel in cleartext)", () => {
-    expect(() => resolveApiBaseUrl({ isDev: false, explicit: "http://api.spendly.example/api", hostUri: undefined })).toThrow(
+    expect(() => resolveApiBaseUrl({ isDev: false, explicit: "http://api.wallex.example/api", hostUri: undefined })).toThrow(
       /https/
     );
     expect(() => resolveApiBaseUrl({ isDev: false, explicit: undefined, hostUri: undefined })).toThrow(/https/);
   });
 
   it("a release build accepts an https API URL", () => {
-    expect(resolveApiBaseUrl({ isDev: false, explicit: "https://api.spendly.example/api", hostUri: undefined })).toBe(
-      "https://api.spendly.example/api"
+    expect(resolveApiBaseUrl({ isDev: false, explicit: "https://api.wallex.example/api", hostUri: undefined })).toBe(
+      "https://api.wallex.example/api"
     );
   });
 });

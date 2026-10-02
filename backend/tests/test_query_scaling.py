@@ -44,21 +44,41 @@ def _seed(email: str, n: int) -> dict:
         for i, category in enumerate(categories):
             for j in range(n):
                 transaction = Transaction.objects.create(
-                    user=user, category=category, type="expense", amount=Decimal(10 + j), date=day.replace(day=1 + j),
+                    user=user,
+                    category=category,
+                    type="expense",
+                    amount=Decimal(10 + j),
+                    date=day.replace(day=1 + j),
                     description=f"Shop {i}",
                 )
     ids["transaction"] = transaction.pk
     for i, category in enumerate(categories):
-        budget = Budget.objects.create(user=user, category=category, amount=Decimal("100.00"), year=today.year, month=today.month)
+        budget = Budget.objects.create(
+            user=user, category=category, amount=Decimal("100.00"), year=today.year, month=today.month
+        )
         recurring = RecurringTransaction.objects.create(
-            user=user, category=category, name=f"Rent {i}", type="expense", amount=Decimal("50.00"),
-            frequency=Frequency.MONTHLY, start_date=date(2026, 1, 1 + i), next_occurrence_date=date(2026, 1, 1 + i),
+            user=user,
+            category=category,
+            name=f"Rent {i}",
+            type="expense",
+            amount=Decimal("50.00"),
+            frequency=Frequency.MONTHLY,
+            start_date=date(2026, 1, 1 + i),
+            next_occurrence_date=date(2026, 1, 1 + i),
         )
         subscription = Subscription.objects.create(
-            user=user, category=category, name=f"Service {i}", amount=Decimal("9.99"), currency="USD" if i % 2 else "EUR",
-            frequency=Frequency.MONTHLY, start_date=date(2026, 1, 1 + i), next_occurrence_date=date(2026, 1, 1 + i),
+            user=user,
+            category=category,
+            name=f"Service {i}",
+            amount=Decimal("9.99"),
+            currency="USD" if i % 2 else "EUR",
+            frequency=Frequency.MONTHLY,
+            start_date=date(2026, 1, 1 + i),
+            next_occurrence_date=date(2026, 1, 1 + i),
         )
-        goal = SavingsGoal.objects.create(user=user, name=f"Goal {i}", target_amount=Decimal("1000.00"), current_amount=Decimal(i))
+        goal = SavingsGoal.objects.create(
+            user=user, name=f"Goal {i}", target_amount=Decimal("1000.00"), current_amount=Decimal(i)
+        )
         device = Device.objects.create(user=user, expo_push_token=f"ExponentPushToken[{email}-{i}]", platform="ios")
         notification = Notification.objects.create(
             user=user, kind=NotificationKind.INSIGHT, title="Insight", body="Body", dedupe_key=f"k{i}"
@@ -66,12 +86,19 @@ def _seed(email: str, n: int) -> dict:
         conversation = AssistantConversation.objects.create(user=user, title=f"Question {i}")
         for role in ("user", "assistant"):
             AssistantMessage.objects.create(
-                conversation=conversation, role=role, content="Text",
+                conversation=conversation,
+                role=role,
+                content="Text",
                 sources=[{"tool": "get_monthly_spending", "arguments": {"year": today.year, "month": today.month}}],
             )
     ids.update(
-        budget=budget.pk, recurringtransaction=recurring.pk, subscription=subscription.pk, savingsgoal=goal.pk,
-        device=device.pk, notification=notification.pk, assistantconversation=conversation.pk,
+        budget=budget.pk,
+        recurringtransaction=recurring.pk,
+        subscription=subscription.pk,
+        savingsgoal=goal.pk,
+        device=device.pk,
+        notification=notification.pk,
+        assistantconversation=conversation.pk,
     )
     for _ in range(n):  # other signed-in devices, for the session list
         issue_tokens(user)
@@ -110,7 +137,9 @@ def test_query_count_does_not_grow_with_data(small_and_large, route, name):
     large_status, large_queries = _count(large["client"], _path(route, name, large["ids"]), name)
 
     assert small_status == large_status == 200, (small_status, large_status)
-    assert large_queries <= small_queries, f"{name}: {small_queries} queries with little data, {large_queries} with more"
+    assert large_queries <= small_queries, (
+        f"{name}: {small_queries} queries with little data, {large_queries} with more"
+    )
 
 
 @pytest.mark.django_db

@@ -3,6 +3,8 @@ import { categoryColorStyle, categoryIconName, FALLBACK_CATEGORY_COLOR } from ".
 import { Icon } from "./icons/Icon";
 import styles from "./CategoryMark.module.scss";
 
+const ICON_SIZE = { sm: 15, md: 18, lg: 22 } as const;
+
 interface CategoryMarkProps {
   /** Only what's needed to draw the mark, so a chart row or a budget can use it without a full Category. */
   category: Pick<Category, "name" | "color"> | undefined;
@@ -22,7 +24,7 @@ export function CategoryMark({ category, size = "md" }: CategoryMarkProps) {
       style={categoryColorStyle(category?.color ?? FALLBACK_CATEGORY_COLOR)}
       aria-hidden="true"
     >
-      {iconName ? <Icon name={iconName} size={size === "lg" ? 22 : size === "sm" ? 15 : 18} /> : (name.charAt(0).toUpperCase() || "·")}
+      {iconName ? <Icon name={iconName} size={ICON_SIZE[size]} /> : (name.charAt(0).toUpperCase() || "·")}
     </span>
   );
 }

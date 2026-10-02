@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useTranslation } from "react-i18next";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { useAssistantChat } from "../hooks/useAssistantChat";
 import { useConversationHistory } from "../hooks/useConversationHistory";
@@ -28,6 +29,7 @@ import { SuggestedQuestions } from "../components/assistant/SuggestedQuestions";
 const DEFAULT_MAX_LENGTH = 1000;
 
 export function AssistantScreen() {
+  const { t } = useTranslation();
   const [conversationId, setConversationId] = useState<number | null>(null);
   const [draft, setDraft] = useState("");
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -101,17 +103,14 @@ export function AssistantScreen() {
 
   function renderThread() {
     if (chat.loadError && isNotFound(chat.loadError)) {
-      return <Text style={styles.muted}>This conversation no longer exists — it may have been deleted on another device.</Text>;
+      return <Text style={styles.muted}>{t("assistant.gone")}</Text>;
     }
     return (
       <SectionState isLoading={chat.isLoading} error={chat.loadError} onRetry={chat.reload}>
         {isNewChat ? (
           <View style={styles.welcome}>
-            <Text style={styles.welcomeTitle}>What would you like to know about your money?</Text>
-            <Text style={styles.muted}>
-              Ask about your spending, budgets, subscriptions and savings goals. Answers are based only on your Spendly
-              data.
-            </Text>
+            <Text style={styles.welcomeTitle}>{t("assistant.welcome")}</Text>
+            <Text style={styles.muted}>{t("assistant.description")}</Text>
             {!status.isLoading && (
               <SuggestedQuestions
                 questions={status.data?.suggested_questions ?? []}
@@ -138,18 +137,18 @@ export function AssistantScreen() {
           <View style={styles.toolbar}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Conversation history"
+              accessibilityLabel={t("assistant.toolbar.historyLabel")}
               onPress={() => setIsHistoryOpen(true)}
               style={({ pressed }) => [styles.toolbarButton, pressed && styles.pressed]}
             >
-              <Text style={styles.toolbarText}>History</Text>
+              <Text style={styles.toolbarText}>{t("assistant.toolbar.history")}</Text>
             </Pressable>
             <Pressable
               accessibilityRole="button"
               onPress={startNewChat}
               style={({ pressed }) => [styles.toolbarButton, styles.newChat, pressed && styles.pressed]}
             >
-              <Text style={[styles.toolbarText, styles.newChatText]}>New chat</Text>
+              <Text style={[styles.toolbarText, styles.newChatText]}>{t("assistant.toolbar.newChat")}</Text>
             </Pressable>
           </View>
 
@@ -162,7 +161,7 @@ export function AssistantScreen() {
           >
             {status.data && !status.data.available && (
               <Text style={styles.notice} accessibilityRole="alert">
-                The AI assistant isn&apos;t set up on this server yet.
+                {t("assistant.notConfigured")}
               </Text>
             )}
             <ErrorBanner message={deleteError} />
@@ -171,14 +170,14 @@ export function AssistantScreen() {
 
           <View style={styles.composerArea}>
             <ErrorBanner message={chat.sendError} />
-            {isOffline && <Text style={styles.muted}>You&apos;re offline — the assistant needs a connection.</Text>}
+            {isOffline && <Text style={styles.muted}>{t("assistant.offline")}</Text>}
             <View style={styles.composer}>
               <TextInput
-                accessibilityLabel="Ask about your finances"
+                accessibilityLabel={t("assistant.composer.label")}
                 style={styles.input}
                 value={draft}
                 onChangeText={setDraft}
-                placeholder="Ask about your spending…"
+                placeholder={t("assistant.composer.placeholder")}
                 placeholderTextColor={colors.textMuted}
                 multiline
                 maxLength={maxLength}
@@ -186,13 +185,13 @@ export function AssistantScreen() {
               />
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Send"
+                accessibilityLabel={t("assistant.composer.send")}
                 accessibilityState={{ disabled: !canSend }}
                 disabled={!canSend}
                 onPress={() => void ask(draft)}
                 style={({ pressed }) => [styles.send, !canSend && styles.sendDisabled, pressed && styles.pressed]}
               >
-                <Text style={styles.sendText}>Send</Text>
+                <Text style={styles.sendText}>{t("assistant.composer.send")}</Text>
               </Pressable>
             </View>
           </View>

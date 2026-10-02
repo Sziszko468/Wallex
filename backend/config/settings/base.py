@@ -43,6 +43,7 @@ MIDDLEWARE = [
     "apps.common.middleware.ApiNeverCacheMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.locale.LocaleMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -71,7 +72,7 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 
 # Either a single DATABASE_URL — what managed Postgres services hand out, e.g.
-# postgres://user:pass@host:5432/spendly?sslmode=require — or the POSTGRES_* parts.
+# postgres://user:pass@host:5432/wallex?sslmode=require — or the POSTGRES_* parts.
 if env("DATABASE_URL", default=""):
     DATABASES = {"default": env.db_url("DATABASE_URL")}
 else:
@@ -89,7 +90,7 @@ else:
     }
 
 if DATABASES["default"]["ENGINE"] != "django.db.backends.postgresql":
-    raise ImproperlyConfigured("Spendly only runs on PostgreSQL — check DATABASE_URL.")
+    raise ImproperlyConfigured("WALLEX only runs on PostgreSQL — check DATABASE_URL.")
 
 # A reused connection is verified before each request instead of failing on a stale one.
 DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
@@ -107,7 +108,12 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
-LANGUAGE_CODE = "en-us"
+# The API speaks the languages of the apps: LocaleMiddleware picks one per request from the
+# Accept-Language header; texts written outside a request use the user's own saved language
+# (apps/common/i18n.py). The catalogs live in backend/locale (python manage.py compilemessages).
+LANGUAGE_CODE = "en"
+LANGUAGES = [("en", "English"), ("hu", "Magyar")]
+LOCALE_PATHS = [BASE_DIR / "locale"]
 TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
@@ -120,12 +126,8 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 REST_FRAMEWORK = {
     # JWT + the token's session must still be active (apps/users/authentication.py).
-    "DEFAULT_AUTHENTICATION_CLASSES": (
-        "apps.users.authentication.SessionJWTAuthentication",
-    ),
-    "DEFAULT_PERMISSION_CLASSES": (
-        "rest_framework.permissions.IsAuthenticated",
-    ),
+    "DEFAULT_AUTHENTICATION_CLASSES": ("apps.users.authentication.SessionJWTAuthentication",),
+    "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     # No DEFAULT_FILTER_BACKENDS: filtering/search/ordering is opt-in per view. A global
     # OrderingFilter lets clients sort by *any* serializer field — including computed ones
     # like a budget's spent_amount, which the database can't order by (500).
@@ -158,7 +160,7 @@ REST_FRAMEWORK = {
 API_DOCS_ENABLED = env.bool("API_DOCS_ENABLED", default=True)
 
 SPECTACULAR_SETTINGS = {
-    "TITLE": "Spendly API",
+    "TITLE": "WALLEX API",
     "VERSION": "1.0.0",
     "DESCRIPTION": (BASE_DIR / "config" / "api_description.md").read_text(encoding="utf-8"),
     "SERVE_INCLUDE_SCHEMA": False,
@@ -203,22 +205,37 @@ SPECTACULAR_SETTINGS = {
     "TAGS": [
         {"name": "Authentication", "description": "Register, obtain and refresh JWTs, log out."},
         {"name": "Users", "description": "The signed-in user's profile."},
-        {"name": "Account Security", "description": "Signed-in devices, signing out everywhere, password, two-factor authentication, security log."},
+        {
+            "name": "Account Security",
+            "description": "Signed-in devices, signing out everywhere, password, two-factor authentication, security log.",
+        },
         {"name": "Transactions", "description": "Income and expense records — the core of the API."},
         {"name": "CSV Import", "description": "Bulk-create transactions from a bank export."},
         {"name": "Categories", "description": "Income/expense categories, including the 10 system defaults."},
         {"name": "Budgets", "description": "Monthly spending limits, overall or per category, with live usage."},
         {"name": "Savings Goals", "description": "Money put aside for a goal, in its own currency, with progress."},
         {"name": "Recurring Transactions", "description": "Templates for repeating income and expenses."},
-        {"name": "Subscriptions", "description": "Streaming, software, gym, phone… — recurring expenses with costs and totals."},
+        {
+            "name": "Subscriptions",
+            "description": "Streaming, software, gym, phone… — recurring expenses with costs and totals.",
+        },
         {"name": "Currencies", "description": "Conversion previews with ECB reference rates."},
         {"name": "Analytics", "description": "Read-only monthly summaries computed on the server."},
         {"name": "Financial Insights", "description": "Rule-based observations about a month's finances."},
         {"name": "Achievements", "description": "Milestones earned from the user's own data, with progress."},
-        {"name": "AI Assistant", "description": "Questions about the user's own finances, answered by Claude from read-only backend tools."},
+        {
+            "name": "AI Assistant",
+            "description": "Questions about the user's own finances, answered by Claude from read-only backend tools.",
+        },
         {"name": "Receipt Scanning", "description": "OCR suggestions from a receipt photo."},
-        {"name": "Notifications", "description": "In-app notifications decided by the server, their preferences, and push devices."},
-        {"name": "Sync", "description": "Keeping web, iPhone and Android in step: change detection, never-cached responses."},
+        {
+            "name": "Notifications",
+            "description": "In-app notifications decided by the server, their preferences, and push devices.",
+        },
+        {
+            "name": "Sync",
+            "description": "Keeping web, iPhone and Android in step: change detection, never-cached responses.",
+        },
         {"name": "Health", "description": "Liveness and readiness probes for infrastructure."},
     ],
     "SWAGGER_UI_SETTINGS": {
@@ -229,9 +246,7 @@ SPECTACULAR_SETTINGS = {
     },
 }
 
-CORS_ALLOWED_ORIGINS = env.list(
-    "CORS_ALLOWED_ORIGINS", default=["http://localhost:5173", "http://localhost:8081"]
-)
+CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=["http://localhost:5173", "http://localhost:8081"])
 # If-Match carries the version a conditional write is based on (apps/common/concurrency.py);
 # a browser on another origin may only send it once the preflight allows it. ETag is exposed
 # so browser clients can read it too.
@@ -244,7 +259,7 @@ CORS_ALLOW_CREDENTIALS = True
 # --- Account security ----------------------------------------------------------------------
 # Browser refresh-token cookie: HttpOnly, sent only to /api/auth/, never to other sites.
 AUTH_REFRESH_COOKIE = {
-    "NAME": "spendly_refresh",
+    "NAME": "wallex_refresh",
     "PATH": "/api/auth/",
     "SECURE": env.bool("AUTH_COOKIE_SECURE", default=True),
     "SAMESITE": "Strict",
@@ -259,9 +274,7 @@ ADMIN_URL = env("DJANGO_ADMIN_URL", default="admin/")
 
 # Receipt scanning. The OCR engine is swappable: any class implementing
 # apps.receipts.ocr.OcrProvider, e.g. a cloud OCR adapter.
-RECEIPT_OCR_PROVIDER = env(
-    "RECEIPT_OCR_PROVIDER", default="apps.receipts.ocr.tesseract.TesseractOcrProvider"
-)
+RECEIPT_OCR_PROVIDER = env("RECEIPT_OCR_PROVIDER", default="apps.receipts.ocr.tesseract.TesseractOcrProvider")
 RECEIPT_OCR_LANGUAGES = env("RECEIPT_OCR_LANGUAGES", default="hun+eng")
 RECEIPT_MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
@@ -304,6 +317,6 @@ SIMPLE_JWT = {
     "SIGNING_KEY": env("JWT_SIGNING_KEY", default=SECRET_KEY),
     # Tokens name who issued them and for which API; tokens of another system signed with
     # the same key are refused.
-    "ISSUER": "spendly",
-    "AUDIENCE": "spendly-api",
+    "ISSUER": "wallex",
+    "AUDIENCE": "wallex-api",
 }

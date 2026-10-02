@@ -9,7 +9,10 @@ from .conversations import MAX_MESSAGES, MAX_QUESTION_LENGTH
 from .serializers import ConversationDetailSerializer, ConversationSerializer, ExchangeSerializer, QuestionSerializer
 
 TAG = "AI Assistant"
-ERROR_CODE_CHOICES = [("assistant_unavailable", "assistant_unavailable"), ("assistant_not_configured", "assistant_not_configured")]
+ERROR_CODE_CHOICES = [
+    ("assistant_unavailable", "assistant_unavailable"),
+    ("assistant_not_configured", "assistant_not_configured"),
+]
 
 _HOW = f"""The assistant (Claude) never reads the database. It can only call seven read-only backend tools
 — monthly spending, spending by category, by merchant, budget status, subscription costs, savings
@@ -61,7 +64,10 @@ _UNAVAILABLE = OpenApiResponse(
     examples=[
         OpenApiExample(
             "Unavailable",
-            value={"detail": "The assistant is temporarily unavailable. Please try again in a moment.", "code": "assistant_unavailable"},
+            value={
+                "detail": "The assistant is temporarily unavailable. Please try again in a moment.",
+                "code": "assistant_unavailable",
+            },
         ),
         OpenApiExample(
             "Not configured",
@@ -76,7 +82,9 @@ _QUESTION_ERRORS = (
     ("Too long", {"message": [f"Ensure this field has no more than {MAX_QUESTION_LENGTH} characters."]}),
 )
 
-_ASK_EXAMPLE = OpenApiExample("Question", request_only=True, value={"message": "What did I spend the most on this month?"})
+_ASK_EXAMPLE = OpenApiExample(
+    "Question", request_only=True, value={"message": "What did I spend the most on this month?"}
+)
 _EXCHANGE_EXAMPLE = OpenApiExample(
     "Answered", response_only=True, value={"conversation": _CONVERSATION, "messages": [_QUESTION, _ANSWER]}
 )
@@ -130,7 +138,11 @@ ASSISTANT_CONVERSATION_SCHEMA = extend_schema_view(
             404: error_response("`page` is past the last page.", ("Past the end", {"detail": "Invalid page."})),
         },
         examples=[
-            OpenApiExample("Page", response_only=True, value={"count": 1, "next": None, "previous": None, "results": [_CONVERSATION]})
+            OpenApiExample(
+                "Page",
+                response_only=True,
+                value={"count": 1, "next": None, "previous": None, "results": [_CONVERSATION]},
+            )
         ],
     ),
     retrieve=extend_schema(
@@ -138,7 +150,11 @@ ASSISTANT_CONVERSATION_SCHEMA = extend_schema_view(
         summary="Get a conversation",
         description="The conversation with all its messages, oldest first.",
         responses={200: ConversationDetailSerializer},
-        examples=[OpenApiExample("Conversation", response_only=True, value={**_CONVERSATION, "messages": [_QUESTION, _ANSWER]})],
+        examples=[
+            OpenApiExample(
+                "Conversation", response_only=True, value={**_CONVERSATION, "messages": [_QUESTION, _ANSWER]}
+            )
+        ],
     ),
     create=extend_schema(
         tags=[TAG],
@@ -170,7 +186,10 @@ ASSISTANT_CONVERSATION_SCHEMA = extend_schema_view(
             201: OpenApiResponse(ExchangeSerializer, description="Answered."),
             400: validation_error(
                 *_QUESTION_ERRORS,
-                ("Conversation full", {"non_field_errors": ["This conversation is full. Start a new conversation to ask more."]}),
+                (
+                    "Conversation full",
+                    {"non_field_errors": ["This conversation is full. Start a new conversation to ask more."]},
+                ),
             ),
             503: _UNAVAILABLE,
         },

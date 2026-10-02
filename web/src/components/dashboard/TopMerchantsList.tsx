@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { Merchant } from "../../types/dashboard";
 import { useBaseCurrency } from "../../hooks/useBaseCurrency";
 import { formatCurrency, formatPercentage } from "../../utils/format";
@@ -11,9 +12,10 @@ interface TopMerchantsListProps {
 
 /** Where the money went: merchants by total, with the API's count, average, share and change. */
 export function TopMerchantsList({ merchants }: TopMerchantsListProps) {
+  const { t } = useTranslation();
   const baseCurrency = useBaseCurrency();
   if (merchants.length === 0) {
-    return <EmptyState icon="shopping-bag" message="No expenses with a description this month yet." />;
+    return <EmptyState icon="shopping-bag" message={t("dashboard.merchants.empty")} />;
   }
 
   return (
@@ -26,8 +28,9 @@ export function TopMerchantsList({ merchants }: TopMerchantsListProps) {
           <div className={styles.details}>
             <span className={styles.name}>{merchant.merchant}</span>
             <span className={styles.meta}>
-              {merchant.transaction_count}× · avg {formatCurrency(merchant.average, baseCurrency)}
-              {merchant.share_percentage !== null && ` · ${formatPercentage(merchant.share_percentage)} of spending`}
+              {t("dashboard.merchants.meta", { count: merchant.transaction_count, average: formatCurrency(merchant.average, baseCurrency) })}
+              {merchant.share_percentage !== null &&
+                ` · ${t("dashboard.merchants.share", { percentage: formatPercentage(merchant.share_percentage) })}`}
             </span>
           </div>
           <div className={styles.figures}>
