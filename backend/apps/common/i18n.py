@@ -13,6 +13,10 @@ from functools import wraps
 from django.conf import settings
 from django.utils import translation
 
+# The currency a new account starts with when its language says where it is probably used; anyone
+# else gets the project default (EUR). It can be changed in the account settings at any time.
+DEFAULT_CURRENCY_OF_LANGUAGE = {"hu": "HUF"}
+
 
 def supported_language(code: str | None) -> str:
     """A language we offer for a code like "hu-HU" or "hu"; the default for anything else."""

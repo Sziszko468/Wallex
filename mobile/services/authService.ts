@@ -40,6 +40,25 @@ export async function getCurrentUser(): Promise<User> {
   return response.data;
 }
 
+/** Whether two-factor authentication is on: erasing the account then needs a code too. */
+export async function getMfaEnabled(): Promise<boolean> {
+  const response = await apiClient.get<{ enabled: boolean }>("/auth/2fa/");
+  return response.data.enabled;
+}
+
+/** The JSON file with everything stored about the account, and the name the server gave it. */
+export async function exportMyData(password: string): Promise<{ filename: string; text: string }> {
+  const response = await apiClient.post<unknown>("/auth/export/", { password });
+  const disposition = String(response.headers["content-disposition"] ?? "");
+  const filename = /filename="([^"]+)"/.exec(disposition)?.[1] ?? "wallex-export.json";
+  return { filename, text: JSON.stringify(response.data, null, 2) };
+}
+
+/** Erases the account and everything it owns (needs the password, and a code with two-factor on). */
+export async function deleteAccount(payload: { password: string; code?: string }): Promise<void> {
+  await apiClient.post("/auth/delete-account/", payload);
+}
+
 /** Saves a profile setting (the interface language) on the account. */
 export async function updateCurrentUser(payload: UpdateUserPayload): Promise<User> {
   const response = await apiClient.patch<User>("/auth/me/", payload);

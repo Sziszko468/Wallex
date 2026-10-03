@@ -51,6 +51,15 @@ export async function regenerateRecoveryCodes(password: string, code: string): P
   return response.data;
 }
 
+/** The JSON file with everything stored about the account, and the name the server gave it. */
+export async function downloadMyData(password: string): Promise<{ filename: string; text: string }> {
+  const response = await apiClient.post<unknown>("/auth/export/", { password });
+  const disposition = String(response.headers["content-disposition"] ?? "");
+  const filename = /filename="([^"]+)"/.exec(disposition)?.[1] ?? "wallex-export.json";
+  // The server's file is JSON: re-serialised readably, money stays the exact strings it was.
+  return { filename, text: JSON.stringify(response.data, null, 2) };
+}
+
 export async function listSecurityEvents(
   category?: SecurityEventCategory,
   page = 1

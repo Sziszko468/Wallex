@@ -303,6 +303,25 @@ Follow-up the same week (style and structure):
 - The documentation screenshots were retaken with the new name (and a Hungarian dashboard added);
   the mobile ones now show the Assistant tab, which the old ones predated.
 
+Third pass, the next day: the items the review above listed as worth adding or testing were done, and
+testing them found three more problems.
+
+| # | Finding | Severity | Status |
+|---|---|---|---|
+| B1 | The **production backend image did not build**: `collectstatic` imports the production settings, which (since two-factor) require their own `FIELD_ENCRYPTION_KEY`, and the Dockerfile supplied only a throwaway `DJANGO_SECRET_KEY`. Nothing had built the image since. | HIGH | Fixed; the CI job `images` builds both production images on every push. |
+| B2 | **Phones with a decimal-comma keypad could not enter cents.** The transaction and recurring forms read the text with `Number("1250,50")` (NaN) and would have sent it as typed; only the receipt form converted. | HIGH | Fixed with one `normalizeAmountInput` ("1 250,50" becomes "1250.50"); tests failed first. The web uses `type="number"`, where the browser does it. |
+| B3 | The data download's **file name was lost across origins**: browsers hide `Content-Disposition` from another origin unless the API exposes it, so the web app named every download `wallex-export.json`. Found by the browser test, invisible to the unit tests (their fake server sent the header to a client that could read it). | MEDIUM | `CORS_EXPOSE_HEADERS` now lists it; a test pins it. |
+
+Added: the account data rights (`POST /api/auth/export/`, `POST /api/auth/delete-account/`, in the
+web Security page and the phone settings, `docs/privacy.md`), Hungarian bank CSV files, a
+`seed_demo` command, GitHub Actions (`.github/workflows/ci.yml`: backend, web, mobile, production
+images, browser tests, weekly advisories), a Playwright suite in `e2e/`, and HUF as the starting
+currency of an account registered in Hungarian.
+
+Dependency advisories: Python and web/e2e: none. The phone app has 26 (11 moderate, 15 high), every
+one in Expo's build tooling (Metro, config plugins, `xcode`); none ships in the app, and the only fix
+npm offers is a downgrade to Expo 44.
+
 Left as they were: twelve `oxlint` warnings in the web app that predate this work (five
 "fast refresh" notes for files that export a provider and its hook, six `setState` calls in effects
 that reset the form modals), and on narrow phones the six-tab bar truncates "Transactions".

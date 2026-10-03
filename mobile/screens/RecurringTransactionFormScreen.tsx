@@ -22,6 +22,7 @@ import { QuickDateField } from "../components/QuickDateField";
 import { FrequencyPicker } from "../components/recurring/FrequencyPicker";
 import type { TransactionType } from "../types/category";
 import type { RecurringFrequency } from "../types/recurringTransaction";
+import { normalizeAmountInput } from "../utils/currency";
 import { colors, fontSize, radius, spacing } from "../utils/theme";
 
 /** Small fixed delay so the "Saved ✓" state is actually visible before the
@@ -89,8 +90,9 @@ export function RecurringTransactionFormScreen() {
     const errors: FieldErrors = {};
     if (!name.trim()) errors.name = t("common.validation.nameRequired");
 
-    const numericAmount = Number(amount);
-    if (!amount.trim()) {
+    const normalizedAmount = normalizeAmountInput(amount);
+    const numericAmount = Number(normalizedAmount);
+    if (!normalizedAmount) {
       errors.amount = t("common.validation.amountRequired");
     } else if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
       errors.amount = t("common.validation.amountPositive");
@@ -127,7 +129,7 @@ export function RecurringTransactionFormScreen() {
         name: name.trim(),
         category: categoryId as number,
         type,
-        amount,
+        amount: normalizeAmountInput(amount),
         frequency,
         start_date: startDate,
         end_date: endDate.trim() || null,

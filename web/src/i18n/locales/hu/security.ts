@@ -43,6 +43,23 @@ export const security: DeepStrings<typeof en> = {
     changedSignedOut_one: "A jelszó módosítva. {{count}} másik eszközt kijelentkeztettünk.",
     changedSignedOut_other: "A jelszó módosítva. {{count}} másik eszközt kijelentkeztettünk.",
   },
+  data: {
+    title: "Az adataid",
+    hint: "Töltsd le mindazt, amit a {{appName}} rólad tárol, vagy töröld végleg a fiókodat.",
+    downloaded: "Az adataid letöltődtek ezen a néven: {{filename}}.",
+    download: {
+      button: "Adataim letöltése",
+      confirmIdentity: "Erősítsd meg, hogy te vagy az, az adataid letöltéséhez.",
+      submit: "Letöltés",
+    },
+    delete: {
+      button: "Fiók törlése",
+      warning:
+        "Ez véglegesen törli a fiókodat és mindent, ami benne van: a tranzakciókat, költségkereteket, célokat és az előzményeket. Nem vonható vissza. Ha meg szeretnél őrizni egy másolatot, előbb töltsd le az adataidat.",
+      confirmIdentity: "A megerősítéshez add meg a jelszavadat.",
+      submit: "Fiók végleges törlése",
+    },
+  },
   twoFactor: {
     title: "Kétlépcsős azonosítás",
     hint: "A bejelentkezéskor egy hitelesítő alkalmazás (Google Authenticator, Microsoft Authenticator, 1Password…) kódját is kérjük, így egy ellopott jelszó önmagában nem elég.",

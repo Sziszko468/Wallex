@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { DataCard } from "../components/security/DataCard";
 import { DevicesCard } from "../components/security/DevicesCard";
 import { LoginHistoryCard } from "../components/security/LoginHistoryCard";
 import { PasswordCard } from "../components/security/PasswordCard";
@@ -22,6 +23,7 @@ export function SecurityPage() {
       <TwoFactorCard />
       <PasswordCard />
       <LoginHistoryCard />
+      <DataCard />
     </div>
   );
 }

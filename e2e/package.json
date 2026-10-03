@@ -1,0 +1,12 @@
+{
+  "name": "wallex-e2e",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Browser tests of the running stack: web app in a real Chrome against the real API and database.",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0"
+  }
+}

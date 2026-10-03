@@ -10,7 +10,7 @@ import { CategoryChipPicker } from "../CategoryChipPicker";
 import { CurrencyChipPicker } from "../CurrencyChipPicker";
 import { QuickDateField } from "../QuickDateField";
 import { isValidIsoDate, toIsoDate } from "../../utils/date";
-import { hasValidPrecision } from "../../utils/currency";
+import { hasValidPrecision, normalizeAmountInput } from "../../utils/currency";
 import { formatCurrency } from "../../utils/format";
 import { extractErrorMessage, extractFieldErrors, type FieldErrors } from "../../utils/errors";
 import { colors, fontSize, radius, spacing } from "../../utils/theme";
@@ -99,7 +99,7 @@ export function ReceiptConfirmation({
 
   function validate(): FieldErrors {
     const errors: FieldErrors = {};
-    const normalizedAmount = amount.trim().replace(",", ".");
+    const normalizedAmount = normalizeAmountInput(amount);
     const numericAmount = Number(normalizedAmount);
     if (!merchant.trim()) errors.merchant = t("receipts.confirm.errors.merchantRequired");
     if (!amount.trim()) errors.amount = t("common.validation.amountRequired");
@@ -120,7 +120,7 @@ export function ReceiptConfirmation({
     try {
       const { savedOffline } = await onSave({
         merchant: merchant.trim(),
-        amount: amount.trim().replace(",", "."),
+        amount: normalizeAmountInput(amount),
         currency,
         date,
         category: categoryId,

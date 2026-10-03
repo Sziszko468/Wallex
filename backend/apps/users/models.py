@@ -107,6 +107,7 @@ class AuditAction(models.TextChoices):
     BASE_CURRENCY_CHANGED = "base_currency_changed", _("Base currency changed")
     TRANSACTIONS_IMPORTED = "transactions_imported", _("Transactions imported")
     OBJECT_DELETED = "object_deleted", _("Deleted")
+    DATA_EXPORTED = "data_exported", _("Personal data downloaded")
 
 
 class AuditCategory(models.TextChoices):

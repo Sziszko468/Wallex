@@ -546,3 +546,44 @@ SECURITY_EVENTS_SCHEMA = extend_schema(
         404: error_response("`page` is past the last page.", ("Past the end", {"detail": "Invalid page."})),
     },
 )
+
+
+DATA_EXPORT_SCHEMA = extend_schema(
+    tags=["Account Security"],
+    summary="Download my data",
+    description=(
+        "Every piece of data stored about the user as one JSON file (`Content-Disposition: attachment`): the "
+        "account, categories, transactions, recurring transactions and subscriptions, budgets, savings goals, "
+        "achievements, assistant conversations, notifications and preferences, devices, sessions and the "
+        "security log. Left out: push tokens, session keys and the two-factor secret. "
+        f"Recorded in the security log. {_SENSITIVE}"
+    ),
+    request=PasswordConfirmationSerializer,
+    responses={
+        (200, "application/json"): OpenApiResponse(
+            OpenApiTypes.OBJECT,
+            description="The file. `format_version` changes only when the structure does.",
+        ),
+        400: validation_error(("Wrong password", {"password": ["Wrong password."]})),
+        429: throttled("20 sensitive changes per hour per user"),
+    },
+)
+
+ACCOUNT_DELETE_SCHEMA = extend_schema(
+    tags=["Account Security"],
+    summary="Delete my account",
+    description=(
+        "Erases the account and everything it owns, **for good** (right to erasure; there is no undo). Needs the "
+        "password, and a current authenticator or recovery `code` when two-factor authentication is on. Every "
+        f"device is signed out. Consider downloading the data first. {_SENSITIVE}"
+    ),
+    request=PasswordAndCodeSerializer,
+    responses={
+        204: OpenApiResponse(description="Deleted."),
+        400: validation_error(
+            ("Wrong password", {"password": ["Wrong password."]}),
+            ("Wrong code", {"code": ["That code isn't right."]}),
+        ),
+        429: throttled("20 sensitive changes per hour per user"),
+    },
+)

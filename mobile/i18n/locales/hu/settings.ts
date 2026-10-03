@@ -31,6 +31,24 @@ export const settings: DeepStrings<typeof en> = {
     requireHint_other: "Kérjük a {{appName}} megnyitásához, és ha {{count}} percre a háttérbe kerül.",
     setupHint: "A használatához állítsd be a(z) {{method}} funkciót az eszközöd beállításaiban.",
   },
+  data: {
+    title: "Az adataid",
+    hint: "Töltsd le mindazt, amit a {{appName}} rólad tárol, vagy töröld végleg a fiókodat.",
+    button: "Adataim kezelése",
+    download: {
+      button: "Adataim letöltése",
+      confirmIdentity: "Erősítsd meg, hogy te vagy az, az adataid letöltéséhez.",
+      submit: "Letöltés",
+    },
+    delete: {
+      button: "Fiók törlése",
+      warning:
+        "Ez véglegesen törli a fiókodat és mindent, ami benne van: a tranzakciókat, költségkereteket, célokat és az előzményeket. Nem vonható vissza. Ha meg szeretnél őrizni egy másolatot, előbb töltsd le az adataidat.",
+      confirmIdentity: "A megerősítéshez add meg a jelszavadat.",
+      code: "Hitelesítő vagy helyreállító kód",
+      submit: "Fiók végleges törlése",
+    },
+  },
   session: {
     title: "Munkamenet",
     hint: "Kijelentkezés a {{appName}} alkalmazásból ezen az eszközön.",

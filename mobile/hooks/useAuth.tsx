@@ -85,6 +85,8 @@ interface AuthContextValue {
   logout: () => Promise<void>;
   /** Signs every device of the account out, this one too. Throws (and stays signed in) if the server can't be reached. */
   logoutEverywhere: () => Promise<void>;
+  /** Erases the account for good, then forgets everything this phone kept. Throws (and keeps the account) on a wrong password or code. */
+  deleteAccount: (payload: { password: string; code?: string }) => Promise<void>;
   unlock: () => Promise<BiometricResult>;
   retry: () => Promise<void>;
   enableBiometricLock: () => Promise<BiometricResult>;
@@ -323,6 +325,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await forgetLocally(userId);
   }, [forgetLocally]);
 
+  const deleteAccount = useCallback(
+    async (payload: { password: string; code?: string }) => {
+      const userId = await getSessionUserId();
+      await authService.deleteAccount(payload); // throws: the account is still there, the screen says why
+      // The server removed this phone's push registration with the account; only the local data is left.
+      await forgetLocally(userId);
+    },
+    [forgetLocally]
+  );
+
   const logout = useCallback(async () => {
     const userId = await getSessionUserId();
     try {
@@ -404,6 +416,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     register,
     logout,
     logoutEverywhere,
+    deleteAccount,
     unlock,
     retry,
     enableBiometricLock,

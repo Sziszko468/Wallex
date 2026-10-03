@@ -76,6 +76,13 @@ function AppStack() {
         }}
       />
       <Stack.Screen
+        name="account-data"
+        options={{
+          title: t("screens.accountData"),
+          headerStyle: { backgroundColor: colors.surface },
+        }}
+      />
+      <Stack.Screen
         name="notification-settings"
         options={{
           title: t("screens.notifications"),

@@ -313,3 +313,148 @@ def test_import_only_matches_requesting_users_own_categories(auth_client, user, 
     transaction = Transaction.objects.get(user=user, description="Albert Heijn")
     assert transaction.category == food_category
     assert transaction.category.user == user
+
+
+# =============================== files as Hungarian banks export them =========================
+
+
+def _upload(content: bytes, name: str = "export.csv") -> SimpleUploadedFile:
+    return SimpleUploadedFile(name, content, content_type="text/csv")
+
+
+def _import(auth_client, content: bytes):
+    return auth_client.post(reverse("transaction-import-csv"), {"file": _upload(content)}, format="multipart")
+
+
+def _amounts(user) -> list[Decimal]:
+    return sorted(Transaction.objects.filter(user=user).values_list("amount", flat=True))
+
+
+@pytest.mark.django_db
+def test_a_semicolon_file_reads_the_comma_as_the_decimal_mark(auth_client, user, food_category, salary_category):
+    csv_text = "date;description;amount\n2026-09-10;Tesco;-1 234,56\n2026-09-01;Salary;3 000,00\n"
+
+    response = _import(auth_client, csv_text.encode("utf-8"))
+
+    assert response.data["imported"] == 2, response.data
+    assert _amounts(user) == [Decimal("1234.56"), Decimal("3000.00")]
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    ("typed", "expected"),
+    [
+        ("-1.234,56", "1234.56"),  # a dot groups thousands when there is also a comma
+        ("-1234,5", "1234.50"),
+        ("-12.5", "12.50"),  # no comma: the dot is the decimal mark
+        ("-42,50 EUR", "42.50"),  # a trailing currency code
+        ("-42,50 €", "42.50"),
+    ],
+)
+def test_semicolon_amount_styles(auth_client, user, food_category, typed, expected):
+    response = _import(auth_client, f"date;description;amount\n2026-09-10;Tesco;{typed}\n".encode())
+
+    assert response.data["imported"] == 1, response.data
+    assert _amounts(user) == [Decimal(expected)]
+
+
+@pytest.mark.django_db
+def test_comma_files_still_read_the_comma_as_thousands(auth_client, user, salary_category):
+    response = _import(auth_client, b'date,description,amount\n2026-09-01,Salary,"2,500.00"\n')
+
+    assert response.data["imported"] == 1
+    assert _amounts(user) == [Decimal("2500.00")]
+
+
+@pytest.mark.django_db
+def test_a_currency_code_after_the_amount_is_ignored_in_comma_files_too(auth_client, user, food_category):
+    response = _import(auth_client, b"date,description,amount\n2026-09-10,Tesco,-42.50 EUR\n")
+
+    assert response.data["imported"] == 1
+    assert _amounts(user) == [Decimal("42.50")]
+
+
+@pytest.mark.django_db
+def test_forint_amounts_with_spaces_and_the_ft_sign(auth_client, user, food_category):
+    user.base_currency = "HUF"
+    user.save()
+
+    response = _import(auth_client, "Dátum;Közlemény;Összeg\n2026.09.10.;Tesco;-12 345 Ft\n".encode())
+
+    assert response.data["imported"] == 1, response.data
+    assert _amounts(user) == [Decimal("12345.00")]
+
+
+@pytest.mark.django_db
+def test_hungarian_headers_are_understood(auth_client, user, food_category):
+    csv_text = "Könyvelés dátuma;Partner neve;Tranzakció összege\n2026.09.10.;Tesco Hipermarket;-2 500,00\n"
+
+    response = _import(auth_client, csv_text.encode("utf-8"))
+
+    assert response.data["imported"] == 1, response.data
+    assert Transaction.objects.get(user=user).description == "Tesco Hipermarket"
+
+
+@pytest.mark.django_db
+def test_hungarian_headers_work_in_a_comma_file_too(auth_client, user, food_category):
+    response = _import(auth_client, "Dátum,Közlemény,Összeg\n2026-09-10,Tesco,-5.00\n".encode())
+
+    assert response.data["imported"] == 1, response.data
+
+
+@pytest.mark.django_db
+def test_a_tab_separated_file(auth_client, user, food_category):
+    response = _import(auth_client, b"date\tdescription\tamount\n2026-09-10\tTesco\t-5.00\n")
+
+    assert response.data["imported"] == 1, response.data
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "written", ["2026.09.10.", "2026.09.10", "10.09.2026.", "10.09.2026", "2026. 09. 10.", "2026-09-10", "10/09/2026"]
+)
+def test_every_date_style_means_the_same_day(auth_client, user, food_category, written):
+    response = _import(auth_client, f"date;description;amount\n{written};Tesco;-5,00\n".encode())
+
+    assert response.data["imported"] == 1, response.data
+    assert Transaction.objects.get(user=user).date == date(2026, 9, 10)
+
+
+@pytest.mark.django_db
+def test_a_windows_1250_file_keeps_its_hungarian_letters(auth_client, user, food_category):
+    user.language = "hu"
+    user.save()
+    content = "date;description;amount\n2026-09-10;Tesco Árpád ő ű;-5,00\n".encode("cp1250")
+
+    response = _import(auth_client, content)
+
+    assert response.data["imported"] == 1, response.data
+    assert Transaction.objects.get(user=user).description == "Tesco Árpád ő ű"
+
+
+@pytest.mark.django_db
+def test_the_same_bytes_are_latin_1_for_an_english_account(auth_client, user, food_category):
+    content = "date;description;amount\n2026-09-10;Tesco \xf5;-5,00\n".encode("latin-1")
+
+    response = _import(auth_client, content)
+
+    assert response.data["imported"] == 1, response.data
+    assert Transaction.objects.get(user=user).description == "Tesco \xf5"
+
+
+@pytest.mark.django_db
+def test_a_semicolon_file_missing_a_column_is_still_refused(auth_client):
+    response = _import(auth_client, b"date;description\n2026-09-10;Tesco\n")
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "amount" in str(response.data["file"])
+
+
+@pytest.mark.django_db
+def test_an_unreadable_amount_in_a_semicolon_file_fails_only_that_row(auth_client, user, food_category):
+    csv_text = "date;description;amount\n2026-09-10;Tesco;-5,00\n2026-09-11;Tesco;nem szám\n"
+
+    response = _import(auth_client, csv_text.encode("utf-8"))
+
+    assert (response.data["imported"], response.data["failed"]) == (1, 1)
+    assert response.data["details"][0]["row"] == 3

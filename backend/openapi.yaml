@@ -2184,6 +2184,163 @@ paths:
               schema:
                 type: integer
               description: Seconds until the next request is allowed.
+  /api/auth/delete-account/:
+    post:
+      operationId: auth_delete_account_create
+      description: Erases the account and everything it owns, **for good** (right
+        to erasure; there is no undo). Needs the password, and a current authenticator
+        or recovery `code` when two-factor authentication is on. Every device is signed
+        out. Consider downloading the data first. At most 20 of these changes per
+        hour per user; they ask for the password again.
+      summary: Delete my account
+      tags:
+      - Account Security
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordAndCodeRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PasswordAndCodeRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PasswordAndCodeRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: Deleted.
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                WrongPassword:
+                  value:
+                    password:
+                    - Wrong password.
+                  summary: Wrong password
+                WrongCode:
+                  value:
+                    code:
+                    - That code isn't right.
+                  summary: Wrong code
+          description: Validation failed; nothing was changed. See the examples for
+            typical messages.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          description: Rate limit exceeded (20 sensitive changes per hour per user).
+            Retry after the number of seconds in `Retry-After`.
+  /api/auth/export/:
+    post:
+      operationId: auth_export_create
+      description: 'Every piece of data stored about the user as one JSON file (`Content-Disposition:
+        attachment`): the account, categories, transactions, recurring transactions
+        and subscriptions, budgets, savings goals, achievements, assistant conversations,
+        notifications and preferences, devices, sessions and the security log. Left
+        out: push tokens, session keys and the two-factor secret. Recorded in the
+        security log. At most 20 of these changes per hour per user; they ask for
+        the password again.'
+      summary: Download my data
+      tags:
+      - Account Security
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordConfirmationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PasswordConfirmationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PasswordConfirmationRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: The file. `format_version` changes only when the structure
+            does.
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                WrongPassword:
+                  value:
+                    password:
+                    - Wrong password.
+                  summary: Wrong password
+          description: Validation failed; nothing was changed. See the examples for
+            typical messages.
+        '401':
+          description: 'No valid access token: missing, malformed or expired. Refresh
+            it with `POST /api/auth/refresh/` and retry once; if the refresh fails
+            too, the user must log in again.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                NoToken:
+                  value:
+                    detail: Authentication credentials were not provided.
+                InvalidOrExpiredToken:
+                  value:
+                    detail: Given token not valid for any token type
+                    code: token_not_valid
+                    messages:
+                    - token_class: AccessToken
+                      token_type: access
+                      message: Token is expired
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                Throttled:
+                  value:
+                    detail: Request was throttled. Expected available in 42 seconds.
+          description: Rate limit exceeded (20 sensitive changes per hour per user).
+            Retry after the number of seconds in `Retry-After`.
   /api/auth/login/:
     post:
       operationId: auth_login_create
@@ -8575,7 +8732,7 @@ paths:
       description: |-
         Creates transactions from a bank-export style CSV file (`multipart/form-data`, field `file`).
 
-        **Format** — a header row with (at least) these columns, in any order and letter case; other columns are ignored:
+        **Format** — a header row with (at least) these columns, in any order and letter case; other columns are ignored. The file may be separated by commas, semicolons or tabs (detected from the header line), and the Hungarian column names `Dátum`, `Közlemény` (also `Megjegyzés`, `Partner neve`) and `Összeg` (also `Tétel összege`) are understood:
 
         ```csv
         date,description,amount
@@ -8585,8 +8742,8 @@ paths:
 
         | Column | Rules |
         |---|---|
-        | `date` | `YYYY-MM-DD` or `DD/MM/YYYY` |
-        | `amount` | Signed decimal with a **dot** as decimal separator, in the user's **base currency**. Negative = expense, positive = income, zero is rejected; whole numbers for HUF and JPY. Thousands separators (`,` and spaces) and `€ $ £` are removed. |
+        | `date` | `YYYY-MM-DD`, `DD/MM/YYYY`, or the Hungarian `2026.09.10.` / `10.09.2026` |
+        | `amount` | Signed decimal in the user's **base currency**. Negative = expense, positive = income, zero is rejected; whole numbers for HUF and JPY. In a comma-separated file the **dot** is the decimal mark and `,` and spaces group thousands. In a **semicolon**-separated file (how Hungarian banks export) the **comma** is the decimal mark (`-12 345,67`, `1.234,56`). `€ $ £` and a trailing currency code (`Ft`, `EUR`) are removed. |
         | `description` | Free text, max 255 characters. Also used to pick the category. |
 
         **Category detection:** keyword rules on the description map each row to one of the user's categories
@@ -8598,7 +8755,7 @@ paths:
         **Outcome:** row problems don't stop the import: every valid row is saved and every other row is
         reported in `details` (status `200` even if some rows failed). Problems with the file itself (not CSV,
         missing columns, too many rows, empty, binary, unreadable encoding) reject the whole upload with `400`
-        and nothing is saved. UTF-8 (with or without BOM) and Latin-1 are accepted.
+        and nothing is saved. UTF-8 (with or without BOM) is accepted, and Latin-1 — or Windows-1250 for accounts whose language is Hungarian — as a fallback.
 
         Imported expenses re-check the affected months' budgets (push notifications as usual).
       summary: Import transactions from CSV
@@ -8949,6 +9106,7 @@ components:
       - base_currency_changed
       - transactions_imported
       - object_deleted
+      - data_exported
       type: string
       description: |-
         * `account_created` - Account created
@@ -8968,6 +9126,7 @@ components:
         * `base_currency_changed` - Base currency changed
         * `transactions_imported` - Transactions imported
         * `object_deleted` - Deleted
+        * `data_exported` - Personal data downloaded
     AuditCategoryEnum:
       enum:
       - login
@@ -11278,7 +11437,7 @@ components:
           allOf:
           - $ref: '#/components/schemas/LanguageEnum'
           description: |-
-            Interface language of the new account. Defaults to the language of the request (`Accept-Language`).
+            Interface language of the new account. Defaults to the language of the request (`Accept-Language`). A Hungarian account starts with HUF as its base currency, any other with EUR; it can be changed later.
 
             * `en` - English
             * `hu` - Magyar
@@ -11306,7 +11465,7 @@ components:
           allOf:
           - $ref: '#/components/schemas/LanguageEnum'
           description: |-
-            Interface language of the new account. Defaults to the language of the request (`Accept-Language`).
+            Interface language of the new account. Defaults to the language of the request (`Accept-Language`). A Hungarian account starts with HUF as its base currency, any other with EUR; it can be changed later.
 
             * `en` - English
             * `hu` - Magyar

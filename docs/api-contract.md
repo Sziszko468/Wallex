@@ -278,7 +278,7 @@ deleted it: both clients treat that as done.
 Bulk-imports transactions from an uploaded bank CSV file. **Web only** — see
 `apps/transactions/services.py` for the full pipeline. Multipart form upload, not JSON.
 
-**Expected CSV format** — exactly these three columns (header names case-insensitive, extra
+**Expected CSV format** — these three columns (header names case-insensitive, extra
 columns are ignored):
 
 ```csv
@@ -287,11 +287,18 @@ date,description,amount
 2026-09-01,Salary,3000.00
 ```
 
-- `date`: `YYYY-MM-DD` or `DD/MM/YYYY`.
+- `date`: `YYYY-MM-DD`, `DD/MM/YYYY`, or the Hungarian `2026.09.10.` / `10.09.2026`.
 - `description`: free text — also used for rule-based category detection (see below).
 - `amount`: a **signed** decimal. Negative → expense, positive → income, zero is rejected.
-  Period is the decimal separator; `,`, spaces, and `€`/`$`/`£` are stripped as thousands
-  separators (a comma-as-decimal-separator CSV will parse wrong — not currently detected).
+  In a comma-separated file the period is the decimal mark and `,`, spaces and `€`/`$`/`£` are
+  stripped as thousands separators. In a **semicolon**-separated file (how Hungarian banks
+  export) the comma is the decimal mark (`-12 345,67`, `1.234,56`). A trailing currency code
+  (`Ft`, `EUR`) is ignored.
+
+The delimiter (comma, semicolon or tab) is detected from the header line, and the Hungarian
+column names (`Dátum`, `Közlemény`, `Összeg`, also `Megjegyzés`, `Partner neve`,
+`Tétel összege`) are understood. A Windows-1250 file is decoded correctly for accounts whose
+language is Hungarian (otherwise Latin-1 is the fallback after UTF-8).
 
 **Category detection** is rule-based (hardcoded keyword → category name table, e.g. "Albert
 Heijn"/"Jumbo" → Food, "Shell" → Transport, "Netflix" → Entertainment): an unmatched **expense**
@@ -920,13 +927,16 @@ the right password, until the oldest failure is 15 minutes old. Per-IP limits ap
 | `POST /api/auth/2fa/confirm/` | `{code}` → turns it on → `{recovery_codes: [10]}`, shown once |
 | `POST /api/auth/2fa/disable/`, `…/recovery-codes/` | `{password, code}` |
 | `GET /api/auth/security-events/?category=login\|account\|data` | The user's own security log, paginated; `category=login` is the login history |
+| `POST /api/auth/export/` | `{password}` → one JSON file (`Content-Disposition: attachment`) with everything stored about the account — except push tokens, session keys and the two-factor secret. `format_version` changes only when the structure does. Recorded in the security log (`data_exported`). |
+| `POST /api/auth/delete-account/` | `{password}`, plus `{code}` (authenticator or recovery code) when two-factor is on → `204`. Erases the account and everything it owns, signs every device out, clears the cookie. No undo. |
 
 Password policy: 12–128 characters, not common, not only digits, not similar to the email.
-Password and 2FA changes: 20 per hour per user.
+Password and 2FA changes, the data download and the account deletion: 20 per hour per user.
+A Hungarian-language registration starts with HUF as its base currency (any other with EUR).
 
 **Client functions:** web `services/authService.ts` (`login`, `verifyMfa`, `logout`,
-`logoutEverywhere`) and `services/securityService.ts` (sessions, password, 2FA, log); mobile
-`services/authService.ts` (`login`, `verifyMfa`) and `services/session.ts`
+`logoutEverywhere`) and `services/securityService.ts` (sessions, password, 2FA, log, `downloadMyData`) and `authService.deleteAccount`; mobile
+`services/authService.ts` (`login`, `verifyMfa`, `exportMyData`, `deleteAccount`) and `services/session.ts`
 (`revokeSession`, `revokeAllSessions`).
 
 ---

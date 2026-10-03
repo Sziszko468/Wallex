@@ -41,6 +41,11 @@ export async function logoutEverywhere(): Promise<number> {
   return response.data.revoked_sessions;
 }
 
+/** Erases the account and everything it owns (needs the password, and a code with two-factor on). */
+export async function deleteAccount(payload: { password: string; code?: string }): Promise<void> {
+  await apiClient.post("/auth/delete-account/", payload, AUTH_REQUEST);
+}
+
 export async function getCurrentUser(): Promise<User> {
   const response = await apiClient.get<User>("/auth/me/");
   return response.data;

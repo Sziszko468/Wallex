@@ -55,7 +55,7 @@ export const importCsv: DeepStrings<typeof enImport> = {
   description: "Hozz be egy CSV-fájlt a bankodból vagy egy másik alkalmazásból.",
   uploadTitle: "CSV-fájl feltöltése",
   help:
-    "Elvárt oszlopok: <code>date</code>, <code>description</code>, <code>amount</code>. A dátum <code>YYYY-MM-DD</code> vagy <code>DD/MM/YYYY</code> formátumú. Az összeg előjeles – kiadásnál negatív, bevételnél pozitív (pl. <code>-42.50</code>), az alap pénznemedben ({{currency}}). A kategóriát a leírás alapján automatikusan felismerjük (pl. „Albert Heijn” → Élelmiszer, „Shell” → Közlekedés, „Netflix” → Szórakozás); a nem azonosítható kiadás az „Egyéb” kategóriába kerül.",
+    "Elvárt oszlopok: <code>date</code>, <code>description</code>, <code>amount</code>. A dátum <code>YYYY-MM-DD</code> vagy <code>DD/MM/YYYY</code> formátumú. Az összeg előjeles – kiadásnál negatív, bevételnél pozitív (pl. <code>-42.50</code>), az alap pénznemedben ({{currency}}). A kategóriát a leírás alapján automatikusan felismerjük (pl. „Albert Heijn” → Élelmiszer, „Shell” → Közlekedés, „Netflix” → Szórakozás); a nem azonosítható kiadás az „Egyéb” kategóriába kerül. A magyar bankok exportja módosítás nélkül is jó: <code>Dátum</code>, <code>Közlemény</code>, <code>Összeg</code> oszlopok, pontosvesszővel elválasztva, tizedesvesszővel (<code>-12 345,67</code>) és <code>2026.09.10.</code> formátumú dátummal.",
   notCsv: "Ez nem tűnik CSV-fájlnak. Válassz egy .csv végződésű fájlt.",
   imported_one: "{{count}} tranzakció importálva",
   imported_other: "{{count}} tranzakció importálva",

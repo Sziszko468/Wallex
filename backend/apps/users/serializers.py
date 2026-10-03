@@ -8,7 +8,7 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from apps.categories.defaults import create_default_categories
-from apps.common.i18n import active_language
+from apps.common.i18n import DEFAULT_CURRENCY_OF_LANGUAGE, active_language
 from apps.currencies.rates import ConversionError
 from apps.currencies.services import change_base_currency
 
@@ -29,7 +29,10 @@ class RegisterSerializer(serializers.ModelSerializer):
     language = serializers.ChoiceField(
         choices=settings.LANGUAGES,
         required=False,
-        help_text="Interface language of the new account. Defaults to the language of the request (`Accept-Language`).",
+        help_text=(
+            "Interface language of the new account. Defaults to the language of the request (`Accept-Language`). "
+            "A Hungarian account starts with HUF as its base currency, any other with EUR; it can be changed later."
+        ),
     )
 
     class Meta:
@@ -68,7 +71,10 @@ class RegisterSerializer(serializers.ModelSerializer):
         validated_data.pop("password_confirm")
         password = validated_data.pop("password")
         validated_data.setdefault("language", active_language())
-        user = User(username=validated_data["email"], **validated_data)
+        base_currency = DEFAULT_CURRENCY_OF_LANGUAGE.get(
+            validated_data["language"], User._meta.get_field("base_currency").default
+        )
+        user = User(username=validated_data["email"], base_currency=base_currency, **validated_data)
         user.set_password(password)
         with transaction.atomic():
             user.save()

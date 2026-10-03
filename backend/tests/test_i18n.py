@@ -1388,3 +1388,39 @@ def test_the_not_enough_data_sentence_reaches_the_model_in_the_users_language(us
     assert 'The "not enough data" sentence is: "Nem áll rendelkezésre elegendő adat."' in hungarian[1]["text"]
     assert english[0] == hungarian[0]  # the cached block stays identical for everyone
     assert "Nem áll rendelkezésre" not in english[0]["text"]
+
+
+# =============================== the starting currency follows the language ===============================
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    ("body_language", "header", "expected"),
+    [
+        ("hu", "en", "HUF"),  # the chosen language decides
+        ("en", "hu", "EUR"),
+        (None, "hu", "HUF"),  # no choice: the language of the request
+        (None, "en", "EUR"),
+        (None, "de", "EUR"),  # a language we don't offer: the project default
+    ],
+)
+def test_a_new_account_starts_in_the_currency_of_its_language(api_client, body_language, header, expected):
+    body = {**REGISTRATION, **({"language": body_language} if body_language else {})}
+
+    api_client.post(reverse("auth-register"), body, format="json", HTTP_ACCEPT_LANGUAGE=header)
+
+    assert User.objects.get(email="ada@example.com").base_currency == expected
+
+
+@pytest.mark.django_db
+def test_the_starting_currency_can_still_be_changed_later(api_client):
+    api_client.post(reverse("auth-register"), {**REGISTRATION, "language": "hu"}, format="json")
+    user = User.objects.get(email="ada@example.com")
+    from conftest import _authenticated_client
+
+    client = _authenticated_client(user)
+
+    response = client.patch(reverse("auth-me"), {"base_currency": "EUR"}, format="json")
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data["base_currency"] == "EUR"

@@ -1,0 +1,163 @@
+# Every push and pull request: the three test suites, lint and type checks, and the two
+# production images. Mirrors docs/testing-strategy.md ("How to run").
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 1" # Mondays: new advisories appear without any commit
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (pytest, ruff, migrations, OpenAPI)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      db:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: wallex
+          POSTGRES_USER: wallex_user
+          POSTGRES_PASSWORD: ci-only-password
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U wallex_user -d wallex"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings.dev
+      DJANGO_SECRET_KEY: ci-only-secret-key-not-used-anywhere-else
+      DJANGO_ALLOWED_HOSTS: "*"
+      POSTGRES_DB: wallex
+      POSTGRES_USER: wallex_user
+      POSTGRES_PASSWORD: ci-only-password
+      POSTGRES_HOST: localhost
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+      # gettext compiles the translations; Tesseract (English + Hungarian) runs the real-OCR test.
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends gettext tesseract-ocr tesseract-ocr-eng tesseract-ocr-hun
+        working-directory: .
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: python manage.py makemigrations --check --dry-run
+      - run: pytest -q
+
+  web:
+    name: Web (tsc, oxlint, vitest, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npx tsc -b
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+  mobile:
+    name: Mobile (tsc, jest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm test
+
+  images:
+    name: Production images build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # The production stage compiles the translations and collects the admin's static files:
+      # a settings or catalog problem shows up here, not on the first deploy.
+      - run: docker build --target prod -t wallex-backend:ci backend
+      - run: docker build -t wallex-web:ci web
+
+  e2e:
+    name: Browser tests (Playwright, Chrome)
+    runs-on: ubuntu-latest
+    needs: [backend, web]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            web/package-lock.json
+            e2e/package-lock.json
+      # The development stack: PostgreSQL and the API (migrations are applied by hand below).
+      - run: cp backend/.env.example backend/.env
+      - run: docker compose up -d --build
+      - run: |
+          for i in $(seq 1 60); do curl -sf http://localhost:8000/api/health/ready/ && exit 0; sleep 3; done
+          docker compose logs backend && exit 1
+      - run: docker compose exec -T backend python manage.py migrate --noinput
+      - run: npm ci
+        working-directory: web
+      - run: nohup npm run dev -- --host localhost > vite.log 2>&1 &
+        working-directory: web
+      - run: |
+          for i in $(seq 1 30); do curl -sf http://localhost:5173 >/dev/null && exit 0; sleep 2; done
+          cat web/vite.log && exit 1
+      - run: npm ci
+        working-directory: e2e
+      - run: npx playwright test
+        working-directory: e2e
+        env:
+          CI: "true"
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            e2e/playwright-report
+            e2e/test-results
+
+  audit:
+    name: Dependency advisories
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install pip-audit && pip-audit -r backend/requirements.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # The web app and the browser tests. The mobile app is left out on purpose: every advisory in
+      # it is in Expo's build tooling (Metro, config plugins), which does not ship in the app, and the
+      # "fix" npm offers is a downgrade to Expo 44.
+      - run: npm ci && npm audit --omit=dev --audit-level=high
+        working-directory: web
+      - run: npm ci && npm audit
+        working-directory: e2e

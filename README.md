@@ -462,9 +462,10 @@ Production images:
 
 | Suite | Tools | Tests |
 |---|---|---|
-| Backend | pytest, pytest-django | **1,474** |
-| Web | Vitest, React Testing Library, MSW | **226** |
-| Mobile | Jest (jest-expo), React Native Testing Library | **183** |
+| Backend | pytest, pytest-django | **1,535** |
+| Web | Vitest, React Testing Library, MSW | **232** |
+| Mobile | Jest (jest-expo), React Native Testing Library | **204** |
+| Browser | Playwright (Chrome) | **4** journeys |
 
 The testing is risk-based rather than aimed at a coverage number
 ([strategy](docs/testing-strategy.md)). Highlights:
@@ -481,6 +482,8 @@ The testing is risk-based rather than aimed at a coverage number
 - **Two languages:** every text the server writes has a Hungarian translation (a test reads the
   source and the catalog), notifications follow the account's language, and the API never lets
   the language change a code, a field name or a figure.
+- **Your data:** the download holds everything of the user's and nothing of anyone else's, no secrets; erasing
+  removes every table row they own, needs the password (and a code with two-factor), and leaves other accounts alone.
 - **Ordering:** every list's default and requested order, including ties and pages of tied rows.
 
 ```bash
@@ -488,6 +491,7 @@ docker compose exec backend pytest             # backend
 docker compose exec backend ruff check .       # backend lint (ruff format --check . for the formatting)
 cd web && npm test && npx tsc -b && npm run lint   # web (tests, strict type check, lint)
 cd mobile && npm test && npx tsc --noEmit      # mobile
+cd e2e && npx playwright test                  # the web app in a real Chrome (stack running; see e2e/README.md)
 ```
 
 ## Installation
@@ -533,7 +537,9 @@ npm run start:go                               # scan the QR code with Expo Go
   [docs/mobile-release.md](docs/mobile-release.md).
 - `npm run web` opens the app in a browser.
 
-Register an account in either client: 10 default categories are created for you.
+Register an account in either client: 10 default categories are created for you. To look around a
+full account instead, `docker compose exec backend python manage.py seed_demo` creates one with nine
+months of data and prints its sign-in (`--language hu`, `--reset`, `--months`; development only).
 
 ## Deployment
 
@@ -610,6 +616,7 @@ wallex/
 | [docs/design-system.md](docs/design-system.md) | The web app's design tokens, light/dark/system theming, components, patterns and accessibility rules |
 | [docs/code-review.md](docs/code-review.md) | Senior code review: findings by severity, fixes, production & portfolio readiness checklists |
 | [docs/i18n.md](docs/i18n.md) | Languages: how one is chosen, where the texts live, rules for code, adding a language |
+| [docs/privacy.md](docs/privacy.md) | What is stored about a person, who else sees it, how long, and the in-app rights (download, erase); the base for a privacy policy |
 | [docs/api-contract.md](docs/api-contract.md) | How the web and mobile clients consume the API |
 | [backend/openapi.yaml](backend/openapi.yaml) | Complete OpenAPI 3 reference (also served at `/api/docs/`) |
 

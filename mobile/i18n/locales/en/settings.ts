@@ -28,6 +28,24 @@ export const settings = {
     requireHint_other: "Require it to open {{appName}}, and after {{count}} minutes in the background.",
     setupHint: "Set up {{method}} in your device settings to use this.",
   },
+  data: {
+    title: "Your data",
+    hint: "Download everything {{appName}} stores about you, or delete your account for good.",
+    button: "Manage my data",
+    download: {
+      button: "Download my data",
+      confirmIdentity: "Confirm it's you to download your data.",
+      submit: "Download",
+    },
+    delete: {
+      button: "Delete my account",
+      warning:
+        "This permanently deletes your account and everything in it: transactions, budgets, goals and history. It can't be undone. Download your data first if you want to keep a copy.",
+      confirmIdentity: "Enter your password to confirm.",
+      code: "Authenticator or recovery code",
+      submit: "Delete my account forever",
+    },
+  },
   session: {
     title: "Session",
     hint: "Log out of {{appName}} on this device.",

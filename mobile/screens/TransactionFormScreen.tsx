@@ -15,7 +15,7 @@ import {
   type FieldErrors,
 } from "../utils/errors";
 import { toIsoDate, isValidIsoDate } from "../utils/date";
-import { hasValidPrecision } from "../utils/currency";
+import { hasValidPrecision, normalizeAmountInput } from "../utils/currency";
 import { Screen } from "../components/Screen";
 import { Button } from "../components/Button";
 import { TextField } from "../components/TextField";
@@ -101,13 +101,14 @@ export function TransactionFormScreen() {
 
   function validate(): FieldErrors {
     const errors: FieldErrors = {};
-    const numericAmount = Number(amount);
+    const normalizedAmount = normalizeAmountInput(amount);
+    const numericAmount = Number(normalizedAmount);
 
-    if (!amount.trim()) {
+    if (!normalizedAmount) {
       errors.amount = t("common.validation.amountRequired");
     } else if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
       errors.amount = t("common.validation.amountPositive");
-    } else if (!hasValidPrecision(amount, currency)) {
+    } else if (!hasValidPrecision(normalizedAmount, currency)) {
       errors.amount = t("common.validation.noDecimals", { currency });
     }
 
@@ -140,7 +141,7 @@ export function TransactionFormScreen() {
     setIsSubmitting(true);
     try {
       const payload = {
-        amount,
+        amount: normalizeAmountInput(amount),
         type,
         category: categoryId as number,
         description: description.trim() || undefined,

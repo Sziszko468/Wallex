@@ -2,6 +2,8 @@ from django.urls import path
 from rest_framework.routers import SimpleRouter
 
 from .account_views import (
+    DataExportView,
+    DeleteAccountView,
     LogoutAllView,
     MfaConfirmView,
     MfaDisableView,
@@ -31,6 +33,8 @@ urlpatterns = [
     path("2fa/confirm/", MfaConfirmView.as_view(), name="auth-2fa-confirm"),
     path("2fa/disable/", MfaDisableView.as_view(), name="auth-2fa-disable"),
     path("2fa/recovery-codes/", RecoveryCodesView.as_view(), name="auth-2fa-recovery-codes"),
+    path("export/", DataExportView.as_view(), name="auth-export"),
+    path("delete-account/", DeleteAccountView.as_view(), name="auth-delete-account"),
     path("security-events/", SecurityEventsView.as_view(), name="auth-security-events"),
     *router.urls,
 ]

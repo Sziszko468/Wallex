@@ -224,7 +224,7 @@ CSV_IMPORT_SCHEMA = extend_schema(
     summary="Import transactions from CSV",
     description="""Creates transactions from a bank-export style CSV file (`multipart/form-data`, field `file`).
 
-**Format** — a header row with (at least) these columns, in any order and letter case; other columns are ignored:
+**Format** — a header row with (at least) these columns, in any order and letter case; other columns are ignored. The file may be separated by commas, semicolons or tabs (detected from the header line), and the Hungarian column names `Dátum`, `Közlemény` (also `Megjegyzés`, `Partner neve`) and `Összeg` (also `Tétel összege`) are understood:
 
 ```csv
 date,description,amount
@@ -234,8 +234,8 @@ date,description,amount
 
 | Column | Rules |
 |---|---|
-| `date` | `YYYY-MM-DD` or `DD/MM/YYYY` |
-| `amount` | Signed decimal with a **dot** as decimal separator, in the user's **base currency**. Negative = expense, positive = income, zero is rejected; whole numbers for HUF and JPY. Thousands separators (`,` and spaces) and `€ $ £` are removed. |
+| `date` | `YYYY-MM-DD`, `DD/MM/YYYY`, or the Hungarian `2026.09.10.` / `10.09.2026` |
+| `amount` | Signed decimal in the user's **base currency**. Negative = expense, positive = income, zero is rejected; whole numbers for HUF and JPY. In a comma-separated file the **dot** is the decimal mark and `,` and spaces group thousands. In a **semicolon**-separated file (how Hungarian banks export) the **comma** is the decimal mark (`-12 345,67`, `1.234,56`). `€ $ £` and a trailing currency code (`Ft`, `EUR`) are removed. |
 | `description` | Free text, max 255 characters. Also used to pick the category. |
 
 **Category detection:** keyword rules on the description map each row to one of the user's categories
@@ -247,7 +247,7 @@ transaction — or an earlier row of the same file — is `skipped`.
 **Outcome:** row problems don't stop the import: every valid row is saved and every other row is
 reported in `details` (status `200` even if some rows failed). Problems with the file itself (not CSV,
 missing columns, too many rows, empty, binary, unreadable encoding) reject the whole upload with `400`
-and nothing is saved. UTF-8 (with or without BOM) and Latin-1 are accepted.
+and nothing is saved. UTF-8 (with or without BOM) is accepted, and Latin-1 — or Windows-1250 for accounts whose language is Hungarian — as a fallback.
 
 Imported expenses re-check the affected months' budgets (push notifications as usual).""",
     request={"multipart/form-data": CsvImportSerializer},

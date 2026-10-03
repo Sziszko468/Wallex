@@ -66,7 +66,7 @@ msgstr "Költségkereten belül maradtál"
 msgid "Finish a month without going over a budget."
 msgstr "Zárj le egy hónapot úgy, hogy nem lépsz túl egy költségkeretet sem."
 
-#: apps/analytics/achievements.py:246
+#: apps/analytics/achievements.py:249
 #, python-format
 msgid "Stayed Under %(category)s Budget"
 msgstr "%(category)s költségkeret betartva"
@@ -91,7 +91,7 @@ msgstr "Az asszisztens nem tudta befejezni ezt a választ. Kérjük, próbáld �
 msgid "The answer took too long. Please try again."
 msgstr "A válasz túl sokáig tartott. Kérjük, próbáld újra."
 
-#: apps/analytics/assistant/prompts.py:18
+#: apps/analytics/assistant/prompts.py:17
 msgid "There isn't enough data available."
 msgstr "Nem áll rendelkezésre elegendő adat."
 
@@ -111,49 +111,49 @@ msgstr "Melyik előfizetésem kerül a legtöbbe?"
 msgid "Am I staying within my budgets this month?"
 msgstr "Tartom a költségkereteimet ebben a hónapban?"
 
-#: apps/analytics/assistant/suggestions.py:41
+#: apps/analytics/assistant/suggestions.py:43
 msgid "Why did my spending change compared to last month?"
 msgstr "Miért változtak a kiadásaim az előző hónaphoz képest?"
 
-#: apps/analytics/assistant/suggestions.py:43
+#: apps/analytics/assistant/suggestions.py:45
 #, python-format
 msgid "How much did I spend on %(category)s this month?"
 msgstr "Mennyit költöttem ebben a hónapban erre: %(category)s?"
 
-#: apps/analytics/assistant/suggestions.py:48
+#: apps/analytics/assistant/suggestions.py:51
 #, python-format
 msgid "How am I doing with my %(goal)s savings goal?"
 msgstr "Hogy állok a(z) %(goal)s megtakarítási céllal?"
 
-#: apps/analytics/assistant/tools.py:480
+#: apps/analytics/assistant/tools.py:506
 msgid "Monthly spending"
 msgstr "Havi kiadások"
 
-#: apps/analytics/assistant/tools.py:493
+#: apps/analytics/assistant/tools.py:519
 msgid "Spending by category"
 msgstr "Kiadások kategóriánként"
 
-#: apps/analytics/assistant/tools.py:510
+#: apps/analytics/assistant/tools.py:536
 msgid "Spending by merchant"
 msgstr "Kiadások kereskedőnként"
 
-#: apps/analytics/assistant/tools.py:526
+#: apps/analytics/assistant/tools.py:555
 msgid "Budgets"
 msgstr "Költségkeretek"
 
-#: apps/analytics/assistant/tools.py:540
+#: apps/analytics/assistant/tools.py:569
 msgid "Subscriptions"
 msgstr "Előfizetések"
 
-#: apps/analytics/assistant/tools.py:554
+#: apps/analytics/assistant/tools.py:583
 msgid "Savings goals"
 msgstr "Megtakarítási célok"
 
-#: apps/analytics/assistant/tools.py:573
+#: apps/analytics/assistant/tools.py:602
 msgid "Month comparison"
 msgstr "Hónapok összehasonlítása"
 
-#: apps/analytics/assistant/tools.py:644
+#: apps/analytics/assistant/tools.py:673
 #, python-format
 msgid "%(period)s vs %(compared)s"
 msgstr "%(period)s és %(compared)s"
@@ -166,84 +166,84 @@ msgstr "Az AI asszisztens még nincs beállítva ezen a szerveren."
 msgid "This conversation is full. Start a new conversation to ask more."
 msgstr "Ez a beszélgetés megtelt. Indíts egy újat, ha további kérdéseket szeretnél feltenni."
 
-#: apps/analytics/insights.py:135
+#: apps/analytics/insights.py:131
 #, python-format
 msgid "Highest spending category is %(name)s (%(percent)s%% of this month's expenses)."
 msgstr "A legnagyobb kiadási kategória: %(name)s (az e havi kiadások %(percent)s%%-a)."
 
-#: apps/analytics/insights.py:189
+#: apps/analytics/insights.py:185
 #, python-format
 msgid "Total spending exceeded the overall monthly budget by %(percent)s%%."
 msgstr "Az összes kiadás %(percent)s%%-kal meghaladta az összesített havi költségkeretet."
 
-#: apps/analytics/insights.py:191
+#: apps/analytics/insights.py:187
 #, python-format
 msgid "%(name)s exceeded its budget by %(percent)s%%."
 msgstr "A(z) %(name)s kiadás %(percent)s%%-kal meghaladta a költségkeretét."
 
-#: apps/analytics/insights.py:207
+#: apps/analytics/insights.py:203
 #, python-format
 msgid "You have used %(percent)s%% of your overall budget."
 msgstr "Az összesített költségkereted %(percent)s%%-át felhasználtad."
 
-#: apps/analytics/insights.py:209
+#: apps/analytics/insights.py:205
 #, python-format
 msgid "You have used %(percent)s%% of the %(name)s budget."
 msgstr "A(z) %(name)s költségkeret %(percent)s%%-át felhasználtad."
 
-#: apps/analytics/insights.py:235
+#: apps/analytics/insights.py:231
 #, python-format
 msgid "Recurring expenses represent %(percent)s%% of income."
 msgstr "Az ismétlődő kiadások a bevétel %(percent)s%%-át teszik ki."
 
-#: apps/analytics/insights.py:255
+#: apps/analytics/insights.py:251
 #, python-format
 msgid "Expenses exceeded income by %(percent)s%% this month."
 msgstr "Ebben a hónapban a kiadások %(percent)s%%-kal meghaladták a bevételt."
 
-#: apps/analytics/insights.py:267
+#: apps/analytics/insights.py:264
 #, python-format
 msgid "You saved %(percent)s%% of your income this month."
 msgstr "Ebben a hónapban a bevételed %(percent)s%%-át megtakarítottad."
 
-#: apps/analytics/insights.py:277
+#: apps/analytics/insights.py:275
 #, python-format
 msgid "%(name)s spending increased by %(percent)s%% compared to the same period last month."
 msgstr "A(z) %(name)s kiadások %(percent)s%%-kal nőttek az előző hónap azonos időszakához képest."
 
-#: apps/analytics/insights.py:278
+#: apps/analytics/insights.py:276
 #, python-format
 msgid "%(name)s spending increased by %(percent)s%% compared to last month."
 msgstr "A(z) %(name)s kiadások %(percent)s%%-kal nőttek az előző hónaphoz képest."
 
-#: apps/analytics/insights.py:279
+#: apps/analytics/insights.py:277
 #, python-format
 msgid "%(name)s spending decreased by %(percent)s%% compared to the same period last month."
 msgstr "A(z) %(name)s kiadások %(percent)s%%-kal csökkentek az előző hónap azonos időszakához képest."
 
-#: apps/analytics/insights.py:280
+#: apps/analytics/insights.py:278
 #, python-format
 msgid "%(name)s spending decreased by %(percent)s%% compared to last month."
 msgstr "A(z) %(name)s kiadások %(percent)s%%-kal csökkentek az előző hónaphoz képest."
 
-#: apps/budgets/savings.py:122
+#: apps/budgets/savings.py:123
 msgid "This goal is archived. Restore it to add or remove money."
 msgstr "Ez a cél archiválva van. Állítsd vissza, hogy pénzt adhass hozzá vagy vonhass le belőle."
 
-#: apps/budgets/savings.py:125
+#: apps/budgets/savings.py:127
 #, python-format
 msgid "You can't remove more than the %(amount)s %(currency)s saved."
 msgstr "Legfeljebb a megtakarított összeget (%(amount)s %(currency)s) vonhatod le."
 
-#: apps/budgets/savings.py:131
+#: apps/budgets/savings.py:133
 msgid "This would make the saved amount too large."
 msgstr "Ettől a megtakarított összeg túl nagy lenne."
 
-#: apps/budgets/serializers.py:76
+#: apps/budgets/serializers.py:75
 msgid "Budgets can only be set for expense categories."
 msgstr "Költségkeret csak kiadási kategóriákhoz állítható be."
 
-#: apps/budgets/serializers.py:85
+#: apps/budgets/serializers.py:83
 msgid "A budget for this category and month already exists."
 msgstr "Ehhez a kategóriához és hónaphoz már van költségkeret."
 
@@ -259,8 +259,8 @@ msgstr "A céldátum nem lehet a múltban."
 msgid "The currency can't change once money is saved in the goal."
 msgstr "A pénznem nem módosítható, ha már van megtakarított pénz a célban."
 
-#: apps/budgets/serializers.py:196 apps/budgets/serializers.py:233
-#: apps/currencies/serializers.py:14 apps/transactions/services.py:184
+#: apps/budgets/serializers.py:197 apps/budgets/serializers.py:235
+#: apps/currencies/serializers.py:15 apps/transactions/services.py:228
 #, python-format
 msgid "%(currency)s amounts can't have decimals."
 msgstr "%(currency)s összegben nem lehetnek tizedesjegyek."
@@ -313,19 +313,19 @@ msgstr "Összesen"
 msgid "Color must be a hex code, e.g. #6366F1."
 msgstr "A színnek hexadecimális kódnak kell lennie, pl. #6366F1."
 
-#: apps/categories/serializers.py:40
+#: apps/categories/serializers.py:44
 msgid "This category is already in use, so its type can't change. Create a new category instead."
 msgstr "Ez a kategória már használatban van, ezért a típusa nem módosítható. Hozz létre inkább egy új kategóriát."
 
-#: apps/categories/serializers.py:53
+#: apps/categories/serializers.py:56
 msgid "You already have a category with this name and type."
 msgstr "Már van ilyen nevű és típusú kategóriád."
 
-#: apps/categories/views.py:37
+#: apps/categories/views.py:51
 msgid "This category is used by existing transactions and cannot be deleted."
 msgstr "Ezt a kategóriát meglévő tranzakciók használják, ezért nem törölhető."
 
-#: apps/common/concurrency.py:93
+#: apps/common/concurrency.py:94
 msgid "This item was changed on another device after you loaded it. Nothing was saved; review the current version and try again."
 msgstr "Ezt az elemet egy másik eszközön módosították, miután betöltötted. Semmi sem lett mentve; nézd meg az aktuális változatot, és próbáld újra."
 
@@ -354,134 +354,134 @@ msgstr "Egy %(amount)s %(currency)s összegű tranzakció túl nagy ahhoz, hogy 
 msgid "A budget would be too large in %(base)s."
 msgstr "Egy költségkeret túl nagy lenne %(base)s pénznemben."
 
-#: apps/notifications/rules.py:85
+#: apps/notifications/rules.py:86
 msgid "Budget exceeded"
 msgstr "Költségkeret túllépve"
 
-#: apps/notifications/rules.py:87
+#: apps/notifications/rules.py:88
 #, python-format
 msgid "You've spent %(percent)s%% of your overall budget for %(month)s."
 msgstr "%(month)s hónapban az összesített költségkereted %(percent)s%%-át elköltötted."
 
-#: apps/notifications/rules.py:90
+#: apps/notifications/rules.py:91
 #, python-format
 msgid "You've spent %(percent)s%% of your %(name)s budget for %(month)s."
 msgstr "%(month)s hónapban a(z) %(name)s költségkereted %(percent)s%%-át elköltötted."
 
-#: apps/notifications/rules.py:102
+#: apps/notifications/rules.py:103
 msgid "Budget almost used"
 msgstr "A költségkeret majdnem elfogyott"
 
-#: apps/notifications/rules.py:104
+#: apps/notifications/rules.py:105
 #, python-format
 msgid "You've used %(percent)s%% of your overall budget for %(month)s."
 msgstr "%(month)s hónapban az összesített költségkereted %(percent)s%%-át felhasználtad."
 
-#: apps/notifications/rules.py:107
+#: apps/notifications/rules.py:108
 #, python-format
 msgid "You've used %(percent)s%% of your %(name)s budget for %(month)s."
 msgstr "%(month)s hónapban a(z) %(name)s költségkereted %(percent)s%%-át felhasználtad."
 
-#: apps/notifications/rules.py:134
+#: apps/notifications/rules.py:135
 msgid "Savings goal reached"
 msgstr "Megtakarítási cél elérve"
 
-#: apps/notifications/rules.py:135
+#: apps/notifications/rules.py:136
 #, python-format
 msgid "You reached your %(goal)s goal of %(amount)s."
 msgstr "Elérted a(z) %(goal)s célodat: %(amount)s."
 
-#: apps/notifications/rules.py:141
+#: apps/notifications/rules.py:142
 msgid "Savings goal progress"
 msgstr "Megtakarítási cél előrehaladása"
 
-#: apps/notifications/rules.py:143
+#: apps/notifications/rules.py:144
 #, python-format
 msgid "You are %(remaining)s away from your %(goal)s goal (%(percent)s%% saved)."
 msgstr "Még %(remaining)s hiányzik a(z) %(goal)s célodhoz (%(percent)s%% megtakarítva)."
 
-#: apps/notifications/rules.py:164
+#: apps/notifications/rules.py:165
 #, python-format
 msgid "%(name)s payment expected today."
 msgstr "A(z) %(name)s fizetése ma várható."
 
-#: apps/notifications/rules.py:166
+#: apps/notifications/rules.py:167
 #, python-format
 msgid "%(name)s payment expected tomorrow."
 msgstr "A(z) %(name)s fizetése holnap várható."
 
-#: apps/notifications/rules.py:168
+#: apps/notifications/rules.py:169
 #, python-format
 msgid "%(name)s payment expected in %(days)d day."
 msgid_plural "%(name)s payment expected in %(days)d days."
 msgstr[0] "A(z) %(name)s fizetése %(days)d nap múlva várható."
 msgstr[1] "A(z) %(name)s fizetése %(days)d nap múlva várható."
 
-#: apps/notifications/rules.py:176
+#: apps/notifications/rules.py:177
 #, python-format
 msgid "%(name)s is due today."
 msgstr "A(z) %(name)s ma esedékes."
 
-#: apps/notifications/rules.py:178
+#: apps/notifications/rules.py:179
 #, python-format
 msgid "%(name)s is due tomorrow."
 msgstr "A(z) %(name)s holnap esedékes."
 
-#: apps/notifications/rules.py:180
+#: apps/notifications/rules.py:181
 #, python-format
 msgid "%(name)s is due in %(days)d day."
 msgid_plural "%(name)s is due in %(days)d days."
 msgstr[0] "A(z) %(name)s %(days)d nap múlva esedékes."
 msgstr[1] "A(z) %(name)s %(days)d nap múlva esedékes."
 
-#: apps/notifications/rules.py:209
+#: apps/notifications/rules.py:208
 msgid "Subscription payment"
 msgstr "Előfizetés kifizetése"
 
-#: apps/notifications/rules.py:220
+#: apps/notifications/rules.py:219
 msgid "Upcoming payment"
 msgstr "Közelgő fizetés"
 
-#: apps/notifications/rules.py:242
+#: apps/notifications/rules.py:241
 msgid "Unusual spending"
 msgstr "Szokatlan költés"
 
-#: apps/notifications/rules.py:244
+#: apps/notifications/rules.py:243
 #, python-format
 msgid "Your %(name)s expenses increased by %(percent)s%% compared to your usual spending so far this month."
 msgstr "A(z) %(name)s kiadásaid %(percent)s%%-kal nőttek a megszokott költéshez képest a hónap eddigi részében."
 
-#: apps/notifications/rules.py:261
+#: apps/notifications/rules.py:260
 #, python-format
 msgid "Spending was about the same as in %(month)s."
 msgstr "A költés nagyjából ugyanannyi volt, mint %(month)s hónapban."
 
-#: apps/notifications/rules.py:263
+#: apps/notifications/rules.py:262
 #, python-format
 msgid "Spending was %(percent)s%% higher than in %(month)s."
 msgstr "A költés %(percent)s%%-kal magasabb volt, mint %(month)s hónapban."
 
-#: apps/notifications/rules.py:264
+#: apps/notifications/rules.py:266
 #, python-format
 msgid "Spending was %(percent)s%% lower than in %(month)s."
 msgstr "A költés %(percent)s%%-kal alacsonyabb volt, mint %(month)s hónapban."
 
-#: apps/notifications/rules.py:287
+#: apps/notifications/rules.py:292
 #, python-format
 msgid "You spent %(spent)s and earned %(earned)s in %(month)s."
 msgstr "%(month)s: költés %(spent)s, bevétel %(earned)s."
 
-#: apps/notifications/rules.py:293
+#: apps/notifications/rules.py:298
 #, python-format
 msgid "You spent %(spent)s in %(month)s."
 msgstr "%(month)s: költés %(spent)s."
 
-#: apps/notifications/rules.py:300
+#: apps/notifications/rules.py:305
 #, python-format
 msgid "Your %(month)s summary"
 msgstr "Összefoglaló – %(month)s"
 
-#: apps/notifications/rules.py:322
+#: apps/notifications/rules.py:327
 msgid "Financial insight"
 msgstr "Pénzügyi meglátás"
 
@@ -505,133 +505,133 @@ msgstr "A fájl nem olvasható kép."
 msgid "The photo could not be processed. Please try another one."
 msgstr "A fotót nem sikerült feldolgozni. Kérjük, próbálj meg egy másikat."
 
-#: apps/receipts/views.py:45 apps/transactions/views.py:106
-#: apps/users/views.py:178
+#: apps/receipts/views.py:44 apps/transactions/views.py:106
+#: apps/users/views.py:185
 msgid "This field is required."
 msgstr "Ez a mező kötelező."
 
-#: apps/receipts/views.py:54
+#: apps/receipts/views.py:53
 msgid "Receipt scanning is temporarily unavailable. Please add the transaction manually."
 msgstr "A blokk beolvasása átmenetileg nem érhető el. Kérjük, add hozzá kézzel a tranzakciót."
 
-#: apps/subscriptions/serializers.py:98
+#: apps/subscriptions/serializers.py:99
 msgid "Subscriptions are expenses: choose an expense category."
 msgstr "Az előfizetések kiadások: válassz kiadási kategóriát."
 
-#: apps/transactions/models.py:75 apps/transactions/serializers.py:87
+#: apps/transactions/models.py:68 apps/transactions/serializers.py:86
 msgid "Transaction type must match the selected category's type."
 msgstr "A tranzakció típusának egyeznie kell a kiválasztott kategória típusával."
 
-#: apps/transactions/models.py:138 apps/transactions/serializers.py:215
+#: apps/transactions/models.py:123 apps/transactions/serializers.py:215
 msgid "Recurring transaction type must match the selected category's type."
 msgstr "Az ismétlődő tranzakció típusának egyeznie kell a kiválasztott kategória típusával."
 
-#: apps/transactions/models.py:141 apps/transactions/serializers.py:218
+#: apps/transactions/models.py:125 apps/transactions/serializers.py:218
 msgid "Subscriptions are always expenses."
 msgstr "Az előfizetések mindig kiadások."
 
-#: apps/transactions/serializers.py:108
+#: apps/transactions/serializers.py:106
 msgid "Must be 1 when the currency is your base currency."
 msgstr "1-nek kell lennie, ha a pénznem az alap pénznemed."
 
-#: apps/transactions/serializers.py:117
+#: apps/transactions/serializers.py:115
 #, python-format
 msgid "%(error)s Enter the rate manually or try again later."
 msgstr "%(error)s Add meg az árfolyamot kézzel, vagy próbáld újra később."
 
-#: apps/transactions/serializers.py:122
+#: apps/transactions/serializers.py:121
 msgid "This amount is too large to convert to your base currency."
 msgstr "Ez az összeg túl nagy ahhoz, hogy átváltható legyen az alap pénznemedre."
 
-#: apps/transactions/serializers.py:142
+#: apps/transactions/serializers.py:141
 msgid "End date must be on or after the start date."
 msgstr "A befejező dátum nem lehet a kezdő dátum előtt."
 
-#: apps/transactions/services.py:68
+#: apps/transactions/services.py:102
 #, python-format
 msgid "This file is not valid CSV (%(error)s)."
 msgstr "Ez a fájl nem érvényes CSV (%(error)s)."
 
-#: apps/transactions/services.py:74
+#: apps/transactions/services.py:108
 msgid "The uploaded file is empty."
 msgstr "A feltöltött fájl üres."
 
-#: apps/transactions/services.py:76
+#: apps/transactions/services.py:110
 msgid "This doesn't look like a CSV file (it contains binary data)."
 msgstr "Ez nem tűnik CSV-fájlnak (bináris adatot tartalmaz)."
 
-#: apps/transactions/services.py:82
+#: apps/transactions/services.py:118
 msgid "Could not read this file as text (unsupported encoding)."
 msgstr "A fájlt nem sikerült szövegként beolvasni (nem támogatott kódolás)."
 
-#: apps/transactions/services.py:93
+#: apps/transactions/services.py:128
 #, python-format
 msgid "Unrecognized date '%(value)s' (expected YYYY-MM-DD or DD/MM/YYYY)."
 msgstr "Ismeretlen dátum: „%(value)s” (várható: ÉÉÉÉ-HH-NN vagy NN/HH/ÉÉÉÉ)."
 
-#: apps/transactions/services.py:102
+#: apps/transactions/services.py:147
 msgid "Amount is empty."
 msgstr "Az összeg üres."
 
-#: apps/transactions/services.py:106
+#: apps/transactions/services.py:151
 #, python-format
 msgid "Unrecognized amount '%(value)s'."
 msgstr "Ismeretlen összeg: „%(value)s”."
 
-#: apps/transactions/services.py:108
+#: apps/transactions/services.py:153
 msgid "Amount cannot be zero."
 msgstr "Az összeg nem lehet nulla."
 
-#: apps/transactions/services.py:124
-msgid "Could not read this file as CSV."
-msgstr "A fájlt nem sikerült CSV-ként beolvasni."
-
-#: apps/transactions/services.py:130
-#, python-format
-msgid "Missing required column(s): %(columns)s."
-msgstr "Hiányzó kötelező oszlop(ok): %(columns)s."
-
-#: apps/transactions/services.py:155
-#, python-format
-msgid "Too many rows — at most %(max_rows)s per import."
-msgstr "Túl sok sor – importálásonként legfeljebb %(max_rows)s engedélyezett."
-
-#: apps/transactions/services.py:162
+#: apps/transactions/services.py:200
 msgid "Missing date, description, or amount."
 msgstr "Hiányzik a dátum, a leírás vagy az összeg."
 
-#: apps/transactions/services.py:193
+#: apps/transactions/services.py:211
+msgid "Duplicate of an existing transaction."
+msgstr "Egy meglévő tranzakció másolata."
+
+#: apps/transactions/services.py:230
 #, python-format
 msgid "Description is too long (max %(max)s characters)."
 msgstr "A leírás túl hosszú (legfeljebb %(max)s karakter)."
 
-#: apps/transactions/services.py:204
-msgid "Duplicate of an existing transaction."
-msgstr "Egy meglévő tranzakció másolata."
-
-#: apps/transactions/services.py:220
+#: apps/transactions/services.py:244
 #, python-format
 msgid "Could not detect a category for '%(description)s'."
 msgstr "Nem sikerült kategóriát találni ehhez: „%(description)s”."
 
-#: apps/transactions/views.py:111
+#: apps/transactions/services.py:274
+msgid "Could not read this file as CSV."
+msgstr "A fájlt nem sikerült CSV-ként beolvasni."
+
+#: apps/transactions/services.py:280
+#, python-format
+msgid "Missing required column(s): %(columns)s."
+msgstr "Hiányzó kötelező oszlop(ok): %(columns)s."
+
+#: apps/transactions/services.py:297
+#, python-format
+msgid "Too many rows — at most %(max_rows)s per import."
+msgstr "Túl sok sor – importálásonként legfeljebb %(max_rows)s engedélyezett."
+
+#: apps/transactions/views.py:110
 msgid "Please upload a .csv file."
 msgstr "Kérjük, .csv fájlt tölts fel."
 
-#: apps/users/account_views.py:92
+#: apps/users/account_views.py:97
 msgid "Password changed. Your other devices were signed out."
 msgstr "A jelszó módosítva. A többi eszközödet kijelentkeztettük."
 
-#: apps/users/account_views.py:141 apps/users/account_views.py:158
+#: apps/users/account_views.py:148 apps/users/account_views.py:168
 #: apps/users/mfa.py:169
 msgid "Two-factor authentication is off."
 msgstr "A kétlépcsős azonosítás ki van kapcsolva."
 
-#: apps/users/account_views.py:144
+#: apps/users/account_views.py:152 apps/users/account_views.py:239
 msgid "That code isn't right."
 msgstr "Ez a kód nem helyes."
 
-#: apps/users/account_views.py:196
+#: apps/users/account_views.py:208
 #, python-format
 msgid "\"%(category)s\" is not one of: %(choices)s."
 msgstr "A(z) „%(category)s” nem egyike ezeknek: %(choices)s."
@@ -728,15 +728,19 @@ msgstr "Tranzakciók importálva"
 msgid "Deleted"
 msgstr "Törölve"
 
-#: apps/users/models.py:113
+#: apps/users/models.py:110
+msgid "Personal data downloaded"
+msgstr "Személyes adatok letöltve"
+
+#: apps/users/models.py:114
 msgid "Sign-in attempts"
 msgstr "Bejelentkezési kísérletek"
 
-#: apps/users/models.py:114
+#: apps/users/models.py:115
 msgid "Account and security changes"
 msgstr "Fiók- és biztonsági módosítások"
 
-#: apps/users/models.py:115
+#: apps/users/models.py:116
 msgid "Bulk and destructive data changes"
 msgstr "Tömeges és törlő jellegű adatmódosítások"
 
@@ -749,7 +753,7 @@ msgid "Passwords do not match."
 msgstr "A jelszavak nem egyeznek."
 
 #: apps/users/serializers.py:153 apps/users/serializers.py:173
-#: tests/test_translation_catalog.py:169 tests/test_translation_catalog.py:171
+#: tests/test_translation_catalog.py:168 tests/test_translation_catalog.py:170
 msgid "Wrong password."
 msgstr "Hibás jelszó."
 
@@ -761,12 +765,12 @@ msgstr "Válassz olyan jelszót, amelyet még nem használtál itt."
 msgid "Your session has ended. Please sign in again."
 msgstr "A munkameneted véget ért. Kérjük, jelentkezz be újra."
 
-#: apps/users/validators.py:18
+#: apps/users/validators.py:17
 #, python-format
 msgid "This password is too long. It must contain at most %(max_length)s characters."
 msgstr "Ez a jelszó túl hosszú. Legfeljebb %(max_length)s karakterből állhat."
 
-#: apps/users/validators.py:24
+#: apps/users/validators.py:23
 #, python-format
 msgid "Your password must contain at most %(max_length)s characters."
 msgstr "A jelszavad legfeljebb %(max_length)s karakterből állhat."
@@ -782,22 +786,22 @@ msgid_plural "Too many failed sign-in attempts. Try again in %(minutes)d minutes
 msgstr[0] "Túl sok sikertelen bejelentkezési kísérlet. Próbáld újra %(minutes)d perc múlva."
 msgstr[1] "Túl sok sikertelen bejelentkezési kísérlet. Próbáld újra %(minutes)d perc múlva."
 
-#: apps/users/views.py:139
+#: apps/users/views.py:140
 msgid "This sign-in attempt has expired. Enter your password again."
 msgstr "Ez a bejelentkezési kísérlet lejárt. Add meg újra a jelszavadat."
 
-#: apps/users/views.py:153
+#: apps/users/views.py:157
 msgid "That code isn't right. Try the newest code from your authenticator app."
 msgstr "Ez a kód nem helyes. Próbáld a hitelesítő alkalmazásod legújabb kódját."
 
-#: apps/users/views.py:176
+#: apps/users/views.py:182
 msgid "You are not signed in."
 msgstr "Nem vagy bejelentkezve."
 
-#: apps/users/views.py:220 apps/users/views.py:223
+#: apps/users/views.py:227 apps/users/views.py:230
 msgid "Invalid or expired refresh token."
 msgstr "Érvénytelen vagy lejárt frissítési token."
 
-#: apps/users/views.py:229
+#: apps/users/views.py:236
 msgid "Logged out successfully."
 msgstr "Sikeres kijelentkezés."

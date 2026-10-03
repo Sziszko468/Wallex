@@ -15,6 +15,7 @@ export const screens = {
   editRecurring: "Edit recurring transaction",
   scanReceipt: "Scan receipt",
   notifications: "Notifications",
+  accountData: "Your data",
 } as const;
 
 export const offline = {

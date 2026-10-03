@@ -6,10 +6,12 @@ Expected CSV format (documented for the client in docs/api-contract.md):
     2026-09-10,Albert Heijn,-42.50
     2026-09-01,Salary,3000.00
 
-- date: "YYYY-MM-DD" or "DD/MM/YYYY".
-- amount: signed decimal, period as the decimal separator (comma/space/€/$
-  are stripped as thousands separators — NOT as an alternate decimal mark).
-  Negative -> expense, positive -> income. Zero is rejected.
+- date: "YYYY-MM-DD", "DD/MM/YYYY", or the Hungarian "2026.09.10." / "10.09.2026".
+- amount: signed decimal. In a comma-separated file the period is the decimal mark (comma, spaces
+  and €/$/£ are thousands separators and signs). In a semicolon-separated file, as Hungarian banks
+  export them, the comma is the decimal mark ("-12 345,67"). Negative -> expense, positive ->
+  income. Zero is rejected.
+- columns: `date`, `description`, `amount`, or the Hungarian names (Dátum, Közlemény, Összeg ...).
 - description: free text, used for rule-based category detection below.
 
 Amounts are in the user's base currency (a bank export has one account currency).
@@ -17,6 +19,7 @@ Amounts are in the user's base currency (a bank export has one account currency)
 
 import csv
 import io
+import re
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
@@ -25,13 +28,33 @@ from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 
 from apps.categories.models import Category, TransactionType
-from apps.categories.rules import match_category_name
+from apps.categories.rules import match_category_name, normalize_text
 from apps.currencies.rates import ONE, has_valid_precision
 
 from .models import Transaction
 
 REQUIRED_COLUMNS = {"date", "description", "amount"}
-DATE_FORMATS = ["%Y-%m-%d", "%d/%m/%Y"]
+# Other names of the three columns (compared lowercase and without accents): English and the headers
+# Hungarian banks use.
+HEADER_ALIASES = {
+    "date": {"date", "datum", "konyveles datuma", "teljesites datuma", "booking date"},
+    "description": {
+        "description",
+        "kozlemeny",
+        "megjegyzes",
+        "tranzakcio leirasa",
+        "partner neve",
+        "partner",
+        "leiras",
+    },
+    "amount": {"amount", "osszeg", "tetel osszege", "tranzakcio osszege"},
+}
+DATE_FORMATS = ["%Y-%m-%d", "%d/%m/%Y", "%Y.%m.%d.", "%Y.%m.%d", "%d.%m.%Y.", "%d.%m.%Y"]
+DELIMITERS = (",", ";", "\t")
+# A file separated by semicolons is a European export: its decimal mark is the comma ("12 345,67").
+DECIMAL_COMMA_DELIMITER = ";"
+SPACES = ("\u00a0", "\u202f", " ")
+CURRENCY_SUFFIX = re.compile(r"[A-Za-z]{2,3}$")  # "12 345 Ft", "-42,50 EUR"
 
 EXPENSE_FALLBACK_CATEGORY = "Other"
 DESCRIPTION_MAX_LENGTH = Transaction._meta.get_field("description").max_length
@@ -79,13 +102,15 @@ def _rows(reader):
         raise CsvValidationError(_("This file is not valid CSV (%(error)s).") % {"error": error}) from error
 
 
-def _decode_csv_text(uploaded_file) -> str:
+def _decode_csv_text(uploaded_file, user) -> str:
     raw = uploaded_file.read()
     if not raw:
         raise CsvValidationError(_("The uploaded file is empty."))
     if b"\x00" in raw:
         raise CsvValidationError(_("This doesn't look like a CSV file (it contains binary data)."))
-    for encoding in ("utf-8-sig", "latin-1"):
+    # Hungarian bank exports are often Windows-1250 ("ő" and "ű" don't exist in Latin-1).
+    fallbacks = ("cp1250", "latin-1") if user.language == "hu" else ("latin-1",)
+    for encoding in ("utf-8-sig", *fallbacks):
         try:
             return raw.decode(encoding)
         except UnicodeDecodeError:
@@ -94,7 +119,7 @@ def _decode_csv_text(uploaded_file) -> str:
 
 
 def _parse_date(raw_value: str) -> date:
-    value = raw_value.strip()
+    value = re.sub(r"\.\s+", ".", raw_value.strip())  # "2026. 09. 10." as some banks write it
     for fmt in DATE_FORMATS:
         try:
             return datetime.strptime(value, fmt).date()
@@ -103,10 +128,21 @@ def _parse_date(raw_value: str) -> date:
     raise ValueError(_("Unrecognized date '%(value)s' (expected YYYY-MM-DD or DD/MM/YYYY).") % {"value": raw_value})
 
 
-def _parse_amount(raw_value: str) -> Decimal:
-    value = raw_value.strip()
-    for token in ("€", "$", "£", ",", " "):
+def _clean_amount(raw_value: str, decimal_comma: bool) -> str:
+    """The digits of a typed amount with a dot as decimal mark: separators and currency signs removed.
+
+    Comma files ("1,234.50"): a comma groups thousands. Semicolon files ("1 234,50"): the comma is the
+    decimal mark and a dot groups thousands, as Hungarian and other European banks write them."""
+    value = CURRENCY_SUFFIX.sub("", raw_value.strip()).strip()
+    for token in ("€", "$", "£", *SPACES):
         value = value.replace(token, "")
+    if decimal_comma and "," in value:
+        return value.replace(".", "").replace(",", ".")
+    return value if decimal_comma else value.replace(",", "")
+
+
+def _parse_amount(raw_value: str, decimal_comma: bool = False) -> Decimal:
+    value = _clean_amount(raw_value, decimal_comma)
     if not value:
         raise ValueError(_("Amount is empty."))
     try:
@@ -149,8 +185,9 @@ def _parsed(parser, raw_value: str):
 class _RowImporter:
     """Turns the rows of one file into transactions of one user, or says why a row can't be one."""
 
-    def __init__(self, user):
+    def __init__(self, user, decimal_comma: bool = False):
         self.user = user
+        self.decimal_comma = decimal_comma
         self.currency = user.base_currency
         # Keyed by (lowercased name, type) so same-named income/expense categories (allowed by the
         # model's own uniqueness constraint) can't shadow each other.
@@ -163,7 +200,7 @@ class _RowImporter:
             raise _failed(_("Missing date, description, or amount."))
 
         day = _parsed(_parse_date, row["date"])
-        signed_amount = _parsed(_parse_amount, row["amount"])
+        signed_amount = _parsed(lambda raw: _parse_amount(raw, self.decimal_comma), row["amount"])
         transaction_type = TransactionType.EXPENSE if signed_amount < 0 else TransactionType.INCOME
         amount = abs(signed_amount)
         description = row["description"]
@@ -208,20 +245,41 @@ class _RowImporter:
         return category
 
 
-def _open_csv(uploaded_file) -> tuple[csv.DictReader, dict[str, str]]:
-    """The reader of a file and its header lookup (lowercased name -> name as written); the whole file
-    is refused here when it is not CSV or lacks a required column."""
-    reader = csv.DictReader(io.StringIO(_decode_csv_text(uploaded_file)))
+def _delimiter_of(csv_text: str) -> str:
+    """The separator a file's header line uses: the one it has most of, comma when it has none."""
+    header = next((line for line in csv_text.lstrip("\ufeff").splitlines() if line.strip()), "")
+    counts = {delimiter: header.count(delimiter) for delimiter in DELIMITERS}
+    best = max(counts, key=counts.get)
+    return best if counts[best] else DELIMITERS[0]
+
+
+def _header_lookup(fieldnames) -> dict[str, str]:
+    """Which header of the file holds each of the three columns (first match wins)."""
+    lookup: dict[str, str] = {}
+    for fieldname in fieldnames:
+        key = normalize_text(fieldname or "").strip()
+        for column, aliases in HEADER_ALIASES.items():
+            if key in aliases and column not in lookup:
+                lookup[column] = fieldname
+    return lookup
+
+
+def _open_csv(uploaded_file, user) -> tuple[csv.DictReader, dict[str, str], bool]:
+    """The reader of a file, which header holds each column, and whether amounts use a decimal comma;
+    the whole file is refused here when it is not CSV or lacks a required column."""
+    csv_text = _decode_csv_text(uploaded_file, user)
+    delimiter = _delimiter_of(csv_text)
+    reader = csv.DictReader(io.StringIO(csv_text), delimiter=delimiter)
     if not reader.fieldnames:
         raise CsvValidationError(_("Could not read this file as CSV."))
 
-    header_lookup = {name.strip().lower(): name for name in reader.fieldnames}
+    header_lookup = _header_lookup(reader.fieldnames)
     missing = REQUIRED_COLUMNS - header_lookup.keys()
     if missing:
         raise CsvValidationError(
             _("Missing required column(s): %(columns)s.") % {"columns": ", ".join(sorted(missing))}
         )
-    return reader, header_lookup
+    return reader, header_lookup, delimiter == DECIMAL_COMMA_DELIMITER
 
 
 def _data_rows(reader, header_lookup: dict[str, str]):
@@ -241,8 +299,8 @@ def _data_rows(reader, header_lookup: dict[str, str]):
 
 
 def import_transactions_from_csv(user, uploaded_file) -> ImportSummary:
-    reader, header_lookup = _open_csv(uploaded_file)
-    importer = _RowImporter(user)
+    reader, header_lookup, decimal_comma = _open_csv(uploaded_file, user)
+    importer = _RowImporter(user, decimal_comma)
     summary = ImportSummary()
     to_create: list[Transaction] = []
 

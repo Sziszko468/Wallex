@@ -18,6 +18,7 @@ export const screens: DeepStrings<typeof enScreens> = {
   editRecurring: "Ismétlődő tranzakció szerkesztése",
   scanReceipt: "Blokk beolvasása",
   notifications: "Értesítések",
+  accountData: "Az adataid",
 };
 
 export const offline: DeepStrings<typeof enOffline> = {

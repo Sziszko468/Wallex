@@ -2,6 +2,8 @@
 two-factor authentication and the security log. All of them only ever touch the caller's
 own account; sensitive changes also ask for the password again."""
 
+from django.http import HttpResponse
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from rest_framework import generics, mixins, permissions, status, viewsets
 from rest_framework.response import Response
@@ -10,9 +12,11 @@ from rest_framework.views import APIView
 
 from apps.common.pagination import StandardPagination
 
-from . import audit, cookies, mfa, sessions
+from . import audit, cookies, data_export, mfa, sessions
 from .models import AUDIT_CATEGORIES, AuditAction, AuditCategory, AuditEvent, RevokeReason, UserSession
 from .openapi import (
+    ACCOUNT_DELETE_SCHEMA,
+    DATA_EXPORT_SCHEMA,
     LOGOUT_ALL_SCHEMA,
     MFA_CONFIRM_SCHEMA,
     MFA_DISABLE_SCHEMA,
@@ -208,3 +212,32 @@ class SecurityEventsView(generics.ListAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         return super().list(request, *args, **kwargs)
+
+
+@DATA_EXPORT_SCHEMA
+class DataExportView(SensitiveActionView):
+    """Everything stored about the user, as a JSON file (access and portability)."""
+
+    def post(self, request):
+        PasswordConfirmationSerializer(data=request.data, context={"request": request}).is_valid(raise_exception=True)
+        audit.record(AuditAction.DATA_EXPORTED, request=request)
+        response = HttpResponse(data_export.export_json(request.user), content_type="application/json; charset=utf-8")
+        response["Content-Disposition"] = f'attachment; filename="wallex-export-{timezone.localdate()}.json"'
+        return response
+
+
+@ACCOUNT_DELETE_SCHEMA
+class DeleteAccountView(SensitiveActionView):
+    """Erases the account and all its data for good (the right to erasure). Needs the password, and
+    a code too when two-factor authentication is on, so a borrowed signed-in device isn't enough."""
+
+    def post(self, request):
+        two_factor = mfa.is_enabled(request.user)
+        serializer_class = PasswordAndCodeSerializer if two_factor else PasswordConfirmationSerializer
+        serializer_class(data=request.data, context={"request": request}).is_valid(raise_exception=True)
+        if two_factor and mfa.verify(request.user, request.data["code"]) is None:
+            return Response({"code": [_("That code isn't right.")]}, status=status.HTTP_400_BAD_REQUEST)
+        data_export.delete_account(request.user)
+        response = Response(status=status.HTTP_204_NO_CONTENT)
+        cookies.clear_refresh_cookie(response)
+        return response

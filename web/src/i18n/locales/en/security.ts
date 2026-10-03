@@ -40,6 +40,23 @@ export const security = {
     changedSignedOut_one: "Password changed. {{count}} other device was signed out.",
     changedSignedOut_other: "Password changed. {{count}} other devices were signed out.",
   },
+  data: {
+    title: "Your data",
+    hint: "Download everything {{appName}} stores about you, or delete your account for good.",
+    downloaded: "Your data was downloaded as {{filename}}.",
+    download: {
+      button: "Download my data",
+      confirmIdentity: "Confirm it's you to download your data.",
+      submit: "Download",
+    },
+    delete: {
+      button: "Delete my account",
+      warning:
+        "This permanently deletes your account and everything in it: transactions, budgets, goals and history. It can't be undone. Download your data first if you want to keep a copy.",
+      confirmIdentity: "Enter your password to confirm.",
+      submit: "Delete my account forever",
+    },
+  },
   twoFactor: {
     title: "Two-factor authentication",
     hint: "Signing in also asks for a code from an authenticator app (Google Authenticator, Microsoft Authenticator, 1Password…), so a stolen password alone isn't enough.",

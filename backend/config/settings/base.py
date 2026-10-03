@@ -251,7 +251,7 @@ CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=["http://localho
 # a browser on another origin may only send it once the preflight allows it. ETag is exposed
 # so browser clients can read it too.
 CORS_ALLOW_HEADERS = (*default_headers, "if-match", "x-auth-transport", "x-client-platform")
-CORS_EXPOSE_HEADERS = ["ETag"]
+CORS_EXPOSE_HEADERS = ["ETag", "Content-Disposition"]  # the second names the data download for cross-origin clients
 # The web app's refresh token is an HttpOnly cookie (apps/users/cookies.py): cross-origin requests
 # may carry credentials — only for the explicit origins above, never for a wildcard.
 CORS_ALLOW_CREDENTIALS = True

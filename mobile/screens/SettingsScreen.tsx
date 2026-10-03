@@ -146,6 +146,12 @@ export function SettingsScreen() {
       )}
 
       <View style={styles.card}>
+        <Text style={styles.cardTitle}>{t("settings.data.title")}</Text>
+        <Text style={styles.cardText}>{t("settings.data.hint")}</Text>
+        <Button title={t("settings.data.button")} variant="secondary" onPress={() => router.push("/account-data")} />
+      </View>
+
+      <View style={styles.card}>
         <Text style={styles.cardTitle}>{t("settings.session.title")}</Text>
         <Text style={styles.cardText}>{t("settings.session.hint")}</Text>
         <ErrorBanner

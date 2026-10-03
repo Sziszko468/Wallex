@@ -27,6 +27,8 @@ interface AuthContextValue {
   logout: () => Promise<void>;
   /** Signs every device out (this one too). Returns how many sessions ended. */
   logoutEverywhere: () => Promise<number>;
+  /** Erases the account for good, then signs this browser out. */
+  deleteAccount: (payload: { password: string; code?: string }) => Promise<void>;
   /** Converts the user's data on the server, then updates `user`. */
   changeBaseCurrency: (currency: CurrencyCode) => Promise<void>;
   /** Saves the interface language to the account (see hooks/useLanguage). */
@@ -112,6 +114,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return count;
   }, []);
 
+  const deleteAccount = useCallback(async (payload: { password: string; code?: string }) => {
+    await authService.deleteAccount(payload);
+    clearTokens();
+    setUser(null);
+  }, []);
+
   const changeBaseCurrency = useCallback(async (currency: CurrencyCode) => {
     setUser(await authService.updateCurrentUser({ base_currency: currency }));
   }, []);
@@ -129,6 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     register,
     logout,
     logoutEverywhere,
+    deleteAccount,
     changeBaseCurrency,
     changeLanguage,
   };

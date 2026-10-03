@@ -52,7 +52,7 @@ export const importCsv = {
   description: "Bring in a CSV file from your bank or another app.",
   uploadTitle: "Upload a CSV file",
   help:
-    "Expected columns: <code>date</code>, <code>description</code>, <code>amount</code>. Dates as <code>YYYY-MM-DD</code> or <code>DD/MM/YYYY</code>. Amount is signed — negative for expenses, positive for income (e.g. <code>-42.50</code>), in your base currency ({{currency}}). Categories are detected automatically from the description (e.g. \"Albert Heijn\" → Food, \"Shell\" → Transport, \"Netflix\" → Entertainment); an unmatched expense falls back to \"Other\".",
+    "Expected columns: <code>date</code>, <code>description</code>, <code>amount</code>. Dates as <code>YYYY-MM-DD</code> or <code>DD/MM/YYYY</code>. Amount is signed — negative for expenses, positive for income (e.g. <code>-42.50</code>), in your base currency ({{currency}}). Categories are detected automatically from the description (e.g. \"Albert Heijn\" → Food, \"Shell\" → Transport, \"Netflix\" → Entertainment); an unmatched expense falls back to \"Other\". Exports from Hungarian banks work as they are: <code>Dátum</code>, <code>Közlemény</code>, <code>Összeg</code> columns, separated by semicolons, with a decimal comma (<code>-12 345,67</code>) and dates like <code>2026.09.10.</code>.",
   notCsv: "That doesn't look like a CSV file. Choose a file ending in .csv.",
   imported_one: "{{count}} transaction imported",
   imported_other: "{{count}} transactions imported",

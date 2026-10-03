@@ -52,8 +52,9 @@ RUN find locale -name '*.po' -exec sh -c 'msgfmt --check -o "${0%.po}.mo" "$0"' 
 
 # Bake the admin's static files into the image (served by WhiteNoise). Importing the
 # production settings requires real-looking values; collectstatic never opens a database
-# connection, and the throwaway key only lives for this one command.
+# connection, and the throwaway keys only live for this one command.
 RUN DJANGO_SECRET_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(64))')" \
+    FIELD_ENCRYPTION_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(64))')" \
     DJANGO_ALLOWED_HOSTS=build.invalid \
     POSTGRES_DB=unused POSTGRES_USER=unused POSTGRES_PASSWORD=unused \
     python manage.py collectstatic --noinput
