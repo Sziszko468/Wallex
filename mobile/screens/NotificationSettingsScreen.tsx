@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
-import { AppState, Linking, Pressable, StyleSheet, Switch, Text, View } from "react-native";
+import { AppState, Linking, Pressable, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { BUDGET_NEAR_LIMIT_PERCENT } from "../config/budget";
 import { useAsyncData } from "../hooks/useAsyncData";
-import { Button } from "../components/Button";
-import { ErrorBanner } from "../components/ErrorBanner";
 import { Screen } from "../components/Screen";
 import { SectionState } from "../components/SectionState";
+import { AppSwitch } from "../components/ui/AppSwitch";
+import { Button } from "../components/ui/Button";
+import { Card } from "../components/ui/Card";
+import { ListGroup, ListRow } from "../components/ui/ListRow";
+import { Notice } from "../components/ui/Notice";
+import { Text } from "../components/ui/Text";
 import {
   disablePush,
   enablePush,
@@ -14,21 +18,35 @@ import {
   syncPushRegistration,
   type PushStatus,
 } from "../services/pushNotifications";
-import {
-  getNotificationPreferences,
-  updateNotificationPreferences,
-} from "../services/notificationsService";
+import { getNotificationPreferences, updateNotificationPreferences } from "../services/notificationsService";
 import { extractErrorMessage } from "../utils/errors";
-import { colors, fontSize, radius, spacing } from "../utils/theme";
+import { layout, makeStyles, radius, space } from "../theme";
 import type { NotificationPreferences, NotificationPreferencesUpdate } from "../types/notification";
 
 type PreferenceToggle = Exclude<keyof NotificationPreferences, "recurring_reminder_days" | "updated_at">;
 
 const REMINDER_DAY_OPTIONS = [1, 2, 3, 7];
 
+const useStyles = makeStyles(({ colors }) => ({
+  section: { gap: space[3], marginBottom: space[6] },
+  notice: { gap: space[3], marginTop: space[3] },
+  days: { gap: space[3] },
+  chips: { flexDirection: "row", flexWrap: "wrap", gap: space[2] },
+  chip: {
+    minHeight: layout.minTouch,
+    paddingHorizontal: space[4],
+    justifyContent: "center",
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  chipSelected: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
+}));
+
 export function NotificationSettingsScreen() {
   return (
-    <Screen scroll>
+    <Screen scroll contentStyle={{ paddingTop: space[3] }}>
       <DeviceSection />
       <PreferencesSection />
     </Screen>
@@ -38,6 +56,7 @@ export function NotificationSettingsScreen() {
 /** Push on *this* device: OS permission + registration with the backend. */
 function DeviceSection() {
   const { t } = useTranslation();
+  const styles = useStyles();
   const [status, setStatus] = useState<PushStatus | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -74,9 +93,11 @@ function DeviceSection() {
 
   if (!isPushSupportedPlatform) {
     return (
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>{t("settings.notificationSettings.device.title")}</Text>
-        <Text style={styles.hint}>{t("settings.notificationSettings.device.unsupportedPlatform")}</Text>
+      <View style={styles.section}>
+        <Text variant="heading" header>
+          {t("settings.notificationSettings.device.title")}
+        </Text>
+        <Notice tone="info" message={t("settings.notificationSettings.device.unsupportedPlatform")} />
       </View>
     );
   }
@@ -85,31 +106,30 @@ function DeviceSection() {
   const canToggle = status !== null && status.state !== "unsupported" && !isUpdating;
 
   return (
-    <View style={styles.card}>
-      <Text style={styles.cardTitle}>{t("settings.notificationSettings.device.title")}</Text>
-      <ErrorBanner message={error ?? (status?.state === "error" ? status.message : null)} />
+    <View style={styles.section}>
+      <Text variant="heading" header>
+        {t("settings.notificationSettings.device.title")}
+      </Text>
+      <Notice message={error ?? (status?.state === "error" ? status.message : null)} />
 
-      <ToggleRow
-        label={t("settings.notificationSettings.device.push")}
-        hint={t("settings.notificationSettings.device.pushHint")}
-        value={isEnabled}
-        onChange={handleToggle}
-        disabled={!canToggle}
-      />
+      <ListGroup hasIcons={false}>
+        <ListRow
+          title={t("settings.notificationSettings.device.push")}
+          subtitle={t("settings.notificationSettings.device.pushHint")}
+          trailing={<AppSwitch accessibilityLabel={t("settings.notificationSettings.device.push")} value={isEnabled} onValueChange={(value) => void handleToggle(value)} disabled={!canToggle} />}
+        />
+      </ListGroup>
 
-      {status?.state === "denied" && (
+      {status?.state === "denied" ? (
         <View style={styles.notice}>
-          <Text style={styles.hint}>
-            {status.canAskAgain
-              ? t("settings.notificationSettings.device.canAskAgain")
-              : t("settings.notificationSettings.device.blocked")}
-          </Text>
-          {!status.canAskAgain && (
-            <Button title={t("settings.notificationSettings.device.openSettings")} variant="secondary" onPress={() => void Linking.openSettings()} />
-          )}
+          <Notice
+            tone="warning"
+            message={status.canAskAgain ? t("settings.notificationSettings.device.canAskAgain") : t("settings.notificationSettings.device.blocked")}
+          />
+          {!status.canAskAgain ? <Button title={t("settings.notificationSettings.device.openSettings")} variant="secondary" onPress={() => void Linking.openSettings()} /> : null}
         </View>
-      )}
-      {status?.state === "unsupported" && <Text style={[styles.hint, styles.notice]}>{status.message}</Text>}
+      ) : null}
+      {status?.state === "unsupported" ? <Notice tone="info" message={status.message} /> : null}
     </View>
   );
 }
@@ -117,6 +137,7 @@ function DeviceSection() {
 /** What to be notified about — stored on the backend, applies to all devices. */
 function PreferencesSection() {
   const { t } = useTranslation();
+  const styles = useStyles();
   const loaded = useAsyncData(useCallback(() => getNotificationPreferences(), []));
   const [preferences, setPreferences] = useState<NotificationPreferences | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -183,150 +204,64 @@ function PreferencesSection() {
   }
 
   return (
-    <View style={styles.card}>
-      <Text style={styles.cardTitle}>{t("settings.notificationSettings.preferences.title")}</Text>
-      <Text style={[styles.hint, styles.subtitle]}>{t("settings.notificationSettings.preferences.subtitle")}</Text>
+    <View style={styles.section}>
+      <View>
+        <Text variant="heading" header>
+          {t("settings.notificationSettings.preferences.title")}
+        </Text>
+        <Text variant="caption" color="textSecondary">
+          {t("settings.notificationSettings.preferences.subtitle")}
+        </Text>
+      </View>
       <SectionState isLoading={loaded.isLoading} error={loaded.error} onRetry={loaded.refetch}>
-        {preferences && (
+        {preferences ? (
           <>
-            <ErrorBanner message={error} />
-            {toggles.map(({ field, label, hint }) => (
-              <ToggleRow
-                key={field}
-                label={label}
-                hint={hint}
-                value={preferences[field]}
-                onChange={(value) => void update({ [field]: value })}
-              />
-            ))}
+            <Notice message={error} />
+            <ListGroup hasIcons={false}>
+              {toggles.map(({ field, label, hint }) => (
+                <ListRow
+                  key={field}
+                  title={label}
+                  subtitle={hint}
+                  trailing={<AppSwitch accessibilityLabel={label} value={preferences[field]} onValueChange={(value) => void update({ [field]: value })} />}
+                />
+              ))}
+            </ListGroup>
 
-            {(preferences.subscription_reminders || preferences.recurring_reminders) && (
-              <View style={styles.daysRow}>
-                <Text style={styles.label}>{t("settings.notificationSettings.preferences.remind")}</Text>
-                <View style={styles.chips}>
-                  {REMINDER_DAY_OPTIONS.map((days) => {
-                    const selected = preferences.recurring_reminder_days === days;
-                    return (
-                      <Pressable
-                        key={days}
-                        accessibilityRole="radio"
-                        accessibilityState={{ selected }}
-                        accessibilityLabel={t("settings.notificationSettings.preferences.daysBefore", { count: days })}
-                        onPress={() => void update({ recurring_reminder_days: days })}
-                        style={[styles.chip, selected && styles.chipSelected]}
-                      >
-                        <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
-                          {t("settings.notificationSettings.preferences.days", { count: days })}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
+            {preferences.subscription_reminders || preferences.recurring_reminders ? (
+              <Card padding={4}>
+                <View style={styles.days}>
+                  <Text variant="label" color="textSecondary">
+                    {t("settings.notificationSettings.preferences.remind")}
+                  </Text>
+                  <View style={styles.chips} accessibilityRole="radiogroup">
+                    {REMINDER_DAY_OPTIONS.map((days) => {
+                      const selected = preferences.recurring_reminder_days === days;
+                      return (
+                        <Pressable
+                          key={days}
+                          accessibilityRole="radio"
+                          accessibilityState={{ checked: selected, selected }}
+                          accessibilityLabel={t("settings.notificationSettings.preferences.daysBefore", { count: days })}
+                          onPress={() => void update({ recurring_reminder_days: days })}
+                          style={[styles.chip, selected && styles.chipSelected]}
+                        >
+                          <Text variant="label" color={selected ? "primaryInk" : "textSecondary"}>
+                            {t("settings.notificationSettings.preferences.days", { count: days })}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                  <Text variant="caption" color="textSecondary">
+                    {t("settings.notificationSettings.preferences.after")}
+                  </Text>
                 </View>
-                <Text style={styles.hint}>{t("settings.notificationSettings.preferences.after")}</Text>
-              </View>
-            )}
+              </Card>
+            ) : null}
           </>
-        )}
+        ) : null}
       </SectionState>
     </View>
   );
 }
-
-interface ToggleRowProps {
-  label: string;
-  hint: string;
-  value: boolean;
-  onChange: (value: boolean) => void;
-  disabled?: boolean;
-}
-
-function ToggleRow({ label, hint, value, onChange, disabled = false }: ToggleRowProps) {
-  return (
-    <View style={styles.row}>
-      <View style={styles.rowText}>
-        <Text style={styles.label}>{label}</Text>
-        <Text style={styles.hint}>{hint}</Text>
-      </View>
-      <Switch
-        accessibilityLabel={label}
-        value={value}
-        onValueChange={onChange}
-        disabled={disabled}
-        trackColor={{ true: colors.primary, false: colors.border }}
-      />
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-  },
-  cardTitle: {
-    fontSize: fontSize.lg,
-    fontWeight: "700",
-    color: colors.text,
-    marginBottom: spacing.sm,
-  },
-  subtitle: {
-    marginTop: -spacing.xs,
-    marginBottom: spacing.sm,
-  },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  rowText: {
-    flex: 1,
-  },
-  label: {
-    fontSize: fontSize.base,
-    fontWeight: "600",
-    color: colors.text,
-  },
-  hint: {
-    marginTop: 2,
-    fontSize: fontSize.sm,
-    color: colors.textMuted,
-  },
-  notice: {
-    marginTop: spacing.sm,
-    gap: spacing.sm,
-  },
-  daysRow: {
-    paddingTop: spacing.sm,
-    gap: spacing.xs,
-  },
-  chips: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.xs,
-  },
-  chip: {
-    minHeight: 36,
-    paddingHorizontal: spacing.md,
-    justifyContent: "center",
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  chipSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  chipText: {
-    fontSize: fontSize.sm,
-    color: colors.text,
-    fontWeight: "600",
-  },
-  chipTextSelected: {
-    color: colors.surface,
-  },
-});

@@ -1,13 +1,15 @@
 export const tabs = {
-  dashboard: "Dashboard",
-  assistant: "Assistant",
+  dashboard: "Home",
   transactions: "Transactions",
-  recurring: "Recurring",
   budgets: "Budgets",
-  settings: "Settings",
+  /** What the tab shows when the full name would not fit under its icon; the full name stays its accessible label. */
+  budgetsShort: "Budgets",
+  more: "More",
 } as const;
 
 export const screens = {
+  assistant: "Assistant",
+  recurring: "Recurring transactions",
   addTransaction: "Add transaction",
   editTransaction: "Edit transaction",
   transactionDetails: "Transaction details",

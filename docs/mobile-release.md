@@ -122,14 +122,18 @@ These rules are enforced, not just documented:
 |---|---|---|
 | `icon.png` | 1024×1024, opaque (iOS rejects transparency) | iOS app icon, store listing |
 | `android-icon-foreground.png` | 1024×1024, transparent; glyph inside the central ~61 % safe circle | Android adaptive icon |
-| `android-icon-background.png` + `backgroundColor #4F46E5` | 1024×1024 | Android adaptive icon background |
+| `android-icon-background.png` + `backgroundColor #2F5D47` | 1024×1024 | Android adaptive icon background |
 | `android-icon-monochrome.png` | White on transparent | Android 13+ themed icons |
-| `splash-icon.png` | White glyph on transparent, shown 160 dp wide on `#4F46E5` | Splash screen (`expo-splash-screen` plugin) |
-| `notification-icon.png` | 96×96, all white on transparent | Android status-bar notification icon, tinted `#4F46E5` |
+| `splash-icon.png` | Glyph on transparent, shown 160 dp wide on `#F4F2EA` (the light page colour) | Splash screen, light appearance (`expo-splash-screen` plugin) |
+| `splash-icon-dark.png` | The same glyph for the dark page colour `#111412` | Splash screen, dark appearance (`plugins[expo-splash-screen].dark`) |
+| `notification-icon.png` | 96×96, all white on transparent | Android status-bar notification icon, tinted `#3A6A52` |
 | `favicon.png` | 48×48 | Web preview |
 
-The design is a donut chart (spending by category) on the brand indigo. Icon and splash
-changes are native, so they need a new build; an OTA update cannot change them.
+The design is a ring of three rounded arcs (spending by category, the same ring that decorates
+the balance card on Home) in cream, sand and sky on the brand green, matching the web app's
+palette. The splash screen follows the phone's light or dark appearance; the app's own theme
+takes over once it has loaded. Icon and splash changes are native, so they need a new build;
+an OTA update cannot change them.
 
 ## 7. Permissions
 
@@ -219,6 +223,10 @@ Rebuild the development build only when native things change:
 - the Expo SDK is upgraded.
 
 JavaScript changes never need a rebuild.
+
+The phone redesign is such a change: it added `react-native-svg`, `expo-font`, `expo-asset` and
+`expo-system-ui`, and changed `app.json` (appearance, splash, icons, colours). Make a new
+development build (and a new preview / production build) from this version on.
 
 **Building locally instead:** `npx expo run:android` / `npx expo run:ios` build on your
 own machine (Android Studio / Xcode). Set `APP_VARIANT=development` for them. Otherwise

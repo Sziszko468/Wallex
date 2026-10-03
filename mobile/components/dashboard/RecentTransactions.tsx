@@ -1,119 +1,51 @@
-import { StyleSheet, Text, View } from "react-native";
+import { View } from "react-native";
 import { useTranslation } from "react-i18next";
+import { makeStyles, space } from "../../theme";
+import type { Category } from "../../types/category";
 import type { Transaction } from "../../types/transaction";
-import { formatCurrency, formatShortDate } from "../../utils/format";
-import { useBaseCurrency } from "../../hooks/useBaseCurrency";
-import { colors, fontSize, spacing } from "../../utils/theme";
+import { TransactionListItem } from "../transactions/TransactionListItem";
+import { Card } from "../ui/Card";
+import { Text } from "../ui/Text";
+
+/** The width of a category tile at its default size (see CategoryMark). */
+const MARK_SIZE = 40;
 
 interface RecentTransactionsProps {
   transactions: Transaction[];
-  colorByCategoryId: Map<number, string>;
-  nameByCategoryId: Map<number, string>;
+  categoriesById: Map<number, Category>;
+  onOpen: (transactionId: number) => void;
 }
 
-export function RecentTransactions({
-  transactions,
-  colorByCategoryId,
-  nameByCategoryId,
-}: RecentTransactionsProps) {
+const useStyles = makeStyles(({ colors }) => ({
+  // Starts under the text, not under the category tile: the tile's width plus its padding and gap.
+  divider: { height: 1, marginLeft: space[4] + MARK_SIZE + space[3], backgroundColor: colors.divider },
+}));
+
+/** The latest few transactions as one list; "View all" (in the section header) opens the rest. */
+export function RecentTransactions({ transactions, categoriesById, onOpen }: RecentTransactionsProps) {
   const { t } = useTranslation();
-  const baseCurrency = useBaseCurrency();
+  const styles = useStyles();
+
   if (transactions.length === 0) {
-    return <Text style={styles.empty}>{t("dashboard.recent.empty")}</Text>;
+    return (
+      <Text variant="body" color="textSecondary">
+        {t("dashboard.recent.empty")}
+      </Text>
+    );
   }
 
   return (
-    <View>
-      {transactions.map((transaction, index) => {
-        const isIncome = transaction.type === "income";
-        const categoryName = nameByCategoryId.get(transaction.category) ?? t("common.uncategorized");
-
-        return (
-          <View
-            key={transaction.id}
-            style={[styles.row, index === transactions.length - 1 && styles.rowLast]}
-          >
-            <View
-              style={[
-                styles.dot,
-                { backgroundColor: colorByCategoryId.get(transaction.category) ?? colors.primary },
-              ]}
-            />
-            <View style={styles.details}>
-              <Text style={styles.description} numberOfLines={1}>
-                {transaction.description || categoryName}
-              </Text>
-              <Text style={styles.meta}>
-                {categoryName} · {formatShortDate(transaction.date)}
-              </Text>
-            </View>
-            <View style={styles.amounts}>
-              <Text style={[styles.amount, isIncome ? styles.income : styles.expense]}>
-                {isIncome ? "+" : "-"}
-                {formatCurrency(transaction.amount, transaction.currency)}
-              </Text>
-              {transaction.currency !== baseCurrency && (
-                <Text style={styles.converted}>≈ {formatCurrency(transaction.base_amount, baseCurrency)}</Text>
-              )}
-            </View>
-          </View>
-        );
-      })}
-    </View>
+    <Card padding={0}>
+      {transactions.map((transaction, index) => (
+        <View key={transaction.id}>
+          {index > 0 ? <View style={styles.divider} /> : null}
+          <TransactionListItem
+            transaction={transaction}
+            category={categoriesById.get(transaction.category)}
+            onPress={() => onOpen(transaction.id)}
+          />
+        </View>
+      ))}
+    </Card>
   );
 }
-
-const styles = StyleSheet.create({
-  empty: {
-    fontSize: fontSize.sm,
-    color: colors.textMuted,
-  },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  rowLast: {
-    borderBottomWidth: 0,
-    paddingBottom: 0,
-  },
-  dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  details: {
-    flex: 1,
-  },
-  description: {
-    fontSize: fontSize.base,
-    color: colors.text,
-    fontWeight: "600",
-  },
-  meta: {
-    fontSize: 12,
-    color: colors.textMuted,
-    marginTop: 2,
-  },
-  amounts: {
-    alignItems: "flex-end",
-  },
-  amount: {
-    fontSize: fontSize.base,
-    fontWeight: "700",
-  },
-  converted: {
-    marginTop: 2,
-    fontSize: fontSize.sm,
-    color: colors.textMuted,
-  },
-  income: {
-    color: colors.success,
-  },
-  expense: {
-    color: colors.danger,
-  },
-});

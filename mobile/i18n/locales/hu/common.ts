@@ -4,6 +4,7 @@ import type { common as en } from "../en/common";
 export const common: DeepStrings<typeof en> = {
   actions: {
     cancel: "Mégse",
+    close: "Bezárás",
     delete: "Törlés",
     edit: "Szerkesztés",
     retry: "Újra",

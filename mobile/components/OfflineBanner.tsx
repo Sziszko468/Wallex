@@ -1,9 +1,12 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useOffline } from "../hooks/useOffline";
+import { layout, makeStyles, space, useTheme, type Palette } from "../theme";
 import { formatDateTime } from "../utils/format";
-import { colors, fontSize, spacing } from "../utils/theme";
+import { Icon } from "./icons/Icon";
+import type { IconName } from "./icons/iconPaths";
+import { Text } from "./ui/Text";
 
 interface BannerContent {
   tone: "offline" | "info" | "danger";
@@ -11,9 +14,22 @@ interface BannerContent {
   action?: { label: string; onPress: () => void };
 }
 
+const TONES: Record<BannerContent["tone"], { icon: IconName; background: keyof Palette; ink: keyof Palette }> = {
+  offline: { icon: "alert-triangle", background: "warningSoft", ink: "warning" },
+  info: { icon: "refresh", background: "infoSoft", ink: "info" },
+  danger: { icon: "alert-circle", background: "dangerSoft", ink: "danger" },
+};
+
+const useStyles = makeStyles(() => ({
+  banner: { flexDirection: "row", alignItems: "center", gap: space[3], paddingHorizontal: layout.screenPadding, paddingVertical: space[2], minHeight: layout.minTouch },
+  action: { minHeight: layout.minTouch, justifyContent: "center" },
+}));
+
 /** Top-of-app status line: offline state, cached data age, and sync progress/problems. */
 export function OfflineBanner() {
   const { t } = useTranslation();
+  const styles = useStyles();
+  const { colors } = useTheme();
   const { isOffline, cacheServedAt, pendingCount, failedCount, isSyncing, syncNow } = useOffline();
   const content = getContent();
   if (!content) return null;
@@ -46,52 +62,21 @@ export function OfflineBanner() {
     return null;
   }
 
+  const { icon, background, ink } = TONES[content.tone];
+
   return (
-    <View
-      accessibilityRole="alert"
-      accessibilityLiveRegion="polite"
-      style={[styles.banner, styles[content.tone]]}
-    >
-      <Text style={styles.message}>{content.message}</Text>
-      {content.action && (
-        <Pressable accessibilityRole="button" onPress={content.action.onPress} hitSlop={8} style={styles.action}>
-          <Text style={styles.actionText}>{content.action.label}</Text>
+    <View accessibilityRole="alert" accessibilityLiveRegion="polite" style={[styles.banner, { backgroundColor: colors[background] }]}>
+      <Icon name={icon} size={18} color={colors[ink]} />
+      <Text variant="caption" color={ink} style={{ flex: 1, fontSize: 13 }}>
+        {content.message}
+      </Text>
+      {content.action ? (
+        <Pressable accessibilityRole="button" accessibilityLabel={content.action.label} onPress={content.action.onPress} style={styles.action}>
+          <Text variant="label" color={ink} style={{ textDecorationLine: "underline" }}>
+            {content.action.label}
+          </Text>
         </Pressable>
-      )}
+      ) : null}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  banner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  offline: {
-    backgroundColor: colors.text,
-  },
-  info: {
-    backgroundColor: colors.primaryDark,
-  },
-  danger: {
-    backgroundColor: colors.danger,
-  },
-  message: {
-    flex: 1,
-    color: colors.surface,
-    fontSize: fontSize.sm,
-  },
-  action: {
-    minHeight: 32,
-    justifyContent: "center",
-  },
-  actionText: {
-    color: colors.surface,
-    fontSize: fontSize.sm,
-    fontWeight: "700",
-    textDecorationLine: "underline",
-  },
-});

@@ -6,8 +6,9 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
-    "primaryColor": "#4F46E5",
+    "userInterfaceStyle": "automatic",
+    "primaryColor": "#3a6a52",
+    "backgroundColor": "#f4f2ea",
     "ios": {
       "bundleIdentifier": "com.szilard.wallex",
       "supportsTablet": false,
@@ -18,7 +19,7 @@
     "android": {
       "package": "com.szilard.wallex",
       "adaptiveIcon": {
-        "backgroundColor": "#4F46E5",
+        "backgroundColor": "#2f5d47",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -35,6 +36,7 @@
     },
     "plugins": [
       "expo-router",
+      "expo-system-ui",
       "expo-secure-store",
       [
         "expo-localization",
@@ -51,7 +53,11 @@
           "image": "./assets/splash-icon.png",
           "imageWidth": 160,
           "resizeMode": "contain",
-          "backgroundColor": "#4F46E5"
+          "backgroundColor": "#f4f2ea",
+          "dark": {
+            "image": "./assets/splash-icon-dark.png",
+            "backgroundColor": "#111412"
+          }
         }
       ],
       [
@@ -64,7 +70,7 @@
         "expo-notifications",
         {
           "icon": "./assets/notification-icon.png",
-          "color": "#4F46E5",
+          "color": "#3a6a52",
           "defaultChannel": "default"
         }
       ],

@@ -1,24 +1,41 @@
 import type { ReactNode } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { ErrorBanner } from "./ErrorBanner";
+import { makeStyles, space } from "../theme";
 import { extractErrorMessage } from "../utils/errors";
-import { colors, fontSize, spacing } from "../utils/theme";
+import { Button } from "./ui/Button";
+import { Notice } from "./ui/Notice";
+import { Skeleton } from "./ui/Skeleton";
 
 interface SectionStateProps {
   isLoading: boolean;
   error: unknown;
   onRetry: () => void;
   children: ReactNode;
+  /** What to show while loading: the shape of the finished content. A few quiet lines by default. */
+  skeleton?: ReactNode;
 }
 
-/** Shared loading/error/content switch used by every independent dashboard section. */
-export function SectionState({ isLoading, error, onRetry, children }: SectionStateProps) {
+const useStyles = makeStyles(() => ({
+  loading: { gap: space[3], paddingVertical: space[2] },
+  retry: { alignSelf: "flex-start" },
+}));
+
+/** The loading / error / content switch shared by every independently-loading section. */
+export function SectionState({ isLoading, error, onRetry, children, skeleton }: SectionStateProps) {
   const { t } = useTranslation();
+  const styles = useStyles();
+
   if (isLoading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator color={colors.primary} />
+      <View style={styles.loading} accessibilityRole="progressbar" accessibilityLabel={t("common.states.loading")}>
+        {skeleton ?? (
+          <>
+            <Skeleton width="70%" />
+            <Skeleton width="100%" />
+            <Skeleton width="45%" />
+          </>
+        )}
       </View>
     );
   }
@@ -26,40 +43,13 @@ export function SectionState({ isLoading, error, onRetry, children }: SectionSta
   if (error) {
     return (
       <View>
-        <ErrorBanner message={extractErrorMessage(error)} />
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t("common.actions.retry")}
-          onPress={onRetry}
-          hitSlop={8}
-          style={({ pressed }) => [styles.retry, pressed && styles.retryPressed]}
-        >
-          <Text style={styles.retryText}>{t("common.actions.retry")}</Text>
-        </Pressable>
+        <Notice message={extractErrorMessage(error)} />
+        <View style={styles.retry}>
+          <Button title={t("common.actions.retry")} variant="secondary" icon="refresh" onPress={onRetry} />
+        </View>
       </View>
     );
   }
 
   return <>{children}</>;
 }
-
-const styles = StyleSheet.create({
-  center: {
-    paddingVertical: spacing.lg,
-    alignItems: "center",
-  },
-  retry: {
-    alignSelf: "flex-start",
-    minHeight: 44,
-    justifyContent: "center",
-    paddingHorizontal: spacing.xs,
-  },
-  retryPressed: {
-    opacity: 0.6,
-  },
-  retryText: {
-    color: colors.primary,
-    fontSize: fontSize.sm,
-    fontWeight: "700",
-  },
-});

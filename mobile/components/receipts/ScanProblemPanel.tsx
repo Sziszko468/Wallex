@@ -1,8 +1,10 @@
-import { Image, StyleSheet, Text, View } from "react-native";
+import { Image, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Button } from "../Button";
-import { colors, fontSize, radius, spacing } from "../../utils/theme";
+import { makeStyles, radius, space, useTheme } from "../../theme";
 import type { ProblemAction, ScanProblem } from "../../utils/receiptProblems";
+import { Icon } from "../icons/Icon";
+import { Button } from "../ui/Button";
+import { Text } from "../ui/Text";
 
 interface ScanProblemPanelProps {
   problem: ScanProblem;
@@ -10,48 +12,43 @@ interface ScanProblemPanelProps {
   onAction: (action: ProblemAction) => void;
 }
 
+const useStyles = makeStyles(({ colors }) => ({
+  thumbnail: { width: "100%", height: 160, borderRadius: radius.lg, backgroundColor: colors.bgSubtle, marginBottom: space[5] },
+  tile: { width: 56, height: 56, alignItems: "center", justifyContent: "center", borderRadius: radius.lg, backgroundColor: colors.warningSoft, marginBottom: space[4] },
+  text: { gap: space[2], marginBottom: space[6] },
+  actions: { gap: space[3] },
+}));
+
 /** Why the scan didn't produce something to review, and the ways forward. Nothing was saved. */
 export function ScanProblemPanel({ problem, photoUri, onAction }: ScanProblemPanelProps) {
   const { t } = useTranslation();
+  const styles = useStyles();
+  const { colors } = useTheme();
   return (
     <View accessibilityRole="alert">
-      {photoUri && <Image source={{ uri: photoUri }} style={styles.thumbnail} resizeMode="contain" />}
-      <Text style={styles.title}>{problem.title}</Text>
-      <Text style={styles.message}>{problem.message}</Text>
-      {problem.actions.map((action, index) => (
-        <View key={action} style={styles.action}>
+      {photoUri ? <Image source={{ uri: photoUri }} style={styles.thumbnail} resizeMode="contain" /> : null}
+      <View style={styles.tile}>
+        <Icon name="alert-triangle" size={26} color={colors.warning} />
+      </View>
+      <View style={styles.text}>
+        <Text variant="title" header>
+          {problem.title}
+        </Text>
+        <Text variant="body" color="textSecondary">
+          {problem.message}
+        </Text>
+      </View>
+      <View style={styles.actions}>
+        {problem.actions.map((action, index) => (
           <Button
+            key={action}
             title={t(`receipts.problems.actions.${action}`)}
             variant={index === 0 ? "primary" : "secondary"}
             size={index === 0 ? "large" : "medium"}
             onPress={() => onAction(action)}
           />
-        </View>
-      ))}
+        ))}
+      </View>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  thumbnail: {
-    width: "100%",
-    height: 160,
-    borderRadius: radius.md,
-    backgroundColor: colors.border,
-    marginBottom: spacing.md,
-  },
-  title: {
-    fontSize: fontSize.lg,
-    fontWeight: "700",
-    color: colors.text,
-    marginBottom: spacing.xs,
-  },
-  message: {
-    fontSize: fontSize.sm,
-    color: colors.textMuted,
-    marginBottom: spacing.lg,
-  },
-  action: {
-    marginBottom: spacing.sm,
-  },
-});

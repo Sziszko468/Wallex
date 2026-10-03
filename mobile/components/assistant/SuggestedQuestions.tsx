@@ -1,6 +1,8 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { colors, fontSize, radius, spacing } from "../../utils/theme";
+import { layout, makeStyles, radius, space, useTheme } from "../../theme";
+import { Icon } from "../icons/Icon";
+import { Text } from "../ui/Text";
 
 interface SuggestedQuestionsProps {
   questions: string[];
@@ -8,12 +10,34 @@ interface SuggestedQuestionsProps {
   disabled?: boolean;
 }
 
+const useStyles = makeStyles(({ colors }) => ({
+  container: { gap: space[2] },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space[3],
+    minHeight: layout.minTouch + 8,
+    paddingVertical: space[3],
+    paddingHorizontal: space[4],
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  pressed: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
+}));
+
+/** Questions the person is likely to have, written from their own data: one tap asks one. */
 export function SuggestedQuestions({ questions, onPick, disabled = false }: SuggestedQuestionsProps) {
   const { t } = useTranslation();
+  const styles = useStyles();
+  const { colors } = useTheme();
   if (questions.length === 0) return null;
   return (
     <View style={styles.container} accessibilityLabel={t("assistant.suggestions.label")}>
-      <Text style={styles.heading}>{t("assistant.suggestions.heading")}</Text>
+      <Text variant="overline" color="textTertiary">
+        {t("assistant.suggestions.heading")}
+      </Text>
       {questions.map((question) => (
         <Pressable
           key={question}
@@ -21,45 +45,14 @@ export function SuggestedQuestions({ questions, onPick, disabled = false }: Sugg
           accessibilityState={{ disabled }}
           disabled={disabled}
           onPress={() => onPick(question)}
-          style={({ pressed }) => [styles.chip, pressed && styles.pressed, disabled && styles.disabled]}
+          style={({ pressed }) => [styles.row, pressed && styles.pressed, disabled && { opacity: 0.55 }]}
         >
-          <Text style={styles.chipText}>{question}</Text>
+          <Text variant="body" style={{ flex: 1 }}>
+            {question}
+          </Text>
+          <Icon name="arrow-up-right" size={18} color={colors.primaryInk} />
         </Pressable>
       ))}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    gap: spacing.sm,
-  },
-  heading: {
-    fontSize: 12,
-    fontWeight: "700",
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
-    color: colors.textMuted,
-  },
-  chip: {
-    minHeight: 44,
-    justifyContent: "center",
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-  },
-  chipText: {
-    fontSize: fontSize.sm,
-    color: colors.text,
-  },
-  pressed: {
-    borderColor: colors.primary,
-    backgroundColor: "rgba(99, 102, 241, 0.05)",
-  },
-  disabled: {
-    opacity: 0.6,
-  },
-});

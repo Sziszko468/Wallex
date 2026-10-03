@@ -1,10 +1,14 @@
 import { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
-import { Button } from "../components/Button";
-import { Screen } from "../components/Screen";
-import { colors, fontSize, spacing } from "../utils/theme";
+import { makeStyles, space } from "../theme";
+import { AuthFrame } from "../components/auth/AuthFrame";
+import { Button } from "../components/ui/Button";
+
+const useStyles = makeStyles(() => ({
+  actions: { gap: space[3] },
+}));
 
 /**
  * Shown when a stored session exists but the backend couldn't be reached to
@@ -12,6 +16,7 @@ import { colors, fontSize, spacing } from "../utils/theme";
  */
 export function SessionUnavailableScreen() {
   const { t } = useTranslation();
+  const styles = useStyles();
   const { retry, logout } = useAuth();
   const [isSigningOut, setIsSigningOut] = useState(false);
 
@@ -25,42 +30,11 @@ export function SessionUnavailableScreen() {
   }
 
   return (
-    <Screen>
-      <View style={styles.container}>
-        <Text style={styles.heading}>{t("auth.unavailable.heading")}</Text>
-        <Text style={styles.text}>{t("auth.unavailable.text")}</Text>
-        <Button title={t("auth.unavailable.tryAgain")} size="large" onPress={() => void retry()} disabled={isSigningOut} />
-        <View style={styles.spacer} />
-        <Button
-          title={t("auth.unavailable.signOut")}
-          variant="secondary"
-          onPress={handleSignOut}
-          isLoading={isSigningOut}
-        />
+    <AuthFrame title={t("auth.unavailable.heading")} subtitle={t("auth.unavailable.text")} centered>
+      <View style={styles.actions}>
+        <Button title={t("auth.unavailable.tryAgain")} icon="refresh" size="large" onPress={() => void retry()} disabled={isSigningOut} />
+        <Button title={t("auth.unavailable.signOut")} variant="secondary" onPress={handleSignOut} isLoading={isSigningOut} />
       </View>
-    </Screen>
+    </AuthFrame>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: "center",
-  },
-  heading: {
-    fontSize: fontSize.lg,
-    fontWeight: "700",
-    color: colors.text,
-    textAlign: "center",
-    marginBottom: spacing.xs,
-  },
-  text: {
-    fontSize: fontSize.base,
-    color: colors.textMuted,
-    textAlign: "center",
-    marginBottom: spacing.lg,
-  },
-  spacer: {
-    height: spacing.sm,
-  },
-});

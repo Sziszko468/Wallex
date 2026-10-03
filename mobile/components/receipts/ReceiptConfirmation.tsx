@@ -1,19 +1,22 @@
 import { useMemo, useState, type ReactNode } from "react";
+import { Pressable, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { t } from "i18next";
 import { APP_NAME } from "../../config/app";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Button } from "../Button";
-import { TextField } from "../TextField";
-import { ErrorBanner } from "../ErrorBanner";
-import { CategoryChipPicker } from "../CategoryChipPicker";
+import { makeStyles, radius, space, useTheme } from "../../theme";
+import { CategoryPicker } from "../CategoryPicker";
 import { CurrencyChipPicker } from "../CurrencyChipPicker";
+import { ErrorBanner } from "../ErrorBanner";
 import { QuickDateField } from "../QuickDateField";
+import { Icon } from "../icons/Icon";
+import { AmountInput } from "../ui/AmountInput";
+import { Button } from "../ui/Button";
+import { Text } from "../ui/Text";
+import { TextField } from "../ui/TextField";
 import { isValidIsoDate, toIsoDate } from "../../utils/date";
 import { hasValidPrecision, normalizeAmountInput } from "../../utils/currency";
 import { formatCurrency } from "../../utils/format";
 import { extractErrorMessage, extractFieldErrors, type FieldErrors } from "../../utils/errors";
-import { colors, fontSize, radius, spacing } from "../../utils/theme";
 import type { Category } from "../../types/category";
 import type { CurrencyCode } from "../../types/currency";
 import type { ReceiptScan, ScannedField } from "../../types/receipt";
@@ -65,6 +68,8 @@ export function ReceiptConfirmation({
   onRetake,
 }: ReceiptConfirmationProps) {
   const { t } = useTranslation();
+  const styles = useStyles();
+  const { colors } = useTheme();
   const [merchant, setMerchant] = useState(scan.merchant.value ?? "");
   const [amount, setAmount] = useState(scan.amount.value ?? "");
   const [currency, setCurrency] = useState<CurrencyCode>(scan.currency.value ?? baseCurrency);
@@ -142,30 +147,33 @@ export function ReceiptConfirmation({
 
   return (
     <View>
-      <Text style={styles.heading}>{t("receipts.confirm.heading")}</Text>
-      <Text style={styles.subheading}>
-        {scan.text_found ? t("receipts.confirm.subFound") : t("receipts.confirm.subNone")}
-      </Text>
+      <View style={styles.intro}>
+        <Text variant="title" header>
+          {t("receipts.confirm.heading")}
+        </Text>
+        <Text variant="body" color="textSecondary">
+          {scan.text_found ? t("receipts.confirm.subFound") : t("receipts.confirm.subNone")}
+        </Text>
+      </View>
       <ErrorBanner message={errorMessage} />
 
       <Field hint={hints.merchant}>
         <TextField label={t("receipts.confirm.merchant")} value={merchant} onChangeText={setMerchant} error={fieldErrors.merchant} />
       </Field>
       <Field hint={hints.amount}>
-        <TextField
-          label={t("common.form.amount")}
-          placeholder={currency === "HUF" || currency === "JPY" ? "0" : "0.00"}
-          keyboardType="decimal-pad"
-          value={amount}
-          onChangeText={setAmount}
-          error={fieldErrors.amount}
-        />
+        <AmountInput label={t("common.form.amount")} currency={currency} value={amount} onChangeText={setAmount} error={fieldErrors.amount} />
       </Field>
       <Field hint={hints.currency}>
         <View style={styles.field}>
-          <Text style={styles.label}>{t("receipts.confirm.currency")}</Text>
+          <Text variant="label" color="textSecondary">
+            {t("receipts.confirm.currency")}
+          </Text>
           <CurrencyChipPicker selected={currency} onSelect={setCurrency} />
-          {fieldErrors.currency && <Text style={styles.errorText}>{fieldErrors.currency}</Text>}
+          {fieldErrors.currency ? (
+            <Text variant="caption" color="danger">
+              {fieldErrors.currency}
+            </Text>
+          ) : null}
         </View>
       </Field>
       <Field hint={hints.date}>
@@ -173,141 +181,92 @@ export function ReceiptConfirmation({
       </Field>
 
       <View style={styles.field}>
-        <Text style={styles.label}>{t("common.form.category")}</Text>
-        <CategoryChipPicker categories={expenseCategories} selectedId={categoryId} onSelect={setCategoryId} />
+        <Text variant="label" color="textSecondary">
+          {t("common.form.category")}
+        </Text>
+        <CategoryPicker categories={expenseCategories} selectedId={categoryId} onSelect={setCategoryId} />
         {fieldErrors.category ? (
-          <Text style={styles.errorText}>{fieldErrors.category}</Text>
-        ) : (
-          categoryHint && <Text style={styles.suggestion}>{categoryHint}</Text>
-        )}
+          <Text variant="caption" color="danger">
+            {fieldErrors.category}
+          </Text>
+        ) : categoryHint ? (
+          <Text variant="caption" color="primaryInk">
+            {categoryHint}
+          </Text>
+        ) : null}
       </View>
 
-      {scan.items.length > 0 && (
+      {scan.items.length > 0 ? (
         <View style={styles.field}>
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel={t("receipts.confirm.items", { count: scan.items.length })}
             accessibilityState={{ expanded: showItems }}
             onPress={() => setShowItems((shown) => !shown)}
+            style={styles.itemsToggle}
           >
-            <Text style={styles.itemsToggle}>
-              {showItems ? "▾" : "▸"} {t("receipts.confirm.items", { count: scan.items.length })}
+            <Icon name={showItems ? "chevron-down" : "chevron-right"} size={18} color={colors.primaryInk} />
+            <Text variant="label" color="primaryInk">
+              {t("receipts.confirm.items", { count: scan.items.length })}
             </Text>
           </Pressable>
-          {showItems && (
+          {showItems ? (
             <View style={styles.items}>
-              <Text style={styles.itemsNote}>{t("receipts.confirm.itemsNote")}</Text>
+              <Text variant="caption" color="textSecondary">
+                {t("receipts.confirm.itemsNote")}
+              </Text>
               {scan.items.map((item, index) => (
                 <View key={`${index}-${item.name}`} style={styles.itemRow}>
-                  <Text style={styles.itemName} numberOfLines={1}>
+                  <Text variant="body" numberOfLines={1} style={{ flex: 1 }}>
                     {item.name}
                   </Text>
-                  <Text style={styles.itemAmount}>{formatCurrency(item.amount, itemCurrency)}</Text>
+                  <Text variant="amount">{formatCurrency(item.amount, itemCurrency)}</Text>
                 </View>
               ))}
             </View>
-          )}
+          ) : null}
         </View>
-      )}
+      ) : null}
 
-      <Button
-        title={savedLabel ?? (isOffline ? t("common.saveOffline") : t("receipts.confirm.save"))}
-        variant={savedLabel ? "success" : "primary"}
-        size="large"
-        onPress={handleSave}
-        isLoading={isSaving}
-        disabled={savedLabel !== null}
-      />
-      <View style={styles.spacer} />
-      <Button title={t("receipts.confirm.retake")} variant="secondary" onPress={onRetake} disabled={isSaving || savedLabel !== null} />
+      <View style={styles.actions}>
+        <Button
+          title={savedLabel ?? (isOffline ? t("common.saveOffline") : t("receipts.confirm.save"))}
+          variant={savedLabel ? "success" : "primary"}
+          size="large"
+          onPress={handleSave}
+          isLoading={isSaving}
+          disabled={savedLabel !== null}
+        />
+        <Button title={t("receipts.confirm.retake")} variant="ghost" icon="camera" onPress={onRetake} disabled={isSaving || savedLabel !== null} />
+      </View>
     </View>
   );
 }
 
 function Field({ hint, children }: { hint?: string; children: ReactNode }) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   return (
-    <View style={hint ? styles.flagged : undefined}>
-      {hint && <Text style={styles.hint}>⚠ {hint}</Text>}
+    <View>
+      {hint ? (
+        <View style={styles.hint}>
+          <Icon name="alert-triangle" size={16} color={colors.warning} />
+          <Text variant="caption" color="warning" style={{ flex: 1 }}>
+            {hint}
+          </Text>
+        </View>
+      ) : null}
       {children}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  heading: {
-    fontSize: fontSize.lg,
-    fontWeight: "700",
-    color: colors.text,
-  },
-  subheading: {
-    fontSize: fontSize.sm,
-    color: colors.textMuted,
-    marginTop: 2,
-    marginBottom: spacing.md,
-  },
-  flagged: {
-    borderLeftWidth: 3,
-    borderLeftColor: colors.warning,
-    paddingLeft: spacing.sm,
-    borderRadius: radius.sm,
-  },
-  hint: {
-    fontSize: fontSize.sm,
-    color: colors.warning,
-    fontWeight: "600",
-    marginBottom: spacing.xs,
-  },
-  field: {
-    marginBottom: spacing.md,
-  },
-  label: {
-    fontSize: fontSize.sm,
-    fontWeight: "600",
-    color: colors.text,
-    marginBottom: spacing.xs,
-  },
-  suggestion: {
-    marginTop: spacing.xs,
-    fontSize: fontSize.sm,
-    color: colors.primary,
-  },
-  errorText: {
-    marginTop: spacing.xs,
-    fontSize: fontSize.sm,
-    color: colors.danger,
-  },
-  itemsToggle: {
-    fontSize: fontSize.sm,
-    fontWeight: "600",
-    color: colors.primary,
-    paddingVertical: spacing.xs,
-  },
-  items: {
-    marginTop: spacing.xs,
-    padding: spacing.sm,
-    borderRadius: radius.sm,
-    backgroundColor: colors.background,
-    gap: spacing.xs,
-  },
-  itemsNote: {
-    fontSize: 12,
-    color: colors.textMuted,
-  },
-  itemRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: spacing.sm,
-  },
-  itemName: {
-    flex: 1,
-    fontSize: fontSize.sm,
-    color: colors.text,
-  },
-  itemAmount: {
-    fontSize: fontSize.sm,
-    fontWeight: "600",
-    color: colors.text,
-  },
-  spacer: {
-    height: spacing.sm,
-  },
-});
+const useStyles = makeStyles(({ colors }) => ({
+  intro: { gap: space[2], marginBottom: space[5] },
+  hint: { flexDirection: "row", alignItems: "flex-start", gap: space[2], padding: space[3], marginBottom: space[2], borderRadius: radius.md, backgroundColor: colors.warningSoft },
+  field: { gap: space[3], marginBottom: space[5] },
+  itemsToggle: { flexDirection: "row", alignItems: "center", gap: space[2], minHeight: 44 },
+  items: { gap: space[2], padding: space[3], borderRadius: radius.md, backgroundColor: colors.surfaceSubtle },
+  itemRow: { flexDirection: "row", justifyContent: "space-between", gap: space[3] },
+  actions: { gap: space[2], marginTop: space[2] },
+}));

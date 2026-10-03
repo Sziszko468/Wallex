@@ -2,7 +2,8 @@
 
 The web app's look is defined in one place and used everywhere: **design tokens** (CSS custom
 properties) plus a small set of shared components. This document explains the ideas behind them and
-how to extend them. Scope: the React app in `web/`. (The Expo mobile app has its own, separate styling.)
+how to extend them. Scope: the React app in `web/`; the Expo app in `mobile/` implements the same
+system in React Native (see [Mobile](#mobile-mobile) at the end).
 
 ## Design direction — "Sage & Linen"
 
@@ -172,4 +173,37 @@ Conventions worth knowing:
   **create budgets** — both were left functionally as they were; the pages were redesigned, not extended.
 - The transaction model has no merchant/account/notes/recurring flag, so the detail drawer shows the fields
   that exist (description, category, date, currencies and rate, timestamps).
-- The mobile app (`mobile/`) keeps its existing indigo styling.
+- The mobile app has its own implementation of the same system; see **Mobile** below.
+
+## Mobile (`mobile/`)
+
+Same brand and palette as the web app, but its own mobile-first layout: one set of colours, one
+font, one icon language, built from React Native components instead of Sass.
+
+- **Tokens:** `mobile/theme/tokens.ts` mirrors the web `_tokens.scss` values (light and dark palettes,
+  shadows, a 4px spacing scale, radii, motion, layout sizes, fonts and text variants).
+  `__tests__/theme/tokens.test.ts` checks WCAG AA contrast of the text/surface pairs in both themes and
+  that each palette colour exists in the web tokens, so the two can't drift apart.
+- **Themes:** System / Light / Dark (More → Appearance), saved in AsyncStorage (`wallex_theme`).
+  "System" follows the phone live; an explicit choice is never overridden by it. Components never
+  import colours: they call `useTheme()` or `makeStyles((theme) => styles)` (`theme/makeStyles.ts`).
+- **Type:** Plus Jakarta Sans, loaded per weight (`theme/fonts.ts`; RN can't synthesise weights).
+  Text variants cap their font scaling (`maxFontScale`) so layouts survive large system text.
+- **Navigation:** four tabs (Home, Transactions, Budgets, More) with a raised add button in the middle
+  (`components/navigation/AppTabBar.tsx`, a custom `tabBar`). Assistant, Recurring and Analytics open
+  from Home and More as stack screens; add / edit / scan open as modals.
+- **Components:** `components/ui/` (Text, Button, IconButton, TextField, AmountInput, SegmentedControl,
+  Chip, Card, Badge, ProgressBar, Skeleton, EmptyState, Notice, ListRow, BottomSheet, …). Screen
+  frames use `components/Screen.tsx` (safe areas, phone-width column on tablets, pinned footer,
+  keyboard avoidance). Icons are the web's set ported to `react-native-svg` (`components/icons`).
+- **Rules carried over from the web app:** amounts stay API strings and are only converted for bar
+  sizes; an expense is a neutral "−" and an income a green "+"; a status (on track / near limit / over
+  budget) is never colour alone; every destructive action asks first; every text is translated (en, hu).
+- **Touch:** targets are at least 44 pt, controls have roles, labels and states, motion respects
+  "reduce motion", and the long lists (transactions, chat) are virtualised.
+- **Tests:** component and screen tests run with `npm test` in `mobile/`; the stand-in used for the
+  screenshots is not part of the repo.
+
+Limits: this design has been checked in the Expo web target (light, dark, 320 px, tablet width) and
+in unit tests; it has not been run on iOS or Android devices or simulators yet, so keyboard and
+edge-to-edge behaviour on a real Android phone is unverified.

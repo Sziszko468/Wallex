@@ -1,11 +1,21 @@
 import { Fragment, useMemo } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { View } from "react-native";
+import { makeStyles, space } from "../../theme";
 import { parseSimpleMarkdown, type InlineLine } from "../../utils/simpleMarkdown";
-import { colors, spacing } from "../../utils/theme";
+import { fontFamilies } from "../../theme";
+import { Text } from "../ui/Text";
+
+const useStyles = makeStyles(() => ({
+  container: { gap: space[2] },
+  list: { gap: 2 },
+  item: { flexDirection: "row", gap: space[2] },
+}));
+
+const BOLD = { fontFamily: fontFamilies.bold } as const;
 
 function Line({ line }: { line: InlineLine }) {
   return line.map((run, index) => (
-    <Text key={index} style={run.bold ? styles.bold : undefined}>
+    <Text key={index} style={run.bold ? BOLD : undefined}>
       {run.text}
     </Text>
   ));
@@ -13,6 +23,7 @@ function Line({ line }: { line: InlineLine }) {
 
 /** An assistant answer: paragraphs, lists and bold as nested Text — never interpreted as markup. */
 export function MarkdownText({ text }: { text: string }) {
+  const styles = useStyles();
   const blocks = useMemo(() => parseSimpleMarkdown(text), [text]);
 
   return (
@@ -22,15 +33,15 @@ export function MarkdownText({ text }: { text: string }) {
           <View key={index} style={styles.list}>
             {block.items.map((item, itemIndex) => (
               <View key={itemIndex} style={styles.item}>
-                <Text style={styles.text}>{block.ordered ? `${itemIndex + 1}.` : "•"}</Text>
-                <Text style={[styles.text, styles.itemText]}>
+                <Text variant="body">{block.ordered ? `${itemIndex + 1}.` : "•"}</Text>
+                <Text variant="body" style={{ flex: 1 }}>
                   <Line line={item} />
                 </Text>
               </View>
             ))}
           </View>
         ) : (
-          <Text key={index} style={styles.text}>
+          <Text key={index} variant="body">
             {block.lines.map((line, lineIndex) => (
               <Fragment key={lineIndex}>
                 {lineIndex > 0 && "\n"}
@@ -43,27 +54,3 @@ export function MarkdownText({ text }: { text: string }) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    gap: spacing.sm,
-  },
-  text: {
-    color: colors.text,
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  bold: {
-    fontWeight: "700",
-  },
-  list: {
-    gap: 2,
-  },
-  item: {
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  itemText: {
-    flex: 1,
-  },
-});

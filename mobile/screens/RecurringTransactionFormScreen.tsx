@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useAsyncData } from "../hooks/useAsyncData";
@@ -11,19 +11,24 @@ import {
 } from "../services/recurringTransactionsService";
 import { extractErrorMessage, extractFieldErrors, type FieldErrors } from "../utils/errors";
 import { toIsoDate, isValidIsoDate } from "../utils/date";
+import { useBaseCurrency } from "../hooks/useBaseCurrency";
 import { Screen } from "../components/Screen";
-import { Button } from "../components/Button";
-import { TextField } from "../components/TextField";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { SectionState } from "../components/SectionState";
 import { TypeToggle } from "../components/TypeToggle";
-import { CategoryChipPicker } from "../components/CategoryChipPicker";
+import { CategoryPicker } from "../components/CategoryPicker";
 import { QuickDateField } from "../components/QuickDateField";
 import { FrequencyPicker } from "../components/recurring/FrequencyPicker";
+import { AmountInput } from "../components/ui/AmountInput";
+import { AppSwitch } from "../components/ui/AppSwitch";
+import { Button } from "../components/ui/Button";
+import { ListGroup, ListRow } from "../components/ui/ListRow";
+import { Text } from "../components/ui/Text";
+import { TextField } from "../components/ui/TextField";
+import { makeStyles, space } from "../theme";
 import type { TransactionType } from "../types/category";
 import type { RecurringFrequency } from "../types/recurringTransaction";
 import { normalizeAmountInput } from "../utils/currency";
-import { colors, fontSize, radius, spacing } from "../utils/theme";
 
 /** Small fixed delay so the "Saved ✓" state is actually visible before the
  * modal auto-dismisses — long enough to register, short enough to stay fast. */
@@ -34,6 +39,8 @@ const SUCCESS_DISMISS_DELAY_MS = 550;
  * TransactionFormScreen's create/edit dual-mode pattern exactly. */
 export function RecurringTransactionFormScreen() {
   const { t } = useTranslation();
+  const styles = useStyles();
+  const baseCurrency = useBaseCurrency();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const itemId = id ? Number(id) : null;
   const isEditMode = itemId !== null;
@@ -151,13 +158,17 @@ export function RecurringTransactionFormScreen() {
     }
   }
 
+  // A new one is recorded in the base currency; an existing one keeps the currency it was created in.
+  const currency = existingItem.data?.currency ?? baseCurrency;
+  const isFormReady = !(isEditMode && (existingItem.isLoading || existingItem.error));
+  const saveLabel = justSaved ? t("common.saved") : isEditMode ? t("common.actions.saveChanges") : t("common.actions.save");
+
   return (
-    <Screen scroll>
-      <SectionState
-        isLoading={isEditMode && existingItem.isLoading}
-        error={isEditMode ? existingItem.error : null}
-        onRetry={existingItem.refetch}
-      >
+    <Screen
+      scroll
+      footer={isFormReady ? <Button title={saveLabel} variant={justSaved ? "success" : "primary"} size="large" onPress={handleSave} isLoading={isSubmitting} disabled={justSaved} /> : undefined}
+    >
+      <SectionState isLoading={isEditMode && existingItem.isLoading} error={isEditMode ? existingItem.error : null} onRetry={existingItem.refetch}>
         <ErrorBanner message={errorMessage} />
 
         <TextField
@@ -171,37 +182,30 @@ export function RecurringTransactionFormScreen() {
 
         <TypeToggle value={type} onChange={handleTypeChange} />
 
-        <TextField
-          label={t("common.form.amount")}
-          placeholder="0.00"
-          keyboardType="decimal-pad"
-          value={amount}
-          onChangeText={setAmount}
-          error={fieldErrors.amount}
-        />
+        <AmountInput label={t("common.form.amount")} currency={currency} value={amount} onChangeText={setAmount} error={fieldErrors.amount} />
 
-        <View style={styles.field}>
-          <Text style={styles.label}>{t("common.form.category")}</Text>
-          <SectionState
-            isLoading={categories.isLoading}
-            error={categories.error}
-            onRetry={categories.refetch}
-          >
-            <CategoryChipPicker
-              categories={availableCategories}
-              selectedId={categoryId}
-              onSelect={setCategoryId}
-            />
+        <View style={styles.section}>
+          <Text variant="label" color="textSecondary">
+            {t("common.form.category")}
+          </Text>
+          <SectionState isLoading={categories.isLoading} error={categories.error} onRetry={categories.refetch}>
+            <CategoryPicker categories={availableCategories} selectedId={categoryId} onSelect={setCategoryId} />
           </SectionState>
-          {fieldErrors.category && <Text style={styles.errorText}>{fieldErrors.category}</Text>}
+          {fieldErrors.category ? (
+            <Text variant="caption" color="danger" accessibilityRole="alert">
+              {fieldErrors.category}
+            </Text>
+          ) : null}
         </View>
 
-        <View style={styles.field}>
-          <Text style={styles.label}>{t("recurring.form.frequency")}</Text>
+        <View style={styles.section}>
+          <Text variant="label" color="textSecondary">
+            {t("recurring.form.frequency")}
+          </Text>
           <FrequencyPicker value={frequency} onChange={setFrequency} />
         </View>
 
-        <QuickDateField value={startDate} onChange={setStartDate} error={fieldErrors.start_date} />
+        <QuickDateField label={t("recurring.form.startDate")} value={startDate} onChange={setStartDate} error={fieldErrors.start_date} />
 
         <TextField
           label={t("recurring.form.endDate")}
@@ -220,75 +224,17 @@ export function RecurringTransactionFormScreen() {
           onChangeText={setDescription}
         />
 
-        <Pressable
-          accessibilityRole="switch"
-          accessibilityState={{ checked: isActive }}
-          onPress={() => setIsActive((current) => !current)}
-          style={styles.toggleRow}
-        >
-          <View style={[styles.checkbox, isActive && styles.checkboxChecked]}>
-            {isActive && <Text style={styles.checkmark}>✓</Text>}
-          </View>
-          <Text style={styles.toggleLabel}>{t("recurring.form.active")}</Text>
-        </Pressable>
-
-        <Button
-          title={justSaved ? t("common.saved") : isEditMode ? t("common.actions.saveChanges") : t("common.actions.save")}
-          variant={justSaved ? "success" : "primary"}
-          size="large"
-          onPress={handleSave}
-          isLoading={isSubmitting}
-          disabled={justSaved}
-        />
+        <ListGroup hasIcons={false}>
+          <ListRow
+            title={t("recurring.form.active")}
+            trailing={<AppSwitch accessibilityLabel={t("recurring.form.active")} value={isActive} onValueChange={setIsActive} />}
+          />
+        </ListGroup>
       </SectionState>
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  field: {
-    marginBottom: spacing.md,
-  },
-  label: {
-    fontSize: fontSize.sm,
-    fontWeight: "600",
-    color: colors.text,
-    marginBottom: spacing.xs,
-  },
-  errorText: {
-    marginTop: spacing.xs,
-    fontSize: fontSize.sm,
-    color: colors.danger,
-  },
-  toggleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    marginBottom: spacing.lg,
-    minHeight: 44,
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.surface,
-  },
-  checkboxChecked: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  checkmark: {
-    color: "#fff",
-    fontSize: fontSize.sm,
-    fontWeight: "700",
-  },
-  toggleLabel: {
-    fontSize: fontSize.base,
-    color: colors.text,
-    fontWeight: "600",
-  },
-});
+const useStyles = makeStyles(() => ({
+  section: { gap: space[3], marginBottom: space[5] },
+}));

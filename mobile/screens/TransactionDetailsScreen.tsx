@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Alert, StyleSheet, Text, View } from "react-native";
+import { Alert, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useAsyncData } from "../hooks/useAsyncData";
@@ -7,23 +7,36 @@ import { useBaseCurrency } from "../hooks/useBaseCurrency";
 import { useRefetchOnFocus } from "../hooks/useRefetchOnFocus";
 import { listCategories } from "../services/categoriesService";
 import { deleteTransaction, getTransaction } from "../services/transactionsService";
+import { makeStyles, space } from "../theme";
 import { extractErrorMessage, isConflict, isNotFound } from "../utils/errors";
-import { formatCurrency, formatFullDate } from "../utils/format";
+import { formatCurrency, formatFullDate, formatSignedAmount } from "../utils/format";
 import { Screen } from "../components/Screen";
-import { Button } from "../components/Button";
 import { SectionState } from "../components/SectionState";
-import { colors, fontSize, radius, spacing } from "../utils/theme";
+import { Button } from "../components/ui/Button";
+import { Card } from "../components/ui/Card";
+import { CategoryMark } from "../components/ui/CategoryMark";
+import { Skeleton } from "../components/ui/Skeleton";
+import { Text } from "../components/ui/Text";
+
+const useStyles = makeStyles(({ colors }) => ({
+  hero: { alignItems: "center", gap: space[2], paddingTop: space[4], paddingBottom: space[6] },
+  heroTitle: { marginTop: space[2] },
+  rows: { gap: 0 },
+  row: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: space[4], paddingVertical: space[3] },
+  rowDivider: { height: 1, backgroundColor: colors.divider },
+  actions: { flexDirection: "row", gap: space[3] },
+  action: { flex: 1 },
+}));
 
 export function TransactionDetailsScreen() {
   const { t } = useTranslation();
+  const styles = useStyles();
   const { id } = useLocalSearchParams<{ id: string }>();
   const transactionId = Number(id);
   const baseCurrency = useBaseCurrency();
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const transaction = useAsyncData(
-    useCallback(() => getTransaction(transactionId), [transactionId])
-  );
+  const transaction = useAsyncData(useCallback(() => getTransaction(transactionId), [transactionId]));
   const categories = useAsyncData(useCallback(() => listCategories(), []));
 
   // Back from Edit: show the saved change.
@@ -65,142 +78,77 @@ export function TransactionDetailsScreen() {
     }
   }
 
+  const data = transaction.data;
+  const details: { label: string; value: string }[] = data
+    ? [
+        { label: t("transactions.details.description"), value: data.description || t("common.states.notAvailable") },
+        { label: t("transactions.details.category"), value: category?.name ?? t("common.uncategorized") },
+        { label: t("transactions.details.date"), value: formatFullDate(data.date) },
+        // Computed by the API with the ECB rate of the transaction's date.
+        ...(data.currency !== baseCurrency
+          ? [{ label: t("transactions.details.inCurrency", { currency: baseCurrency }), value: formatCurrency(data.base_amount, baseCurrency) }]
+          : []),
+        { label: t("transactions.details.type"), value: data.type === "income" ? t("common.transactionType.income") : t("common.transactionType.expense") },
+      ]
+    : [];
+
   return (
-    <Screen scroll>
+    <Screen
+      scroll
+      footer={
+        data ? (
+          <View style={styles.actions}>
+            <View style={styles.action}>
+              <Button title={t("common.actions.edit")} variant="secondary" icon="pencil" onPress={handleEdit} />
+            </View>
+            <View style={styles.action}>
+              <Button title={t("common.actions.delete")} variant="dangerSoft" icon="trash" onPress={handleDeletePress} isLoading={isDeleting} />
+            </View>
+          </View>
+        ) : undefined
+      }
+    >
       <SectionState
         isLoading={transaction.isLoading || categories.isLoading}
         error={transaction.error ?? categories.error}
         onRetry={() => {
-          transaction.refetch();
-          categories.refetch();
+          void transaction.refetch();
+          void categories.refetch();
         }}
+        skeleton={<Skeleton height={260} />}
       >
-        {transaction.data && (
+        {data ? (
           <View>
             <View style={styles.hero}>
-              {category && (
-                <View style={styles.categoryRow}>
-                  <View style={[styles.dot, { backgroundColor: category.color }]} />
-                  <Text style={styles.categoryName}>{category.name}</Text>
-                </View>
-              )}
-              <Text
-                style={[
-                  styles.amount,
-                  transaction.data.type === "income" ? styles.income : styles.expense,
-                ]}
-              >
-                {transaction.data.type === "income" ? "+" : "-"}
-                {formatCurrency(transaction.data.amount, transaction.data.currency)}
+              <CategoryMark category={category} size="lg" />
+              <Text variant="caption" color="textSecondary" style={styles.heroTitle}>
+                {category?.name ?? t("common.uncategorized")}
+              </Text>
+              <Text variant="amountHero" color={data.type === "income" ? "success" : "text"} numberOfLines={1} adjustsFontSizeToFit>
+                {formatSignedAmount(data.type, data.amount, data.currency)}
               </Text>
             </View>
 
-            <View style={styles.card}>
-              <DetailRow
-                label={t("transactions.details.description")}
-                value={transaction.data.description || t("common.states.notAvailable")}
-              />
-              <DetailRow label={t("transactions.details.date")} value={formatFullDate(transaction.data.date)} />
-              {transaction.data.currency !== baseCurrency && (
-                // Computed by the API with the ECB rate of the transaction's date.
-                <DetailRow
-                  label={t("transactions.details.inCurrency", { currency: baseCurrency })}
-                  value={formatCurrency(transaction.data.base_amount, baseCurrency)}
-                />
-              )}
-              <DetailRow
-                label={t("transactions.details.type")}
-                value={transaction.data.type === "income" ? t("common.transactionType.income") : t("common.transactionType.expense")}
-              />
-            </View>
-
-            <View style={styles.actions}>
-              <View style={styles.actionButton}>
-                <Button title={t("common.actions.edit")} variant="secondary" onPress={handleEdit} />
+            <Card padding={4}>
+              <View style={styles.rows}>
+                {details.map((detail, index) => (
+                  <View key={detail.label}>
+                    {index > 0 ? <View style={styles.rowDivider} /> : null}
+                    <View style={styles.row} accessible accessibilityLabel={`${detail.label}: ${detail.value}`}>
+                      <Text variant="body" color="textSecondary">
+                        {detail.label}
+                      </Text>
+                      <Text variant="bodyStrong" style={{ flexShrink: 1, textAlign: "right" }}>
+                        {detail.value}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
               </View>
-              <View style={styles.actionButton}>
-                <Button
-                  title={t("common.actions.delete")}
-                  variant="danger"
-                  onPress={handleDeletePress}
-                  isLoading={isDeleting}
-                />
-              </View>
-            </View>
+            </Card>
           </View>
-        )}
+        ) : null}
       </SectionState>
     </Screen>
   );
 }
-
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.row}>
-      <Text style={styles.rowLabel}>{label}</Text>
-      <Text style={styles.rowValue}>{value}</Text>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  hero: {
-    alignItems: "center",
-    paddingVertical: spacing.lg,
-  },
-  categoryRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    marginBottom: spacing.sm,
-  },
-  dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  categoryName: {
-    fontSize: fontSize.base,
-    color: colors.textMuted,
-    fontWeight: "600",
-  },
-  amount: {
-    fontSize: 40,
-    fontWeight: "800",
-  },
-  income: {
-    color: colors.success,
-  },
-  expense: {
-    color: colors.danger,
-  },
-  card: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-  },
-  row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: spacing.xs,
-  },
-  rowLabel: {
-    color: colors.textMuted,
-    fontSize: fontSize.sm,
-  },
-  rowValue: {
-    color: colors.text,
-    fontWeight: "600",
-    fontSize: fontSize.sm,
-  },
-  actions: {
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  actionButton: {
-    flex: 1,
-  },
-});

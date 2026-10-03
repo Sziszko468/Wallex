@@ -40,6 +40,17 @@ jest.mock("expo-notifications", () => ({
   AndroidImportance: { HIGH: 4 },
 }));
 
+// Fonts, the splash screen and the system UI colour are native: tests draw with the fallback font.
+jest.mock("expo-font", () => ({ useFonts: () => [true, null], loadAsync: jest.fn(async () => undefined) }));
+jest.mock("expo-splash-screen", () => ({
+  preventAutoHideAsync: jest.fn(async () => true),
+  hideAsync: jest.fn(async () => undefined),
+}));
+jest.mock("expo-system-ui", () => ({ setBackgroundColorAsync: jest.fn(async () => undefined) }));
+
+// The first render of a screen builds the whole component tree, which can take a while on a busy machine.
+jest.setTimeout(20000);
+
 beforeEach(async () => {
   await require("../i18n").i18n.changeLanguage("en");
   const AsyncStorage = require("@react-native-async-storage/async-storage");

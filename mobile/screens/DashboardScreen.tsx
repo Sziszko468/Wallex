@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { RefreshControl, StyleSheet, Text, View } from "react-native";
+import { Pressable, RefreshControl, View } from "react-native";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
@@ -7,31 +7,43 @@ import { useAsyncData } from "../hooks/useAsyncData";
 import { useRefetchOnDataChange } from "../hooks/useOffline";
 import { useRefetchOnFocus } from "../hooks/useRefetchOnFocus";
 import { Screen } from "../components/Screen";
-import { Fab } from "../components/Fab";
 import { SectionState } from "../components/SectionState";
-import { DashboardCard } from "../components/dashboard/DashboardCard";
 import { MonthSelector } from "../components/MonthSelector";
-import { SummaryCard } from "../components/dashboard/SummaryCard";
-import { SpendingTrendChart } from "../components/dashboard/SpendingTrendChart";
-import { TopCategories } from "../components/dashboard/TopCategories";
-import { RecentTransactions } from "../components/dashboard/RecentTransactions";
-import { BudgetStatus } from "../components/dashboard/BudgetStatus";
+import { BalanceCard } from "../components/dashboard/BalanceCard";
 import { Insights } from "../components/dashboard/Insights";
-import {
-  getCategoryAnalytics,
-  getDashboard,
-  getInsights,
-  getMonthlyAnalytics,
-} from "../services/analyticsService";
+import { RecentTransactions } from "../components/dashboard/RecentTransactions";
+import { SpendingSnapshot } from "../components/dashboard/SpendingSnapshot";
+import { BudgetRow } from "../components/budgets/BudgetRow";
+import { Avatar } from "../components/ui/Avatar";
+import { Card } from "../components/ui/Card";
+import { EmptyState } from "../components/ui/EmptyState";
+import { IconButton } from "../components/ui/IconButton";
+import { SectionHeader } from "../components/ui/SectionHeader";
+import { Skeleton, SkeletonRows } from "../components/ui/Skeleton";
+import { Text } from "../components/ui/Text";
+import { getCategoryAnalytics, getDashboard, getInsights } from "../services/analyticsService";
 import { listCategories } from "../services/categoriesService";
 import { listTransactions } from "../services/transactionsService";
-import { colors, fontSize, spacing } from "../utils/theme";
+import { makeStyles, radius, space, useTheme } from "../theme";
+import type { Category } from "../types/category";
+import { greetingFor } from "../utils/greeting";
 import { MONTHS_PER_YEAR } from "../config/calendar";
 
 const RECENT_TRANSACTIONS_COUNT = 5;
+/** The home screen shows the budgets closest to their limit; the budgets tab lists them all. */
+const BUDGETS_SHOWN = 3;
+
+const useStyles = makeStyles(() => ({
+  header: { flexDirection: "row", alignItems: "center", gap: space[3], minHeight: 64, paddingTop: space[3], paddingBottom: space[3] },
+  greeting: { flex: 1, gap: 1 },
+  section: { marginTop: space[4] },
+  budgets: { gap: space[5] },
+}));
 
 export function DashboardScreen() {
   const { t } = useTranslation();
+  const styles = useStyles();
+  const { colors } = useTheme();
   const { user } = useAuth();
   const today = useMemo(() => new Date(), []);
   const [year, setYear] = useState(today.getFullYear());
@@ -39,63 +51,46 @@ export function DashboardScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const dashboard = useAsyncData(useCallback(() => getDashboard({ year, month }), [year, month]));
-  const monthly = useAsyncData(useCallback(() => getMonthlyAnalytics({ year }), [year]));
-  const categoryBreakdown = useAsyncData(
-    useCallback(() => getCategoryAnalytics({ year, month }), [year, month])
-  );
+  const categoryBreakdown = useAsyncData(useCallback(() => getCategoryAnalytics({ year, month }), [year, month]));
   const insights = useAsyncData(useCallback(() => getInsights({ year, month }), [year, month]));
+  // Independent of year/month on purpose — "recent" means the latest activity overall, not a
+  // report scoped to whichever month is currently selected.
   const recentTransactions = useAsyncData(
-    useCallback(
-      () => listTransactions({ ordering: "-date", page_size: RECENT_TRANSACTIONS_COUNT }),
-      []
-    )
+    useCallback(() => listTransactions({ ordering: "-date", page_size: RECENT_TRANSACTIONS_COUNT }), [])
   );
-  // Independent of year/month on purpose — "recent" means the latest activity
-  // overall, not a report scoped to whichever month is currently selected.
   const categories = useAsyncData(useCallback(() => listCategories(), []));
 
-  const colorByCategoryId = useMemo(() => {
-    const map = new Map<number, string>();
-    categories.data?.forEach((category) => map.set(category.id, category.color));
+  const categoriesById = useMemo(() => {
+    const map = new Map<number, Category>();
+    categories.data?.forEach((category) => map.set(category.id, category));
     return map;
   }, [categories.data]);
 
-  const nameByCategoryId = useMemo(() => {
-    const map = new Map<number, string>();
-    categories.data?.forEach((category) => map.set(category.id, category.name));
-    return map;
-  }, [categories.data]);
+  const budgetsByUsage = useMemo(
+    () => [...(dashboard.data?.budget_usage ?? [])].sort((a, b) => b.usage_percentage - a.usage_percentage).slice(0, BUDGETS_SHOWN),
+    [dashboard.data]
+  );
+
+  const reloadAll = useCallback(
+    () => Promise.all([dashboard.refetch(), categoryBreakdown.refetch(), insights.refetch(), recentTransactions.refetch(), categories.refetch()]),
+    [dashboard, categoryBreakdown, insights, recentTransactions, categories]
+  );
 
   // Pending transactions were synced, or the connection came back: reload from the backend.
-  useRefetchOnDataChange(() => {
-    dashboard.refetch();
-    monthly.refetch();
-    categoryBreakdown.refetch();
-    insights.refetch();
-    recentTransactions.refetch();
-    categories.refetch();
-  });
+  useRefetchOnDataChange(() => void reloadAll());
 
   async function handleRefresh() {
     setIsRefreshing(true);
-    await Promise.all([
-      dashboard.refetch(),
-      monthly.refetch(),
-      categoryBreakdown.refetch(),
-      insights.refetch(),
-      recentTransactions.refetch(),
-      categories.refetch(),
-    ]);
+    await reloadAll();
     setIsRefreshing(false);
   }
 
-  // Picks up a transaction added through the Quick Add modal once it's dismissed.
+  // Picks up a transaction added through the add form once it's dismissed.
   useRefetchOnFocus(() => {
-    dashboard.refetch();
-    monthly.refetch();
-    categoryBreakdown.refetch();
-    insights.refetch();
-    recentTransactions.refetch();
+    void dashboard.refetch();
+    void categoryBreakdown.refetch();
+    void insights.refetch();
+    void recentTransactions.refetch();
   });
 
   function goToPreviousMonth() {
@@ -117,101 +112,129 @@ export function DashboardScreen() {
   }
 
   const displayName = user?.first_name || user?.email;
+  // Nothing recorded yet, anywhere: the screen explains what to do instead of showing empty boxes.
+  const isFirstRun = recentTransactions.data !== null && recentTransactions.data.count === 0;
 
   return (
-    <View style={styles.flex}>
-      <Screen
-        scroll
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={handleRefresh}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
-          />
-        }
+    <Screen
+      scroll
+      edges={["left", "right"]}
+      refreshControl={
+        <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={colors.primary} colors={[colors.primary]} progressBackgroundColor={colors.surfaceRaised} />
+      }
+    >
+      <View style={styles.header}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t("dashboard.account")} hitSlop={4} onPress={() => router.push("/settings")}>
+          <Avatar firstName={user?.first_name} lastName={user?.last_name} email={user?.email} size={44} />
+        </Pressable>
+        <View style={styles.greeting}>
+          <Text variant="caption" color="textSecondary">
+            {greetingFor()}
+          </Text>
+          <Text variant="heading" numberOfLines={1} header>
+            {displayName}
+          </Text>
+        </View>
+        <IconButton icon="assistant" variant="soft" accessibilityLabel={t("dashboard.askAssistant")} onPress={() => router.push("/assistant")} />
+      </View>
+
+      <MonthSelector year={year} month={month} onPrevious={goToPreviousMonth} onNext={goToNextMonth} />
+
+      <SectionState
+        isLoading={dashboard.isLoading}
+        error={dashboard.error}
+        onRetry={dashboard.refetch}
+        skeleton={<Skeleton height={206} radius={radius.lg} />}
       >
-        <Text style={styles.greeting}>
-          {displayName ? t("dashboard.greetingWithName", { name: displayName }) : t("dashboard.greeting")}
-        </Text>
+        {dashboard.data ? <BalanceCard stats={dashboard.data} /> : null}
+      </SectionState>
 
-        <MonthSelector year={year} month={month} onPrevious={goToPreviousMonth} onNext={goToNextMonth} />
+      {isFirstRun ? (
+        <View style={styles.section}>
+          <Card padding={4}>
+            <EmptyState
+              icon="transactions"
+              title={t("dashboard.firstRun.title")}
+              message={t("dashboard.firstRun.message")}
+              actionLabel={t("dashboard.firstRun.action")}
+              onAction={() => router.push("/add-transaction")}
+            />
+          </Card>
+        </View>
+      ) : null}
 
-        <DashboardCard title={t("dashboard.cards.overview")}>
-          <SectionState isLoading={dashboard.isLoading} error={dashboard.error} onRetry={dashboard.refetch}>
-            {dashboard.data && <SummaryCard stats={dashboard.data} />}
-          </SectionState>
-        </DashboardCard>
+      {insights.data && insights.data.insights.length > 0 ? (
+        <View style={styles.section}>
+          <SectionHeader title={t("dashboard.insights.title")} />
+          <Insights insights={insights.data.insights} />
+        </View>
+      ) : null}
 
-        <DashboardCard title={t("dashboard.cards.insights")}>
-          <SectionState isLoading={insights.isLoading} error={insights.error} onRetry={insights.refetch}>
-            {insights.data && <Insights insights={insights.data.insights} />}
-          </SectionState>
-        </DashboardCard>
-
-        <DashboardCard title={t("dashboard.cards.monthly")}>
-          <SectionState isLoading={monthly.isLoading} error={monthly.error} onRetry={monthly.refetch}>
-            {monthly.data && <SpendingTrendChart months={monthly.data.months} selectedMonth={month} />}
-          </SectionState>
-        </DashboardCard>
-
-        <DashboardCard title={t("dashboard.cards.topCategories")}>
+      {isFirstRun ? null : (
+        <View style={styles.section}>
+          <SectionHeader title={t("dashboard.spending.title")} actionLabel={t("dashboard.spending.seeAnalytics")} onAction={() => router.push("/analytics")} />
           <SectionState
             isLoading={categoryBreakdown.isLoading || categories.isLoading}
             error={categoryBreakdown.error ?? categories.error}
             onRetry={() => {
-              categoryBreakdown.refetch();
-              categories.refetch();
+              void categoryBreakdown.refetch();
+              void categories.refetch();
             }}
+            skeleton={<Skeleton height={132} radius={radius.lg} />}
           >
-            {categoryBreakdown.data && (
-              <TopCategories
-                categories={categoryBreakdown.data.categories}
-                colorByCategoryId={colorByCategoryId}
-              />
-            )}
+            {categoryBreakdown.data ? <SpendingSnapshot categories={categoryBreakdown.data.categories} categoriesById={categoriesById} /> : null}
           </SectionState>
-        </DashboardCard>
+        </View>
+      )}
 
-        <DashboardCard title={t("dashboard.cards.recent")}>
+      {dashboard.data && budgetsByUsage.length > 0 ? (
+        <View style={styles.section}>
+          <SectionHeader title={t("dashboard.budgets.title")} actionLabel={t("dashboard.budgets.viewAll")} onAction={() => router.push("/budgets")} />
+          <Card padding={4}>
+            <View style={styles.budgets}>
+              {budgetsByUsage.map((budget) => (
+                <BudgetRow
+                  key={budget.budget_id}
+                  compact
+                  name={budget.category_name || t("budgets.overall")}
+                  category={budget.category_id !== null ? categoriesById.get(budget.category_id) : undefined}
+                  spent={budget.spent_amount}
+                  budget={budget.budget_amount}
+                  remaining={budget.remaining_amount}
+                  usagePercentage={budget.usage_percentage}
+                />
+              ))}
+            </View>
+          </Card>
+        </View>
+      ) : null}
+
+      {isFirstRun ? null : (
+        <View style={styles.section}>
+          <SectionHeader title={t("dashboard.recent.title")} actionLabel={t("dashboard.recent.viewAll")} onAction={() => router.push("/transactions")} />
           <SectionState
             isLoading={recentTransactions.isLoading || categories.isLoading}
             error={recentTransactions.error ?? categories.error}
             onRetry={() => {
-              recentTransactions.refetch();
-              categories.refetch();
+              void recentTransactions.refetch();
+              void categories.refetch();
             }}
+            skeleton={
+              <Card padding={0}>
+                <SkeletonRows count={3} />
+              </Card>
+            }
           >
-            {recentTransactions.data && (
+            {recentTransactions.data ? (
               <RecentTransactions
                 transactions={recentTransactions.data.results}
-                colorByCategoryId={colorByCategoryId}
-                nameByCategoryId={nameByCategoryId}
+                categoriesById={categoriesById}
+                onOpen={(transactionId) => router.push(`/transaction/${transactionId}`)}
               />
-            )}
+            ) : null}
           </SectionState>
-        </DashboardCard>
-
-        <DashboardCard title={t("dashboard.cards.budgetStatus")}>
-          <SectionState isLoading={dashboard.isLoading} error={dashboard.error} onRetry={dashboard.refetch}>
-            {dashboard.data && <BudgetStatus budgets={dashboard.data.budget_usage} />}
-          </SectionState>
-        </DashboardCard>
-      </Screen>
-
-      <Fab accessibilityLabel={t("dashboard.addTransaction")} onPress={() => router.push("/add-transaction")} />
-    </View>
+        </View>
+      )}
+    </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  flex: {
-    flex: 1,
-  },
-  greeting: {
-    fontSize: fontSize.xl,
-    fontWeight: "700",
-    color: colors.text,
-    marginBottom: spacing.md,
-  },
-});

@@ -1,76 +1,60 @@
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { colors, fontSize, radius, spacing } from "../../utils/theme";
+import { fontFamilies, layout, makeStyles, radius, space, useTheme } from "../../theme";
+import { Icon } from "../icons/Icon";
+import { IconButton } from "../ui/IconButton";
 
 interface SearchBarProps {
   value: string;
   onChangeText: (text: string) => void;
   placeholder?: string;
+  autoFocus?: boolean;
 }
 
-export function SearchBar({ value, onChangeText, placeholder }: SearchBarProps) {
+const useStyles = makeStyles(({ colors }) => ({
+  container: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space[1],
+    minHeight: layout.controlHeight,
+    paddingLeft: space[4],
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.controlBorder,
+    backgroundColor: colors.surface,
+  },
+  input: { flex: 1, paddingVertical: space[2], color: colors.text, fontFamily: fontFamilies.regular, fontSize: 16 },
+}));
+
+/** The search field that opens under the header: a magnifier, the text, and a clear button once there is text. */
+export function SearchBar({ value, onChangeText, placeholder, autoFocus = false }: SearchBarProps) {
   const { t } = useTranslation();
+  const styles = useStyles();
+  const { colors } = useTheme();
   const label = placeholder ?? t("transactions.search");
+
   return (
     <View style={styles.container}>
-      <Text style={styles.icon} accessibilityElementsHidden importantForAccessibility="no">
-        {"\u{1F50D}"}
-      </Text>
+      <Icon name="search" size={20} color={colors.textSecondary} />
       <TextInput
         style={styles.input}
         value={value}
         onChangeText={onChangeText}
         placeholder={label}
-        placeholderTextColor={colors.textMuted}
+        placeholderTextColor={colors.textTertiary}
+        selectionColor={colors.primary}
         accessibilityLabel={label}
         autoCapitalize="none"
         autoCorrect={false}
+        autoFocus={autoFocus}
         returnKeyType="search"
+        maxFontSizeMultiplier={1.4}
       />
-      {value.length > 0 && (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t("transactions.clearSearch")}
-          onPress={() => onChangeText("")}
-          hitSlop={8}
-          style={styles.clearButton}
-        >
-          <Text style={styles.clearIcon}>×</Text>
-        </Pressable>
+      {value.length > 0 ? (
+        <IconButton icon="x" iconSize={18} iconColor="textSecondary" accessibilityLabel={t("transactions.clearSearch")} onPress={() => onChangeText("")} />
+      ) : (
+        <View style={{ width: space[3] }} />
       )}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.sm,
-    minHeight: 44,
-  },
-  icon: {
-    fontSize: fontSize.base,
-    marginRight: spacing.xs,
-  },
-  input: {
-    flex: 1,
-    fontSize: fontSize.base,
-    color: colors.text,
-    paddingVertical: spacing.sm,
-  },
-  clearButton: {
-    width: 28,
-    height: 28,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  clearIcon: {
-    fontSize: fontSize.lg,
-    color: colors.textMuted,
-  },
-});

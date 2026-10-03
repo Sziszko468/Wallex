@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { listTransactions } from "../services/transactionsService";
+import type { TransactionType } from "../types/category";
 import type { Transaction } from "../types/transaction";
 import { nextSyncTick } from "../utils/syncClock";
 import { useSyncState } from "./useSync";
@@ -12,6 +13,8 @@ type FetchMode = "replace" | "append" | "revalidate";
 
 interface UsePaginatedTransactionsParams {
   search: string;
+  /** Only expenses or only income; omitted for both. */
+  type?: TransactionType;
   category: number | undefined;
   dateFrom: string | undefined;
   dateTo: string | undefined;
@@ -43,6 +46,7 @@ interface UsePaginatedTransactionsResult {
  */
 export function usePaginatedTransactions({
   search,
+  type,
   category,
   dateFrom,
   dateTo,
@@ -69,6 +73,7 @@ export function usePaginatedTransactions({
       try {
         const response = await listTransactions({
           search: search || undefined,
+          type,
           category,
           date_from: dateFrom,
           date_to: dateTo,
@@ -100,7 +105,7 @@ export function usePaginatedTransactions({
         }
       }
     },
-    [search, category, dateFrom, dateTo]
+    [search, type, category, dateFrom, dateTo]
   );
 
   useEffect(() => {

@@ -1,13 +1,34 @@
 export const transactions = {
   search: "Search transactions",
+  openSearch: "Search",
   clearSearch: "Clear search",
+  filters: "Filters",
+  filterGroups: {
+    type: "Type",
+    category: "Category",
+    date: "Date",
+  },
+  types: {
+    all: "All",
+  },
+  clearFilters: "Clear all",
+  removeFilter: "Remove filter {{name}}",
   presets: {
     all: "All time",
     thisMonth: "This month",
     lastMonth: "Last month",
   },
   allCategories: "All",
-  empty: "No transactions match your filters.",
+  empty: {
+    title: "No transactions yet",
+    message: "Add your first transaction and {{appName}} will start building your financial overview.",
+    action: "Add transaction",
+  },
+  noMatches: {
+    title: "Nothing matches",
+    message: "Try a different search or fewer filters.",
+    action: "Clear filters",
+  },
   endOfList: "That's every transaction.",
   itemLabel: "{{title}}, {{category}}, {{date}}, {{amount}}",
   itemLabelConverted: "{{title}}, {{category}}, {{date}}, {{amount}}, {{converted}}",
@@ -20,6 +41,7 @@ export const transactions = {
     category: "Category",
   },
   details: {
+    category: "Category",
     description: "Description",
     date: "Date",
     inCurrency: "In {{currency}}",
@@ -32,7 +54,8 @@ export const transactions = {
     couldntDelete: "Couldn't delete",
   },
   form: {
-    scanInstead: "📷  Scan a receipt instead",
+    scanInstead: "Scan a receipt instead",
+    offlineHint: "You're offline. This transaction is saved on your phone and syncs when you're back online.",
     offlineEdit: "You're offline. Editing needs a connection — try again once you're back online.",
     conflict:
       "This transaction was just changed on another device. Its latest version is shown — make your change again and save.",
@@ -41,7 +64,8 @@ export const transactions = {
 } as const;
 
 export const recurring = {
-  empty: "No recurring transactions yet. Tap + to add rent, subscriptions, or bills.",
+  emptyTitle: "No recurring transactions yet",
+  empty: "Rent, subscriptions and bills that repeat belong here. Add one with the button below.",
   add: "Add recurring transaction",
   deleteTitle: "Delete recurring transaction",
   couldntDelete: "Couldn't delete",
@@ -61,6 +85,7 @@ export const recurring = {
   form: {
     namePlaceholder: "e.g. Rent, Netflix, Spotify",
     frequency: "Frequency",
+    startDate: "Start date",
     endDate: "End date (optional)",
     descriptionPlaceholder: "e.g. Apartment on Main St.",
     active: "Active",

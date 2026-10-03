@@ -2,13 +2,24 @@ import type { DeepStrings } from "../../types";
 import type { settings as en } from "../en/settings";
 
 export const settings: DeepStrings<typeof en> = {
-  title: "Beállítások",
+  title: "Továbbiak",
   profile: {
-    title: "Profil",
-    email: "E-mail",
-    firstName: "Keresztnév",
-    lastName: "Vezetéknév",
     memberSince: "Tag ekkortól",
+  },
+  tools: {
+    title: "Eszközök",
+  },
+  appearance: {
+    title: "Megjelenés",
+    theme: "Téma",
+    hint: "A Rendszer a telefonod világos vagy sötét beállítását követi.",
+    system: "Rendszer",
+    light: "Világos",
+    dark: "Sötét",
+  },
+  about: {
+    title: "Névjegy",
+    version: "Verzió",
   },
   language: {
     title: "Nyelv",
@@ -51,7 +62,6 @@ export const settings: DeepStrings<typeof en> = {
   },
   session: {
     title: "Munkamenet",
-    hint: "Kijelentkezés a {{appName}} alkalmazásból ezen az eszközön.",
     unsynced_one:
       "{{count}} tranzakció még nincs szinkronizálva. Ha most kijelentkezel, elveszik – csatlakozz előbb az internethez, hogy megmaradjon.",
     unsynced_other:

@@ -1,82 +1,29 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { View } from "react-native";
 import { useTranslation } from "react-i18next";
+import { makeStyles, space } from "../theme";
 import type { TransactionType } from "../types/category";
-import { colors, fontSize, radius, spacing } from "../utils/theme";
+import { SegmentedControl, type SegmentedOption } from "./ui/SegmentedControl";
 
 interface TypeToggleProps {
   value: TransactionType;
   onChange: (type: TransactionType) => void;
 }
 
+const useStyles = makeStyles(() => ({
+  wrap: { marginBottom: space[4] },
+}));
+
+/** Expense or income. Each side has a word and a direction arrow — colour is never the only signal. */
 export function TypeToggle({ value, onChange }: TypeToggleProps) {
   const { t } = useTranslation();
+  const styles = useStyles();
+  const options: SegmentedOption<TransactionType>[] = [
+    { value: "expense", label: t("common.transactionType.expense"), icon: "arrow-up-right" },
+    { value: "income", label: t("common.transactionType.income"), icon: "arrow-down-left" },
+  ];
   return (
-    <View style={styles.row}>
-      <Segment
-        label={t("common.transactionType.expense")}
-        isActive={value === "expense"}
-        activeColor={colors.danger}
-        onPress={() => onChange("expense")}
-      />
-      <Segment
-        label={t("common.transactionType.income")}
-        isActive={value === "income"}
-        activeColor={colors.success}
-        onPress={() => onChange("income")}
-      />
+    <View style={styles.wrap}>
+      <SegmentedControl options={options} value={value} onChange={onChange} accessibilityLabel={t("transactions.filterGroups.type")} />
     </View>
   );
 }
-
-interface SegmentProps {
-  label: string;
-  isActive: boolean;
-  activeColor: string;
-  onPress: () => void;
-}
-
-function Segment({ label, isActive, activeColor, onPress }: SegmentProps) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected: isActive }}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.segment,
-        isActive && { backgroundColor: activeColor, borderColor: activeColor },
-        pressed && !isActive && styles.pressed,
-      ]}
-    >
-      <Text style={[styles.label, isActive && styles.labelActive]}>{label}</Text>
-    </Pressable>
-  );
-}
-
-const styles = StyleSheet.create({
-  row: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  segment: {
-    flex: 1,
-    minHeight: 48,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: radius.md,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  pressed: {
-    opacity: 0.7,
-  },
-  label: {
-    fontSize: fontSize.base,
-    fontWeight: "700",
-    color: colors.textMuted,
-  },
-  labelActive: {
-    color: "#fff",
-  },
-});

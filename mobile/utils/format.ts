@@ -39,6 +39,26 @@ export function formatCurrency(value: string | number, currency: CurrencyCode): 
   return currencyFormatter(currency).format(numeric);
 }
 
+const MINUS_SIGN = "−"; // a real minus, as wide as the plus beside it
+
+/**
+ * An amount with its direction in front: income "+€3,000.00", expense "−€12.50". The sign is the
+ * signal; colour only backs it up. Pure display — the value is shown exactly as the API sent it.
+ */
+export function formatSignedAmount(type: "income" | "expense", value: string | number, currency: CurrencyCode): string {
+  return `${type === "income" ? "+" : MINUS_SIGN}${formatCurrency(value, currency)}`;
+}
+
+/** The currency's own sign ("€", "$", "Ft") for the interface language, or its code when the device has none. */
+export function currencySymbol(currency: CurrencyCode): string {
+  try {
+    const parts = new Intl.NumberFormat(currentLocale(), { style: "currency", currency, currencyDisplay: "narrowSymbol" }).formatToParts(0);
+    return parts.find((part) => part.type === "currency")?.value ?? currency;
+  } catch {
+    return currency;
+  }
+}
+
 /** A percentage the API already computed: "14.3%" (English) or "14,3%" (Hungarian). */
 export function formatPercentage(value: number): string {
   const locale = currentLocale();

@@ -1,10 +1,14 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { View } from "react-native";
 import { useTranslation } from "react-i18next";
+import { useBaseCurrency } from "../../hooks/useBaseCurrency";
+import { makeStyles, radius, space } from "../../theme";
 import type { PendingTransaction } from "../../services/outbox";
 import type { Category } from "../../types/category";
-import { formatCurrency, formatShortDate } from "../../utils/format";
-import { useBaseCurrency } from "../../hooks/useBaseCurrency";
-import { colors, fontSize, radius, spacing } from "../../utils/theme";
+import { formatShortDate, formatSignedAmount } from "../../utils/format";
+import { Badge } from "../ui/Badge";
+import { Button } from "../ui/Button";
+import { CategoryMark } from "../ui/CategoryMark";
+import { Text } from "../ui/Text";
 
 interface PendingTransactionsListProps {
   items: readonly PendingTransaction[];
@@ -13,143 +17,86 @@ interface PendingTransactionsListProps {
   onDiscard: (clientId: string) => void;
 }
 
+const useStyles = makeStyles(({ colors }) => ({
+  container: { gap: space[2], marginBottom: space[4] },
+  card: {
+    gap: space[3],
+    padding: space[3],
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.surface,
+  },
+  cardFailed: { borderStyle: "solid", borderColor: colors.danger },
+  row: { flexDirection: "row", alignItems: "center", gap: space[3] },
+  text: { flex: 1, gap: 2 },
+  actions: { flexDirection: "row", gap: space[2] },
+  action: { flex: 1 },
+}));
+
 /**
- * Transactions recorded offline that the backend doesn't have yet. Shown
- * separately from the server list: they aren't part of any total until synced.
+ * Transactions recorded offline that the backend doesn't have yet. Shown separately from the
+ * server list: they aren't part of any total until synced.
  */
 export function PendingTransactionsList({ items, categoriesById, onRetry, onDiscard }: PendingTransactionsListProps) {
   const { t } = useTranslation();
+  const styles = useStyles();
   const baseCurrency = useBaseCurrency();
   if (items.length === 0) return null;
 
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>{t("transactions.pending.heading")}</Text>
+      <Text variant="label" color="textSecondary">
+        {t("transactions.pending.heading")}
+      </Text>
       {items.map((item) => {
         const category = categoriesById.get(item.payload.category);
-        const isIncome = item.payload.type === "income";
         const isFailed = item.status === "failed";
         return (
           <View key={item.client_id} style={[styles.card, isFailed && styles.cardFailed]}>
             <View style={styles.row}>
-              <View style={styles.details}>
-                <Text style={styles.title} numberOfLines={1}>
+              <CategoryMark category={category} />
+              <View style={styles.text}>
+                <Text variant="bodyStrong" numberOfLines={1}>
                   {item.payload.description || category?.name || t("common.transaction")}
                 </Text>
-                <Text style={styles.meta} numberOfLines={1}>
+                <Text variant="caption" color="textSecondary" numberOfLines={1}>
                   {category?.name ?? t("transactions.pending.category")} · {formatShortDate(item.payload.date)}
                 </Text>
               </View>
-              <Text style={styles.amount}>
-                {isIncome ? "+" : "-"}
-                {formatCurrency(item.payload.amount, item.payload.currency ?? baseCurrency)}
-              </Text>
-              <Text style={[styles.badge, isFailed ? styles.badgeFailed : styles.badgePending]}>
-                {isFailed ? t("transactions.pending.failed") : t("transactions.pending.pending")}
-              </Text>
+              <View style={{ alignItems: "flex-end", gap: space[1] }}>
+                <Text variant="amount" color="textSecondary" numberOfLines={1}>
+                  {formatSignedAmount(item.payload.type, item.payload.amount, item.payload.currency ?? baseCurrency)}
+                </Text>
+                <Badge
+                  label={isFailed ? t("transactions.pending.failed") : t("transactions.pending.pending")}
+                  tone={isFailed ? "danger" : "warning"}
+                  icon={isFailed ? "alert-circle" : "clock"}
+                />
+              </View>
             </View>
 
-            {isFailed && (
+            {isFailed ? (
               <>
-                {item.last_error && <Text style={styles.error}>{item.last_error}</Text>}
+                {item.last_error ? (
+                  <Text variant="caption" color="danger">
+                    {item.last_error}
+                  </Text>
+                ) : null}
                 <View style={styles.actions}>
-                  <Pressable accessibilityRole="button" onPress={() => onRetry(item.client_id)} hitSlop={8}>
-                    <Text style={styles.actionText}>{t("transactions.pending.retry")}</Text>
-                  </Pressable>
-                  <Pressable accessibilityRole="button" onPress={() => onDiscard(item.client_id)} hitSlop={8}>
-                    <Text style={[styles.actionText, styles.discard]}>{t("transactions.pending.discard")}</Text>
-                  </Pressable>
+                  <View style={styles.action}>
+                    <Button title={t("transactions.pending.retry")} variant="secondary" onPress={() => onRetry(item.client_id)} />
+                  </View>
+                  <View style={styles.action}>
+                    <Button title={t("transactions.pending.discard")} variant="dangerSoft" onPress={() => onDiscard(item.client_id)} />
+                  </View>
                 </View>
               </>
-            )}
+            ) : null}
           </View>
         );
       })}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    marginBottom: spacing.sm,
-  },
-  heading: {
-    fontSize: fontSize.sm,
-    fontWeight: "700",
-    color: colors.textMuted,
-    marginBottom: spacing.xs,
-  },
-  card: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderStyle: "dashed",
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  cardFailed: {
-    borderColor: colors.danger,
-    borderStyle: "solid",
-  },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  details: {
-    flex: 1,
-  },
-  title: {
-    fontSize: fontSize.base,
-    fontWeight: "700",
-    color: colors.text,
-  },
-  meta: {
-    marginTop: 2,
-    fontSize: fontSize.sm,
-    color: colors.textMuted,
-  },
-  amount: {
-    fontSize: fontSize.base,
-    fontWeight: "700",
-    color: colors.textMuted,
-  },
-  badge: {
-    fontSize: 12,
-    fontWeight: "700",
-    paddingHorizontal: spacing.xs,
-    paddingVertical: 2,
-    borderRadius: radius.sm,
-    overflow: "hidden",
-  },
-  badgePending: {
-    color: colors.warning,
-    backgroundColor: "rgba(217, 119, 6, 0.12)",
-  },
-  badgeFailed: {
-    color: colors.danger,
-    backgroundColor: "rgba(220, 38, 38, 0.1)",
-  },
-  error: {
-    marginTop: spacing.xs,
-    fontSize: fontSize.sm,
-    color: colors.danger,
-  },
-  actions: {
-    flexDirection: "row",
-    gap: spacing.lg,
-    marginTop: spacing.xs,
-  },
-  actionText: {
-    fontSize: fontSize.sm,
-    fontWeight: "700",
-    color: colors.primary,
-    minHeight: 32,
-    textAlignVertical: "center",
-  },
-  discard: {
-    color: colors.danger,
-  },
-});

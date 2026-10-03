@@ -1,20 +1,27 @@
 import { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { View } from "react-native";
 import { Link } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { APP_NAME } from "../config/app";
 import { useAuth } from "../hooks/useAuth";
 import { useLanguage } from "../hooks/useLanguage";
+import { fontFamilies, makeStyles, space, useTheme } from "../theme";
 import { extractErrorMessage, extractFieldErrors, type FieldErrors } from "../utils/errors";
-import { Button } from "../components/Button";
+import { AuthFrame } from "../components/auth/AuthFrame";
 import { LanguageSelector } from "../components/LanguageSelector";
-import { TextField } from "../components/TextField";
 import { ErrorBanner } from "../components/ErrorBanner";
-import { Screen } from "../components/Screen";
-import { colors, fontSize, spacing } from "../utils/theme";
+import { Button } from "../components/ui/Button";
+import { Text } from "../components/ui/Text";
+import { TextField } from "../components/ui/TextField";
+
+const useStyles = makeStyles(() => ({
+  actions: { gap: space[3], marginTop: space[2] },
+  switch: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", alignItems: "center", minHeight: 44 },
+}));
 
 export function RegisterScreen() {
   const { t } = useTranslation();
+  const styles = useStyles();
+  const { colors } = useTheme();
   const { register } = useAuth();
   const { language } = useLanguage();
 
@@ -51,9 +58,22 @@ export function RegisterScreen() {
   }
 
   return (
-    <Screen scroll>
-      <Text style={styles.brand}>{APP_NAME}</Text>
-      <Text style={styles.heading}>{t("auth.register.title")}</Text>
+    <AuthFrame
+      title={t("auth.register.title")}
+      footer={
+        <>
+          <View style={styles.switch}>
+            <Text variant="body" color="textSecondary">
+              {t("auth.register.haveAccount")}{" "}
+            </Text>
+            <Link href="/login" style={{ color: colors.primaryInk, fontFamily: fontFamilies.semibold, fontSize: 15, paddingVertical: space[3] }}>
+              {t("auth.register.loginLink")}
+            </Link>
+          </View>
+          <LanguageSelector />
+        </>
+      }
+    >
       <ErrorBanner message={errorMessage} />
 
       <TextField label={t("auth.fields.firstName")} autoComplete="name-given" value={firstName} onChangeText={setFirstName} error={fieldErrors.first_name} />
@@ -85,51 +105,9 @@ export function RegisterScreen() {
         onChangeText={setPasswordConfirm}
         error={fieldErrors.password_confirm}
       />
-      <Button title={t("auth.register.submit")} onPress={handleSubmit} isLoading={isSubmitting} />
-
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>{t("auth.register.haveAccount")} </Text>
-        <Link href="/login" style={styles.link}>
-          {t("auth.register.loginLink")}
-        </Link>
+      <View style={styles.actions}>
+        <Button title={t("auth.register.submit")} size="large" onPress={handleSubmit} isLoading={isSubmitting} />
       </View>
-
-      <View style={styles.language}>
-        <LanguageSelector />
-      </View>
-    </Screen>
+    </AuthFrame>
   );
 }
-
-const styles = StyleSheet.create({
-  brand: {
-    fontSize: fontSize.xl,
-    fontWeight: "700",
-    color: colors.primary,
-    textAlign: "center",
-    marginBottom: spacing.lg,
-  },
-  heading: {
-    fontSize: fontSize.lg,
-    fontWeight: "700",
-    color: colors.text,
-    marginBottom: spacing.md,
-  },
-  footer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginTop: spacing.md,
-  },
-  footerText: {
-    color: colors.textMuted,
-    fontSize: fontSize.sm,
-  },
-  language: {
-    marginTop: spacing.lg,
-  },
-  link: {
-    color: colors.primary,
-    fontSize: fontSize.sm,
-    fontWeight: "600",
-  },
-});

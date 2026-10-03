@@ -1,11 +1,22 @@
 export const settings = {
-  title: "Settings",
+  title: "More",
   profile: {
-    title: "Profile",
-    email: "Email",
-    firstName: "First name",
-    lastName: "Last name",
     memberSince: "Member since",
+  },
+  tools: {
+    title: "Tools",
+  },
+  appearance: {
+    title: "Appearance",
+    theme: "Theme",
+    hint: "System follows your phone's light or dark setting.",
+    system: "System",
+    light: "Light",
+    dark: "Dark",
+  },
+  about: {
+    title: "About",
+    version: "Version",
   },
   language: {
     title: "Language",
@@ -48,7 +59,6 @@ export const settings = {
   },
   session: {
     title: "Session",
-    hint: "Log out of {{appName}} on this device.",
     unsynced_one:
       "{{count}} transaction hasn't been synced yet. Logging out now discards it — connect to the internet first to keep it.",
     unsynced_other:

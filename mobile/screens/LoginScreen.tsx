@@ -1,20 +1,27 @@
 import { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { View } from "react-native";
 import { Link } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { APP_NAME } from "../config/app";
 import { MFA_CODE_LENGTH } from "../config/security";
 import { useAuth } from "../hooks/useAuth";
+import { fontFamilies, makeStyles, space, useTheme } from "../theme";
 import { extractErrorMessage } from "../utils/errors";
-import { Button } from "../components/Button";
+import { AuthFrame } from "../components/auth/AuthFrame";
 import { LanguageSelector } from "../components/LanguageSelector";
-import { TextField } from "../components/TextField";
 import { ErrorBanner } from "../components/ErrorBanner";
-import { Screen } from "../components/Screen";
-import { colors, fontSize, spacing } from "../utils/theme";
+import { Button } from "../components/ui/Button";
+import { Text } from "../components/ui/Text";
+import { TextField } from "../components/ui/TextField";
+
+const useStyles = makeStyles(() => ({
+  actions: { gap: space[3], marginTop: space[2] },
+  switch: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", alignItems: "center", minHeight: 44 },
+}));
 
 export function LoginScreen() {
   const { t } = useTranslation();
+  const styles = useStyles();
+  const { colors } = useTheme();
   const { login, verifyMfa, signOutReason } = useAuth();
 
   const [email, setEmail] = useState("");
@@ -55,10 +62,7 @@ export function LoginScreen() {
 
   if (mfaToken) {
     return (
-      <Screen scroll>
-        <Text style={styles.brand}>{APP_NAME}</Text>
-        <Text style={styles.heading}>{t("auth.mfa.title")}</Text>
-        <Text style={styles.hint}>{t("auth.mfa.subtitle", { digits: MFA_CODE_LENGTH })}</Text>
+      <AuthFrame title={t("auth.mfa.title")} subtitle={t("auth.mfa.subtitle", { digits: MFA_CODE_LENGTH })}>
         <ErrorBanner message={errorMessage} />
         <TextField
           label={t("auth.mfa.code")}
@@ -69,24 +73,39 @@ export function LoginScreen() {
           value={code}
           onChangeText={setCode}
         />
-        <Button title={t("auth.mfa.verify")} onPress={handleCode} isLoading={isSubmitting} />
-        <Button
-          title={t("auth.mfa.differentAccount")}
-          variant="secondary"
-          onPress={() => {
-            setMfaToken(null);
-            setCode("");
-            setErrorMessage(null);
-          }}
-        />
-      </Screen>
+        <View style={styles.actions}>
+          <Button title={t("auth.mfa.verify")} size="large" onPress={handleCode} isLoading={isSubmitting} />
+          <Button
+            title={t("auth.mfa.differentAccount")}
+            variant="ghost"
+            onPress={() => {
+              setMfaToken(null);
+              setCode("");
+              setErrorMessage(null);
+            }}
+          />
+        </View>
+      </AuthFrame>
     );
   }
 
   return (
-    <Screen scroll>
-      <Text style={styles.brand}>{APP_NAME}</Text>
-      <Text style={styles.heading}>{t("auth.login.title")}</Text>
+    <AuthFrame
+      title={t("auth.login.title")}
+      footer={
+        <>
+          <View style={styles.switch}>
+            <Text variant="body" color="textSecondary">
+              {t("auth.login.noAccount")}{" "}
+            </Text>
+            <Link href="/register" style={{ color: colors.primaryInk, fontFamily: fontFamilies.semibold, fontSize: 15, paddingVertical: space[3] }}>
+              {t("auth.login.registerLink")}
+            </Link>
+          </View>
+          <LanguageSelector />
+        </>
+      }
+    >
       <ErrorBanner message={errorMessage ?? (signOutReason ? t(`auth.notices.${signOutReason}`) : null)} />
 
       <TextField
@@ -105,56 +124,9 @@ export function LoginScreen() {
         value={password}
         onChangeText={setPassword}
       />
-      <Button title={t("auth.login.submit")} onPress={handleSubmit} isLoading={isSubmitting} />
-
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>{t("auth.login.noAccount")} </Text>
-        <Link href="/register" style={styles.link}>
-          {t("auth.login.registerLink")}
-        </Link>
+      <View style={styles.actions}>
+        <Button title={t("auth.login.submit")} size="large" onPress={handleSubmit} isLoading={isSubmitting} />
       </View>
-
-      <View style={styles.language}>
-        <LanguageSelector />
-      </View>
-    </Screen>
+    </AuthFrame>
   );
 }
-
-const styles = StyleSheet.create({
-  brand: {
-    fontSize: fontSize.xl,
-    fontWeight: "700",
-    color: colors.primary,
-    textAlign: "center",
-    marginBottom: spacing.lg,
-  },
-  heading: {
-    fontSize: fontSize.lg,
-    fontWeight: "700",
-    color: colors.text,
-    marginBottom: spacing.md,
-  },
-  hint: {
-    color: colors.textMuted,
-    fontSize: fontSize.sm,
-    marginBottom: spacing.md,
-  },
-  footer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginTop: spacing.md,
-  },
-  footerText: {
-    color: colors.textMuted,
-    fontSize: fontSize.sm,
-  },
-  language: {
-    marginTop: spacing.lg,
-  },
-  link: {
-    color: colors.primary,
-    fontSize: fontSize.sm,
-    fontWeight: "600",
-  },
-});

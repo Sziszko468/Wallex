@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Image, Linking, Platform, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Image, Linking, Platform, View } from "react-native";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
 import * as ImagePicker from "expo-image-picker";
@@ -12,12 +12,14 @@ import { scanReceipt } from "../services/receiptService";
 import { extractErrorMessage } from "../utils/errors";
 import { problemFromError, problemFromScan, type ProblemAction, type ScanProblem } from "../utils/receiptProblems";
 import { Screen } from "../components/Screen";
-import { Button } from "../components/Button";
 import { ErrorBanner } from "../components/ErrorBanner";
+import { Icon } from "../components/icons/Icon";
+import { Button } from "../components/ui/Button";
+import { Text } from "../components/ui/Text";
 import { SectionState } from "../components/SectionState";
 import { ReceiptConfirmation, type ConfirmedReceipt } from "../components/receipts/ReceiptConfirmation";
 import { ScanProblemPanel } from "../components/receipts/ScanProblemPanel";
-import { colors, fontSize, radius, spacing } from "../utils/theme";
+import { makeStyles, radius, space, useTheme } from "../theme";
 import type { ReceiptScan } from "../types/receipt";
 
 const SUCCESS_DISMISS_DELAY_MS = 700;
@@ -37,6 +39,8 @@ type PickerResult = ImagePicker.ImagePickerResult;
 
 export function ScanReceiptScreen() {
   const { t } = useTranslation();
+  const styles = useStyles();
+  const { colors } = useTheme();
   const [step, setStep] = useState<Step>({ kind: "capture" });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [cameraBlocked, setCameraBlocked] = useState(false);
@@ -114,7 +118,9 @@ export function ScanReceiptScreen() {
         <View style={styles.center}>
           <Image source={{ uri: step.photoUri }} style={styles.preview} resizeMode="contain" />
           <ActivityIndicator color={colors.primary} size="large" />
-          <Text style={styles.muted}>{t("receipts.scan.reading")}</Text>
+          <Text variant="body" color="textSecondary">
+            {t("receipts.scan.reading")}
+          </Text>
         </View>
       </Screen>
     );
@@ -151,66 +157,42 @@ export function ScanReceiptScreen() {
   // Reading the receipt happens on the server, so scanning needs a connection.
   const canScan = !isOffline;
   return (
-    <Screen>
-      <Text style={styles.heading}>{t("receipts.scan.title")}</Text>
-      <Text style={styles.muted}>{t("receipts.scan.intro")}</Text>
-      <View style={styles.spacerLarge} />
+    <Screen
+      scroll
+      contentStyle={styles.captureContent}
+      footer={
+        <View style={styles.actions}>
+          <Button title={t("receipts.scan.takePhoto")} icon="camera" size="large" onPress={handleTakePhoto} disabled={!canScan} />
+          <Button title={t("receipts.scan.choose")} icon="image" variant="secondary" onPress={handleChoosePhoto} disabled={!canScan} />
+          <Button title={t("receipts.scan.manual")} variant="ghost" onPress={() => router.replace("/add-transaction")} />
+        </View>
+      }
+    >
+      <View style={styles.hero}>
+        <View style={styles.heroTile}>
+          <Icon name="receipt" size={34} color={colors.primaryInk} />
+        </View>
+        <Text variant="title" header align="center">
+          {t("receipts.scan.title")}
+        </Text>
+        <Text variant="body" color="textSecondary" align="center">
+          {t("receipts.scan.intro")}
+        </Text>
+      </View>
 
-      {!canScan && (
-        <ErrorBanner message={t("receipts.scan.offline")} />
-      )}
+      {!canScan ? <ErrorBanner message={t("receipts.scan.offline")} /> : null}
       <ErrorBanner message={errorMessage} />
-      {cameraBlocked && Platform.OS !== "web" && (
-        <>
-          <Button title={t("receipts.scan.openSettings")} variant="secondary" onPress={() => void Linking.openSettings()} />
-          <View style={styles.spacer} />
-        </>
-      )}
-
-      <Button title={t("receipts.scan.takePhoto")} size="large" onPress={handleTakePhoto} disabled={!canScan} />
-      <View style={styles.spacer} />
-      <Button title={t("receipts.scan.choose")} variant="secondary" onPress={handleChoosePhoto} disabled={!canScan} />
-      <View style={styles.spacerLarge} />
-      <Button title={t("receipts.scan.manual")} variant="secondary" onPress={() => router.replace("/add-transaction")} />
+      {cameraBlocked && Platform.OS !== "web" ? <Button title={t("receipts.scan.openSettings")} variant="secondary" onPress={() => void Linking.openSettings()} /> : null}
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  heading: {
-    fontSize: fontSize.lg,
-    fontWeight: "700",
-    color: colors.text,
-    marginBottom: spacing.xs,
-  },
-  muted: {
-    fontSize: fontSize.sm,
-    color: colors.textMuted,
-    textAlign: "left",
-  },
-  center: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.md,
-  },
-  preview: {
-    width: "100%",
-    height: 320,
-    borderRadius: radius.md,
-    backgroundColor: colors.border,
-  },
-  thumbnail: {
-    width: "100%",
-    height: 160,
-    borderRadius: radius.md,
-    backgroundColor: colors.border,
-    marginBottom: spacing.md,
-  },
-  spacer: {
-    height: spacing.sm,
-  },
-  spacerLarge: {
-    height: spacing.lg,
-  },
-});
+const useStyles = makeStyles(({ colors }) => ({
+  center: { flex: 1, alignItems: "center", justifyContent: "center", gap: space[4] },
+  preview: { width: "100%", height: 320, borderRadius: radius.lg, backgroundColor: colors.bgSubtle },
+  thumbnail: { width: "100%", height: 160, borderRadius: radius.lg, backgroundColor: colors.bgSubtle, marginBottom: space[5] },
+  captureContent: { justifyContent: "center" },
+  hero: { alignItems: "center", gap: space[3], paddingVertical: space[8] },
+  heroTile: { width: 72, height: 72, alignItems: "center", justifyContent: "center", borderRadius: radius.xl, backgroundColor: colors.primarySoft, marginBottom: space[2] },
+  actions: { gap: space[2] },
+}));

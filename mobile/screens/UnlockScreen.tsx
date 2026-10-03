@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { APP_NAME } from "../config/app";
 import { useAuth } from "../hooks/useAuth";
-import { Button } from "../components/Button";
+import { makeStyles, space } from "../theme";
+import { AuthFrame } from "../components/auth/AuthFrame";
 import { ErrorBanner } from "../components/ErrorBanner";
-import { Screen } from "../components/Screen";
-import { colors, fontSize, spacing } from "../utils/theme";
+import { Button } from "../components/ui/Button";
 
 export function UnlockScreen() {
   const { t } = useTranslation();
+  const styles = useStyles();
   const { unlock, logout, biometricCapability } = useAuth();
   const label = biometricCapability?.label ?? t("settings.biometrics.generic");
 
@@ -53,24 +53,20 @@ export function UnlockScreen() {
   }
 
   return (
-    <Screen>
-      <View style={styles.container}>
-        <Text style={styles.brand}>{APP_NAME}</Text>
-        <Text style={styles.heading}>{t("auth.unlock.heading")}</Text>
-        <Text style={styles.text}>{t("auth.unlock.text", { method: label })}</Text>
+    <AuthFrame title={t("auth.unlock.heading")} subtitle={t("auth.unlock.text", { method: label })} centered>
+      <ErrorBanner message={errorMessage} />
 
-        <ErrorBanner message={errorMessage} />
-
-        {canRetry && (
+      <View style={styles.actions}>
+        {canRetry ? (
           <Button
             title={t("auth.unlock.unlockWith", { method: label })}
+            icon="lock"
             size="large"
             onPress={handleUnlock}
             isLoading={isUnlocking}
             disabled={isUnlocking || isSigningOut}
           />
-        )}
-        <View style={styles.spacer} />
+        ) : null}
         <Button
           title={t("auth.unlock.signInWithPassword")}
           variant="secondary"
@@ -79,36 +75,10 @@ export function UnlockScreen() {
           disabled={isUnlocking || isSigningOut}
         />
       </View>
-    </Screen>
+    </AuthFrame>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: "center",
-  },
-  brand: {
-    fontSize: fontSize.xl,
-    fontWeight: "700",
-    color: colors.primary,
-    textAlign: "center",
-    marginBottom: spacing.lg,
-  },
-  heading: {
-    fontSize: fontSize.lg,
-    fontWeight: "700",
-    color: colors.text,
-    textAlign: "center",
-    marginBottom: spacing.xs,
-  },
-  text: {
-    fontSize: fontSize.base,
-    color: colors.textMuted,
-    textAlign: "center",
-    marginBottom: spacing.lg,
-  },
-  spacer: {
-    height: spacing.sm,
-  },
-});
+const useStyles = makeStyles(() => ({
+  actions: { gap: space[3] },
+}));

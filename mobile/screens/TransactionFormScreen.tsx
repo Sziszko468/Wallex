@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useAsyncData } from "../hooks/useAsyncData";
@@ -17,16 +17,19 @@ import {
 import { toIsoDate, isValidIsoDate } from "../utils/date";
 import { hasValidPrecision, normalizeAmountInput } from "../utils/currency";
 import { Screen } from "../components/Screen";
-import { Button } from "../components/Button";
-import { TextField } from "../components/TextField";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { SectionState } from "../components/SectionState";
 import { TypeToggle } from "../components/TypeToggle";
-import { CategoryChipPicker } from "../components/CategoryChipPicker";
+import { CategoryPicker } from "../components/CategoryPicker";
 import { QuickDateField } from "../components/QuickDateField";
+import { AmountInput } from "../components/ui/AmountInput";
+import { Button } from "../components/ui/Button";
+import { Notice } from "../components/ui/Notice";
+import { Text } from "../components/ui/Text";
+import { TextField } from "../components/ui/TextField";
+import { makeStyles, space } from "../theme";
 import type { TransactionType } from "../types/category";
 import type { Transaction } from "../types/transaction";
-import { colors, fontSize, spacing } from "../utils/theme";
 
 /** Small fixed delay so the "Saved ✓" state is actually visible before the
  * modal auto-dismisses — long enough to register, short enough to stay fast. */
@@ -35,11 +38,12 @@ const SUCCESS_DISMISS_DELAY_MS = 550;
 /**
  * Handles both creating a new transaction (no `id` route param) and editing
  * an existing one (`/edit-transaction/[id]`) — same fields, same validation,
- * same reusable pieces (TypeToggle/CategoryChipPicker/QuickDateField), just
+ * same reusable pieces (TypeToggle/CategoryPicker/QuickDateField), just
  * a different initial fetch and a PATCH instead of a POST on submit.
  */
 export function TransactionFormScreen() {
   const { t } = useTranslation();
+  const styles = useStyles();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const transactionId = id ? Number(id) : null;
   const isEditMode = transactionId !== null;
@@ -177,51 +181,53 @@ export function TransactionFormScreen() {
     }
   }
 
-  return (
-    <Screen scroll>
-      <SectionState
-        isLoading={isEditMode && existingTransaction.isLoading}
-        error={isEditMode ? existingTransaction.error : null}
-        onRetry={existingTransaction.refetch}
-      >
-        <ErrorBanner message={errorMessage} />
+  const isFormReady = !(isEditMode && (existingTransaction.isLoading || existingTransaction.error));
+  const saveLabel = justSaved
+    ? savedOffline
+      ? t("common.savedOffline")
+      : t("common.saved")
+    : isEditMode
+      ? t("common.actions.saveChanges")
+      : isOffline
+        ? t("common.saveOffline")
+        : t("common.actions.save");
 
-        {!isEditMode && (
-          <View style={styles.scanLink}>
-            <Button
-              title={t("transactions.form.scanInstead")}
-              variant="secondary"
-              onPress={() => router.replace("/scan-receipt")}
-            />
-          </View>
-        )}
+  return (
+    <Screen
+      scroll
+      footer={
+        isFormReady ? (
+          <Button title={saveLabel} variant={justSaved ? "success" : "primary"} size="large" onPress={handleSave} isLoading={isSubmitting} disabled={justSaved} />
+        ) : undefined
+      }
+    >
+      <SectionState isLoading={isEditMode && existingTransaction.isLoading} error={isEditMode ? existingTransaction.error : null} onRetry={existingTransaction.refetch}>
+        <ErrorBanner message={errorMessage} />
+        {isOffline && !isEditMode ? <Notice tone="info" message={t("transactions.form.offlineHint")} /> : null}
 
         <TypeToggle value={type} onChange={handleTypeChange} />
 
-        <TextField
+        <AmountInput
           label={t("common.form.amountIn", { currency })}
-          placeholder="0.00"
-          keyboardType="decimal-pad"
+          currency={currency}
           autoFocus={!isEditMode}
           value={amount}
           onChangeText={setAmount}
           error={fieldErrors.amount}
         />
 
-        <View style={styles.field}>
-          <Text style={styles.label}>{t("common.form.category")}</Text>
-          <SectionState
-            isLoading={categories.isLoading}
-            error={categories.error}
-            onRetry={categories.refetch}
-          >
-            <CategoryChipPicker
-              categories={availableCategories}
-              selectedId={categoryId}
-              onSelect={setCategoryId}
-            />
+        <View style={styles.section}>
+          <Text variant="label" color="textSecondary">
+            {t("common.form.category")}
+          </Text>
+          <SectionState isLoading={categories.isLoading} error={categories.error} onRetry={categories.refetch}>
+            <CategoryPicker categories={availableCategories} selectedId={categoryId} onSelect={setCategoryId} />
           </SectionState>
-          {fieldErrors.category && <Text style={styles.errorText}>{fieldErrors.category}</Text>}
+          {fieldErrors.category ? (
+            <Text variant="caption" color="danger" accessibilityRole="alert">
+              {fieldErrors.category}
+            </Text>
+          ) : null}
         </View>
 
         <TextField
@@ -233,45 +239,17 @@ export function TransactionFormScreen() {
 
         <QuickDateField value={date} onChange={setDate} error={fieldErrors.date} />
 
-        <Button
-          title={
-            justSaved
-              ? savedOffline
-                ? t("common.savedOffline")
-                : t("common.saved")
-              : isEditMode
-                ? t("common.actions.saveChanges")
-                : isOffline
-                  ? t("common.saveOffline")
-                  : t("common.actions.save")
-          }
-          variant={justSaved ? "success" : "primary"}
-          size="large"
-          onPress={handleSave}
-          isLoading={isSubmitting}
-          disabled={justSaved}
-        />
+        {!isEditMode ? (
+          <View style={styles.scan}>
+            <Button title={t("transactions.form.scanInstead")} variant="ghost" icon="camera" onPress={() => router.replace("/scan-receipt")} />
+          </View>
+        ) : null}
       </SectionState>
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  scanLink: {
-    marginBottom: spacing.md,
-  },
-  field: {
-    marginBottom: spacing.md,
-  },
-  label: {
-    fontSize: fontSize.sm,
-    fontWeight: "600",
-    color: colors.text,
-    marginBottom: spacing.xs,
-  },
-  errorText: {
-    marginTop: spacing.xs,
-    fontSize: fontSize.sm,
-    color: colors.danger,
-  },
-});
+const useStyles = makeStyles(() => ({
+  section: { gap: space[3], marginBottom: space[5] },
+  scan: { alignItems: "center", marginTop: space[2] },
+}));

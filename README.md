@@ -162,6 +162,11 @@ Design goals:
   - new transactions are queued and synced automatically (idempotent, never duplicated).
 - **Push notifications:** every smart notification also arrives as a push; a tap opens the
   related screen.
+- **Its own phone UI** (same brand as the web app, not a shrunken copy of it):
+  - four tabs with a raised add button in the middle,
+  - a Home with the balance first, and an add form that starts with the amount,
+  - filters, recurring actions and the like in bottom sheets,
+  - System, Light or Dark theme, saved on the device ([docs/design-system.md](docs/design-system.md)).
 - **Biometric lock:** Face ID or fingerprint. The app locks again after 60 s in the background.
 - **Secure token storage:** the refresh token is kept in the iOS Keychain / Android Keystore.
 
@@ -183,17 +188,26 @@ Design goals:
 ![Transactions grouped by day, with search, filters and sorting](docs/screenshots/web-transactions.png)
 ![Budgets with usage bars and status badges](docs/screenshots/web-budgets.png)
 
-**Mobile: dashboard, transactions, budgets, quick add**
+**Mobile: home, transactions, budgets, add a transaction** (light theme)
 
 <p>
-  <img src="docs/screenshots/mobile-dashboard.png" width="24%" alt="Mobile dashboard with balance and insights" />
-  <img src="docs/screenshots/mobile-transactions.png" width="24%" alt="Mobile transaction list with category filters" />
-  <img src="docs/screenshots/mobile-budgets.png" width="24%" alt="Mobile budgets with usage bars" />
-  <img src="docs/screenshots/mobile-add-transaction.png" width="24%" alt="Mobile quick add form with receipt scan option" />
+  <img src="docs/screenshots/mobile-dashboard.png" width="24%" alt="Mobile home: balance, income and expenses, insights, where the money went" />
+  <img src="docs/screenshots/mobile-transactions.png" width="24%" alt="Mobile transactions grouped by day, with search and filters" />
+  <img src="docs/screenshots/mobile-budgets.png" width="24%" alt="Mobile budgets with usage bars and status badges" />
+  <img src="docs/screenshots/mobile-add-transaction.png" width="24%" alt="Mobile add form: amount first, then a category tile" />
 </p>
 
-<sub>The mobile screenshots come from the Expo web target at iPhone size; the iOS and Android
-builds render the same React Native screens natively. All data shown is generated demo data.</sub>
+**The same screens in the dark theme** (System, Light or Dark under More → Appearance; "System" follows the phone live)
+
+<p>
+  <img src="docs/screenshots/mobile-dashboard-dark.png" width="24%" alt="Mobile home in the dark theme" />
+  <img src="docs/screenshots/mobile-transactions-dark.png" width="24%" alt="Mobile transactions in the dark theme" />
+  <img src="docs/screenshots/mobile-budgets-dark.png" width="24%" alt="Mobile budgets in the dark theme" />
+  <img src="docs/screenshots/mobile-add-transaction-dark.png" width="24%" alt="Mobile add form in the dark theme" />
+</p>
+
+<sub>The mobile screenshots come from the Expo web target at iPhone size (390 × 844); the iOS and
+Android builds render the same React Native screens natively. All data shown is generated demo data.</sub>
 
 **Interactive API documentation (Swagger UI)**
 
@@ -241,7 +255,7 @@ flowchart TB
 | **Backend** | Python 3.13, Django 5.2 LTS, Django REST Framework 3.18, SimpleJWT (rotation + blacklist), django-filter, drf-spectacular (OpenAPI), Pillow + Tesseract 5 (OCR), gunicorn, WhiteNoise, Django i18n / gettext (English, Hungarian) |
 | **Database** | PostgreSQL 16 |
 | **Web** | React 19, TypeScript (strict), Vite 8, React Router 7, Axios, Recharts 3, SCSS modules, i18next + react-i18next |
-| **Mobile** | React Native 0.86, Expo SDK 57, Expo Router, expo-secure-store, expo-local-authentication, expo-notifications, expo-image-picker, AsyncStorage, i18next + expo-localization |
+| **Mobile** | React Native 0.86, Expo SDK 57, Expo Router, expo-secure-store, expo-local-authentication, expo-notifications, expo-image-picker, AsyncStorage, react-native-svg (icons, charts), expo-font + Plus Jakarta Sans, i18next + expo-localization |
 | **Testing** | pytest + pytest-django, Vitest + React Testing Library + MSW, Jest (jest-expo) + React Native Testing Library, jsonschema contract tests, ruff (lint + format, backend), oxlint (web) |
 | **Infrastructure** | Docker, Docker Compose, nginx (unprivileged), EAS Build / Submit |
 
@@ -464,7 +478,7 @@ Production images:
 |---|---|---|
 | Backend | pytest, pytest-django | **1,535** |
 | Web | Vitest, React Testing Library, MSW | **232** |
-| Mobile | Jest (jest-expo), React Native Testing Library | **204** |
+| Mobile | Jest (jest-expo), React Native Testing Library | **326** |
 | Browser | Playwright (Chrome) | **4** journeys |
 
 The testing is risk-based rather than aimed at a coverage number

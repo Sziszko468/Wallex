@@ -3,14 +3,15 @@ import type { errors as enErrors, offline as enOffline, screens as enScreens, ta
 
 export const tabs: DeepStrings<typeof enTabs> = {
   dashboard: "Kezdőlap",
-  assistant: "Asszisztens",
   transactions: "Tranzakciók",
-  recurring: "Ismétlődők",
   budgets: "Költségkeretek",
-  settings: "Beállítások",
+  budgetsShort: "Keretek",
+  more: "Továbbiak",
 };
 
 export const screens: DeepStrings<typeof enScreens> = {
+  assistant: "Asszisztens",
+  recurring: "Ismétlődő tranzakciók",
   addTransaction: "Tranzakció hozzáadása",
   editTransaction: "Tranzakció szerkesztése",
   transactionDetails: "Tranzakció részletei",

@@ -1,24 +1,19 @@
 import { Tabs } from "expo-router";
-import { useTranslation } from "react-i18next";
-import { colors } from "../../../utils/theme";
+import { AppTabBar } from "../../../components/navigation/AppTabBar";
+import { useTheme } from "../../../theme";
 
 export default function TabsLayout() {
-  const { t } = useTranslation();
+  const { colors } = useTheme();
 
   return (
     <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textMuted,
-      }}
+      tabBar={(props) => <AppTabBar {...props} />}
+      screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: colors.bg } }}
     >
-      <Tabs.Screen name="dashboard" options={{ title: t("tabs.dashboard") }} />
-      {/* Android: the tab bar would otherwise sit on top of the keyboard, over the question box. */}
-      <Tabs.Screen name="assistant" options={{ title: t("tabs.assistant"), tabBarHideOnKeyboard: true }} />
-      <Tabs.Screen name="transactions" options={{ title: t("tabs.transactions") }} />
-      <Tabs.Screen name="recurring" options={{ title: t("tabs.recurring") }} />
-      <Tabs.Screen name="budgets" options={{ title: t("tabs.budgets") }} />
-      <Tabs.Screen name="settings" options={{ title: t("tabs.settings") }} />
+      <Tabs.Screen name="dashboard" />
+      <Tabs.Screen name="transactions" />
+      <Tabs.Screen name="budgets" />
+      <Tabs.Screen name="settings" />
     </Tabs>
   );
 }

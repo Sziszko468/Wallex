@@ -1,14 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useAsyncData } from "../hooks/useAsyncData";
@@ -19,17 +10,24 @@ import { useRefetchOnFocus } from "../hooks/useRefetchOnFocus";
 import { deleteConversation, getAssistantStatus } from "../services/assistantService";
 import type { AssistantConversationSummary, AssistantExchange } from "../types/assistant";
 import { extractErrorMessage, isNotFound } from "../utils/errors";
-import { colors, fontSize, radius, spacing } from "../utils/theme";
+import { fontFamilies, layout, makeStyles, space, useTheme } from "../theme";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { SectionState } from "../components/SectionState";
 import { ChatMessageList } from "../components/assistant/ChatMessageList";
 import { ConversationHistoryModal } from "../components/assistant/ConversationHistoryModal";
 import { SuggestedQuestions } from "../components/assistant/SuggestedQuestions";
+import { BrandMark } from "../components/icons/BrandMark";
+import { Button } from "../components/ui/Button";
+import { IconButton } from "../components/ui/IconButton";
+import { Notice } from "../components/ui/Notice";
+import { Text } from "../components/ui/Text";
 
 const DEFAULT_MAX_LENGTH = 1000;
 
 export function AssistantScreen() {
   const { t } = useTranslation();
+  const styles = useStyles();
+  const { colors } = useTheme();
   const [conversationId, setConversationId] = useState<number | null>(null);
   const [draft, setDraft] = useState("");
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -103,14 +101,23 @@ export function AssistantScreen() {
 
   function renderThread() {
     if (chat.loadError && isNotFound(chat.loadError)) {
-      return <Text style={styles.muted}>{t("assistant.gone")}</Text>;
+      return (
+        <Text variant="body" color="textSecondary">
+          {t("assistant.gone")}
+        </Text>
+      );
     }
     return (
       <SectionState isLoading={chat.isLoading} error={chat.loadError} onRetry={chat.reload}>
         {isNewChat ? (
           <View style={styles.welcome}>
-            <Text style={styles.welcomeTitle}>{t("assistant.welcome")}</Text>
-            <Text style={styles.muted}>{t("assistant.description")}</Text>
+            <BrandMark size={44} />
+            <Text variant="title" header>
+              {t("assistant.welcome")}
+            </Text>
+            <Text variant="body" color="textSecondary">
+              {t("assistant.description")}
+            </Text>
             {!status.isLoading && (
               <SuggestedQuestions
                 questions={status.data?.suggested_questions ?? []}
@@ -129,27 +136,10 @@ export function AssistantScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={["left", "right"]}>
       <View ref={frameRef} style={styles.flex} onLayout={measureFrame}>
-        <KeyboardAvoidingView
-          style={styles.flex}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          keyboardVerticalOffset={keyboardOffset}
-        >
+        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={keyboardOffset}>
           <View style={styles.toolbar}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t("assistant.toolbar.historyLabel")}
-              onPress={() => setIsHistoryOpen(true)}
-              style={({ pressed }) => [styles.toolbarButton, pressed && styles.pressed]}
-            >
-              <Text style={styles.toolbarText}>{t("assistant.toolbar.history")}</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={startNewChat}
-              style={({ pressed }) => [styles.toolbarButton, styles.newChat, pressed && styles.pressed]}
-            >
-              <Text style={[styles.toolbarText, styles.newChatText]}>{t("assistant.toolbar.newChat")}</Text>
-            </Pressable>
+            <Button title={t("assistant.toolbar.history")} accessibilityLabel={t("assistant.toolbar.historyLabel")} variant="secondary" icon="clock" onPress={() => setIsHistoryOpen(true)} />
+            <Button title={t("assistant.toolbar.newChat")} variant="ghost" icon="plus" onPress={startNewChat} />
           </View>
 
           <ScrollView
@@ -159,18 +149,18 @@ export function AssistantScreen() {
             keyboardShouldPersistTaps="handled"
             onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
           >
-            {status.data && !status.data.available && (
-              <Text style={styles.notice} accessibilityRole="alert">
-                {t("assistant.notConfigured")}
-              </Text>
-            )}
+            {status.data && !status.data.available ? <Notice tone="warning" message={t("assistant.notConfigured")} /> : null}
             <ErrorBanner message={deleteError} />
             {renderThread()}
           </ScrollView>
 
           <View style={styles.composerArea}>
             <ErrorBanner message={chat.sendError} />
-            {isOffline && <Text style={styles.muted}>{t("assistant.offline")}</Text>}
+            {isOffline ? (
+              <Text variant="caption" color="textSecondary">
+                {t("assistant.offline")}
+              </Text>
+            ) : null}
             <View style={styles.composer}>
               <TextInput
                 accessibilityLabel={t("assistant.composer.label")}
@@ -178,21 +168,15 @@ export function AssistantScreen() {
                 value={draft}
                 onChangeText={setDraft}
                 placeholder={t("assistant.composer.placeholder")}
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={colors.textTertiary}
+                selectionColor={colors.primary}
                 multiline
+                numberOfLines={1}
                 maxLength={maxLength}
                 editable={canType}
+                maxFontSizeMultiplier={1.4}
               />
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t("assistant.composer.send")}
-                accessibilityState={{ disabled: !canSend }}
-                disabled={!canSend}
-                onPress={() => void ask(draft)}
-                style={({ pressed }) => [styles.send, !canSend && styles.sendDisabled, pressed && styles.pressed]}
-              >
-                <Text style={styles.sendText}>{t("assistant.composer.send")}</Text>
-              </Pressable>
+              <IconButton icon="arrow-up" variant="filled" accessibilityLabel={t("assistant.composer.send")} disabled={!canSend} onPress={() => void ask(draft)} />
             </View>
           </View>
         </KeyboardAvoidingView>
@@ -216,111 +200,35 @@ export function AssistantScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  flex: {
-    flex: 1,
-  },
-  toolbar: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-  },
-  toolbarButton: {
-    minHeight: 40,
-    justifyContent: "center",
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  toolbarText: {
-    fontSize: fontSize.sm,
-    fontWeight: "600",
-    color: colors.text,
-  },
-  newChat: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  newChatText: {
-    color: "#fff",
-  },
-  pressed: {
-    opacity: 0.8,
-  },
-  thread: {
-    flexGrow: 1,
-    padding: spacing.md,
-  },
-  notice: {
-    marginBottom: spacing.md,
-    padding: spacing.sm,
-    fontSize: fontSize.sm,
-    color: colors.warning,
-    backgroundColor: "rgba(217, 119, 6, 0.08)",
-    borderWidth: 1,
-    borderColor: "rgba(217, 119, 6, 0.3)",
-    borderRadius: radius.sm,
-  },
-  welcome: {
-    gap: spacing.md,
-  },
-  welcomeTitle: {
-    fontSize: fontSize.lg,
-    fontWeight: "700",
-    color: colors.text,
-  },
-  muted: {
-    fontSize: fontSize.sm,
-    color: colors.textMuted,
-  },
+const useStyles = makeStyles(({ colors }) => ({
+  safeArea: { flex: 1, backgroundColor: colors.bg },
+  flex: { flex: 1 },
+  toolbar: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: layout.screenPadding, paddingTop: space[2] },
+  thread: { flexGrow: 1, padding: layout.screenPadding },
+  welcome: { gap: space[4], paddingTop: space[4] },
   composerArea: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
+    gap: space[2],
+    paddingHorizontal: layout.screenPadding,
+    paddingTop: space[3],
+    paddingBottom: space[3],
     borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.surface,
-    gap: spacing.xs,
+    borderTopColor: colors.divider,
+    backgroundColor: colors.surfaceRaised,
   },
-  composer: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: spacing.sm,
-  },
+  composer: { flexDirection: "row", alignItems: "flex-end", gap: space[2] },
   input: {
     flex: 1,
-    minHeight: 44,
+    minHeight: layout.minTouch,
     maxHeight: 120,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: space[4],
     paddingTop: 12,
     paddingBottom: 12,
-    fontSize: 15,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    borderColor: colors.controlBorder,
+    backgroundColor: colors.surface,
     color: colors.text,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 22,
+    fontFamily: fontFamilies.regular,
+    fontSize: 16,
   },
-  send: {
-    minHeight: 44,
-    justifyContent: "center",
-    paddingHorizontal: spacing.md,
-    borderRadius: 22,
-    backgroundColor: colors.primary,
-  },
-  sendDisabled: {
-    opacity: 0.5,
-  },
-  sendText: {
-    color: "#fff",
-    fontSize: fontSize.sm,
-    fontWeight: "700",
-  },
-});
+}));

@@ -60,17 +60,17 @@ describe("ReceiptConfirmation", () => {
     expect(screen.getByLabelText("Amount").props.value).toBe("2142.00");
     expect(screen.getByLabelText("Date").props.value).toBe("2026-09-25");
     expect(screen.getByRole("button", { name: "HUF" })).toBeSelected();
-    expect(screen.getByRole("button", { name: "Food" })).toBeSelected();
+    expect(screen.getByRole("radio", { name: "Food" })).toBeSelected();
     expect(screen.getByText("Suggested from the merchant name.")).toBeTruthy();
     // Only expense categories can be chosen for a receipt.
-    expect(screen.queryByRole("button", { name: "Salary" })).toBeNull();
+    expect(screen.queryByRole("radio", { name: "Salary" })).toBeNull();
   });
 
   it("nothing is saved until Save Transaction is pressed — and then exactly what the user confirmed", async () => {
     const { onSave, user } = await renderConfirmation(confidentScan);
     expect(onSave).not.toHaveBeenCalled();
 
-    await user.press(screen.getByRole("button", { name: "Transport" }));
+    await user.press(screen.getByRole("radio", { name: "Transport" }));
     await user.press(saveButton());
 
     expect(onSave).toHaveBeenCalledWith({
