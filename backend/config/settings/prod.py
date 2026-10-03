@@ -1,5 +1,8 @@
+import os
+
 from django.core.exceptions import ImproperlyConfigured
 
+from . import preflight  # noqa: F401 - checks that the required variables exist, before base.py reads them
 from .base import *  # noqa: F403
 from .base import (
     ALLOWED_HOSTS,
@@ -13,11 +16,17 @@ from .base import (
     env,
 )
 
+_PROBLEMS: list[str] = []
+
 
 def _require(condition: bool, message: str) -> None:
-    """Refuse to start with an unsafe configuration instead of running insecurely."""
+    """Refuse to start with an unsafe configuration instead of running insecurely. Every problem is
+    collected and reported together (see the end of the checks), not one per attempt to start."""
     if not condition:
-        raise ImproperlyConfigured(message)
+        _PROBLEMS.append(message)
+
+
+GENERATE_KEY_HINT = 'Generate one with: python -c "import secrets; print(secrets.token_urlsafe(64))"'
 
 
 MIN_SECRET_KEY_LENGTH = 50  # characters; token_urlsafe(64) is 86
@@ -32,13 +41,17 @@ def _is_strong_key(key: str) -> bool:
 # Native mobile apps are not browsers and are never subject to CORS.
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
 
+# Render tells the service its own public host name; it is a host this deployment answers for.
+if os.environ.get("RENDER_EXTERNAL_HOSTNAME"):
+    ALLOWED_HOSTS = [*ALLOWED_HOSTS, os.environ["RENDER_EXTERNAL_HOSTNAME"]]
+
 _require(
     bool(ALLOWED_HOSTS) and "*" not in ALLOWED_HOSTS,
     "DJANGO_ALLOWED_HOSTS must list the real host name(s) in production — never '*'.",
 )
 _require(
     _is_strong_key(SECRET_KEY),
-    "DJANGO_SECRET_KEY must be a long random value in production (50+ characters, not a placeholder).",
+    f"DJANGO_SECRET_KEY must be a long random value in production (50+ characters, not a placeholder). {GENERATE_KEY_HINT}",
 )
 _require(
     _is_strong_key(SIMPLE_JWT["SIGNING_KEY"]),
@@ -51,9 +64,11 @@ _require(
 _require(
     _is_strong_key(FIELD_ENCRYPTION_KEY) and FIELD_ENCRYPTION_KEY != SECRET_KEY,
     "FIELD_ENCRYPTION_KEY must be its own long random value in production (it encrypts two-factor "
-    "secrets; sharing SECRET_KEY would make them unreadable after rotating it).",
+    f"secrets; sharing SECRET_KEY would make them unreadable after rotating it). {GENERATE_KEY_HINT}",
 )
 _require(AUTH_REFRESH_COOKIE["SECURE"], "AUTH_COOKIE_SECURE can't be turned off in production.")
+if _PROBLEMS:
+    raise ImproperlyConfigured("WALLEX can't start with this production configuration:\n- " + "\n- ".join(_PROBLEMS))
 
 # The admin signs in with a password only: off unless explicitly enabled (then keep it behind a VPN).
 ADMIN_ENABLED = env.bool("DJANGO_ADMIN_ENABLED", default=False)

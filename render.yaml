@@ -1,0 +1,43 @@
+# Render Blueprint: the API and its PostgreSQL database. Not tested on Render itself; see
+# "Render" in docs/deployment.md for what to fill in and what to check first.
+#
+# The web app is a separate piece (a Render Static Site built from web/, or the web image):
+# it is not part of this file because it needs the API's public address.
+
+databases:
+  - name: wallex-db
+    databaseName: wallex
+    user: wallex
+    plan: free # the free database expires after 30 days: choose a paid plan for real data
+
+services:
+  - type: web
+    name: wallex-api
+    runtime: docker
+    plan: free
+    # The last stage of the Dockerfile is the production image.
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /api/health/
+    # No pre-deploy step on the free plan: migrate, then serve (the same two steps docs/deployment.md lists).
+    dockerCommand: sh -c "python manage.py migrate --noinput && python manage.py createcachetable && exec gunicorn --config gunicorn.conf.py config.wsgi:application"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: wallex-db
+          property: connectionString
+      # Both are asked for in the dashboard (never stored in git): 50+ random characters each, and
+      # two DIFFERENT values. Make them with:
+      #   python -c "import secrets; print(secrets.token_urlsafe(64))"
+      # Render's own "Generate" button makes 44 characters, which the app (rightly) refuses.
+      - key: DJANGO_SECRET_KEY
+        sync: false
+      - key: FIELD_ENCRYPTION_KEY
+        sync: false
+      # Render terminates TLS in front of the service and sends X-Forwarded-Proto.
+      - key: DJANGO_BEHIND_TLS_PROXY
+        value: "True"
+      # The service's own *.onrender.com host is allowed automatically (RENDER_EXTERNAL_HOSTNAME);
+      # add DJANGO_ALLOWED_HOSTS here for a custom domain.
+      - key: DRF_NUM_PROXIES
+        value: "1"

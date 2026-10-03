@@ -82,7 +82,7 @@ Required variables are **bold**. Everything else has a safe default.
 | Variable | Default | Notes |
 |---|---|---|
 | **`DJANGO_SECRET_KEY`** | — | 50+ random chars. Placeholders, `django-insecure…` or short keys stop the app at startup. |
-| **`DJANGO_ALLOWED_HOSTS`** | — | Public host name(s), comma-separated. `*` or an empty value stops the app. The first entry is also used by the container health check. |
+| **`DJANGO_ALLOWED_HOSTS`** | — | Public host name(s), comma-separated. `*` or an empty value stops the app. The first entry is also used by the container health check. On Render the service's own `*.onrender.com` host (`RENDER_EXTERNAL_HOSTNAME`) is added automatically. |
 | **`FIELD_ENCRYPTION_KEY`** | — | 50+ random chars, **different from** `DJANGO_SECRET_KEY`. Encrypts two-factor secrets and keys the recovery-code hashes. Missing, short or equal to the secret key stops the app. Losing it turns 2FA off for everyone (they set it up again); keep it with your other secrets. |
 | **`POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD`** | — | Shared with the postgres container. |
 | `POSTGRES_HOST` / `POSTGRES_PORT` | `localhost` / `5432` | `postgres` inside `docker-compose.prod.yml`. |
@@ -281,6 +281,33 @@ Probes use plain HTTP, so `/api/health/` is exempt from the HTTPS redirect.
 6. **Smoke test:** readiness endpoint, log in, create a transaction, check that the
    dashboard shows it.
 
+#### Render
+
+`render.yaml` in the repository root is a Blueprint for the API and its PostgreSQL database
+(*New → Blueprint*). It has not been run on Render itself, so treat it as a starting point.
+
+Render asks for two secrets when it creates the service. Make **two different** values of 50+
+characters yourself, because Render's "Generate" button makes only 44 and the app refuses those:
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(64))"   # once for DJANGO_SECRET_KEY, once for FIELD_ENCRYPTION_KEY
+```
+
+What the blueprint sets or relies on:
+
+| Variable | Where it comes from |
+|---|---|
+| `DATABASE_URL` | The database of the blueprint (use its *internal* connection string). |
+| `DJANGO_SECRET_KEY`, `FIELD_ENCRYPTION_KEY` | You, in the dashboard. |
+| `DJANGO_ALLOWED_HOSTS` | Not needed for the `*.onrender.com` address: the app allows the host Render names in `RENDER_EXTERNAL_HOSTNAME`. Set it for a custom domain. |
+| `DJANGO_BEHIND_TLS_PROXY=True` | In the blueprint: Render terminates TLS. |
+| `PORT` | Render sets it; gunicorn binds to it. |
+
+If the service stops with **"Worker failed to boot" / "exited with code 3"**, the line that explains
+it is a few lines *above* those two in the log: look for `ImproperlyConfigured`. The app now lists
+everything wrong in one message (a missing variable, a weak or repeated key, a `*` host, an http
+CORS origin), so one redeploy fixes all of it. Section 12 has the list.
+
 ### C. Rollback
 
 Redeploy the previous image tag. A rollback is only safe if the migrations were
@@ -352,7 +379,7 @@ silently using an old rate.
 
 | Symptom | Cause / fix |
 |---|---|
-| Backend exits at startup with `ImproperlyConfigured` | `prod.py` rejected the configuration. The message names the variable: weak secret key, `*` in allowed hosts, http CORS origin, empty JWT key or a non-Postgres `DATABASE_URL`. |
+| Backend exits at startup with `ImproperlyConfigured`; on a platform: `Worker (pid:N) exited with code 3`, `Worker failed to boot` | The settings rejected the configuration (gunicorn's code 3 means the app could not be imported). The traceback above those lines lists **every** problem at once: missing `DJANGO_SECRET_KEY` or database variables; a secret key or `FIELD_ENCRYPTION_KEY` under 50 characters, a placeholder, or the two equal; `*` or nothing in `DJANGO_ALLOWED_HOSTS`; an http CORS origin; an empty JWT key; a non-Postgres `DATABASE_URL`. Fix them all, redeploy once. |
 | Every API call redirects to `https://…` locally | `DJANGO_SECURE_SSL_REDIRECT=True` on plain HTTP. Set it to `False` for a local trial. |
 | Redirect loop behind a load balancer | `DJANGO_BEHIND_TLS_PROXY` is not `True`, or the load balancer doesn't send `X-Forwarded-Proto`. |
 | `400 Bad Request` from Django | The Host header is not in `DJANGO_ALLOWED_HOSTS`. Health checks from internal IPs cause this too (section 7). |

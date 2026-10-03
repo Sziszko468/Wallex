@@ -37,9 +37,10 @@ def _import_prod(**env_overrides):
     return _run("import config.settings.prod", **env_overrides)
 
 
-def _run_without(names: set[str], code: str) -> subprocess.CompletedProcess:
+def _run_without(names: set[str], code: str, **extra_env) -> subprocess.CompletedProcess:
     """Run with the given variables unset everywhere — including the local .env file."""
     env = {key: value for key, value in {**os.environ, **VALID_PROD_ENV}.items() if key not in names}
+    env.update(extra_env)
     return subprocess.run(
         [sys.executable, "-c", "import environ; environ.Env.read_env = lambda *a, **k: None;" + code],
         cwd=BACKEND_DIR,
@@ -272,3 +273,83 @@ def test_env_files_are_not_committed():
     if not gitignore.exists():  # the backend container only mounts backend/
         pytest.skip("repository root not available in this environment")
     assert re.search(r"^\.env$", gitignore.read_text(encoding="utf-8"), re.M)
+
+
+# =============================== a first deployment sees all its problems at once ===============================
+
+
+def test_every_problem_is_reported_together_not_one_per_redeploy():
+    """A platform build takes minutes: one message must list everything wrong with the configuration."""
+    result = _import_prod(
+        DJANGO_ALLOWED_HOSTS="*",
+        DJANGO_SECRET_KEY="short",
+        FIELD_ENCRYPTION_KEY="short",
+        CORS_ALLOWED_ORIGINS="http://app.wallex.example",
+    )
+
+    assert result.returncode != 0
+    for name in ("DJANGO_ALLOWED_HOSTS", "DJANGO_SECRET_KEY", "FIELD_ENCRYPTION_KEY", "CORS_ALLOWED_ORIGINS"):
+        assert name in result.stderr, f"{name} missing from: {result.stderr[-600:]}"
+
+
+def test_the_message_says_how_to_make_a_key():
+    result = _import_prod(DJANGO_SECRET_KEY="short")
+
+    assert "secrets.token_urlsafe(64)" in result.stderr
+
+
+def test_missing_required_variables_are_listed_together():
+    result = _run_without(
+        {"DJANGO_SECRET_KEY", "DATABASE_URL", "POSTGRES_DB", "POSTGRES_USER", "POSTGRES_PASSWORD"},
+        "import config.settings.prod",
+    )
+
+    assert result.returncode != 0
+    assert "DJANGO_SECRET_KEY" in result.stderr
+    assert "DATABASE_URL (or POSTGRES_DB, POSTGRES_USER and POSTGRES_PASSWORD)" in result.stderr
+
+
+def test_a_database_url_alone_is_enough():
+    result = _run_without(
+        {"POSTGRES_DB", "POSTGRES_USER", "POSTGRES_PASSWORD"},
+        "import config.settings.prod",
+        DATABASE_URL="postgres://wallex:secret@db.example.com:5432/wallex",
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_the_postgres_parts_are_enough_without_a_database_url():
+    result = _run_without(
+        {"DATABASE_URL"},
+        "import config.settings.prod",
+        POSTGRES_DB="wallex",
+        POSTGRES_USER="wallex",
+        POSTGRES_PASSWORD="secret",
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_render_names_the_public_host_itself():
+    """Render sets RENDER_EXTERNAL_HOSTNAME: the service must not need DJANGO_ALLOWED_HOSTS repeated by hand."""
+    result = _run_without(
+        {"DJANGO_ALLOWED_HOSTS"},
+        "import os; os.environ['RENDER_EXTERNAL_HOSTNAME'] = 'wallex.onrender.com';"
+        "import config.settings.prod as s; print(s.ALLOWED_HOSTS)",
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "wallex.onrender.com" in result.stdout
+
+
+def test_render_host_does_not_make_a_wildcard_acceptable():
+    result = _run_without(
+        set(),
+        "import os; os.environ['RENDER_EXTERNAL_HOSTNAME'] = 'wallex.onrender.com';import config.settings.prod",
+    )
+    # (the valid environment lists a real host, so this one imports; the wildcard test above still fails)
+    assert result.returncode == 0, result.stderr
+    star = _import_prod(DJANGO_ALLOWED_HOSTS="*", RENDER_EXTERNAL_HOSTNAME="wallex.onrender.com")
+    assert star.returncode != 0
+    assert "never '*'" in star.stderr
