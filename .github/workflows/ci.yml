@@ -116,6 +116,9 @@ jobs:
             e2e/package-lock.json
       # The development stack: PostgreSQL and the API (migrations are applied by hand below).
       - run: cp backend/.env.example backend/.env
+      # The API container runs as uid 1000 but the runner's checkout belongs to uid 1001, and
+      # `compilemessages` (run by the compose command) refuses a folder it cannot write to.
+      - run: chmod -R a+w backend/locale
       - run: docker compose up -d --build
       - run: |
           for i in $(seq 1 60); do curl -sf http://localhost:8000/api/health/ready/ && exit 0; sleep 3; done
