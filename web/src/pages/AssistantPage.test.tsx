@@ -25,21 +25,34 @@ const SUMMARY: AssistantConversationSummary = {
 };
 
 function question(id: number, content: string): AssistantMessage {
-  return { id, role: "user", content, sources: [], created_at: "2026-09-29T10:00:00Z" };
+  return { id, role: "user", content, sources: [], insights: [], suggested_questions: [], created_at: "2026-09-29T10:00:00Z" };
 }
 
-function answer(id: number, content: string): AssistantMessage {
+function answer(id: number, content: string, extras: Partial<AssistantMessage> = {}): AssistantMessage {
   return {
     id,
     role: "assistant",
     content,
     sources: [{ tool: "get_monthly_spending", label: "Monthly spending", detail: "September 2026" }],
+    insights: [],
+    suggested_questions: [],
     created_at: "2026-09-29T10:00:05Z",
+    ...extras,
   };
 }
 
-function exchange(summary: AssistantConversationSummary, asked: string, answered: string, firstId = 1): AssistantExchange {
-  return { conversation: summary, messages: [question(firstId, asked), answer(firstId + 1, answered)] };
+function exchange(
+  summary: AssistantConversationSummary,
+  asked: string,
+  answered: string,
+  firstId = 1,
+  extras: Partial<AssistantMessage> = {}
+): AssistantExchange {
+  return {
+    conversation: summary,
+    messages: [question(firstId, asked), answer(firstId + 1, answered, extras)],
+    usage: { input_tokens: 1200, output_tokens: 85 },
+  };
 }
 
 function serveAssistant({
@@ -192,6 +205,100 @@ describe("AI assistant page", () => {
     await waitFor(() => expect(deleted).toEqual([7]));
     expect(await screen.findByText("Your conversations will appear here.")).toBeInTheDocument();
     expect(await screen.findByText("What would you like to know about your money?")).toBeInTheDocument();
+  });
+
+  it("shows the key figures of an answer as cards, with an icon and text for the tone — not only colour", async () => {
+    serveAssistant();
+    answerWith(
+      exchange(SUMMARY, "Why did my spending change?", "Spending is up.", 1, {
+        insights: [
+          {
+            type: "spending_change",
+            label: "Spending vs previous month",
+            detail: "August 2026",
+            amount: "165.20",
+            currency: "EUR",
+            percentage: 18,
+            tone: "warning",
+          },
+          {
+            type: "largest_category",
+            label: "Largest category",
+            detail: "Shopping",
+            amount: "121.00",
+            currency: "EUR",
+            percentage: 19.8,
+            tone: "neutral",
+          },
+        ],
+      })
+    );
+    const { user } = renderApp("/assistant");
+
+    await user.type(await screen.findByRole("textbox", { name: "Ask about your finances" }), "Why did my spending change?{Enter}");
+
+    const cards = await screen.findByRole("list", { name: "Key figures" });
+    const [change, largest] = within(cards).getAllByRole("listitem");
+    expect(change).toHaveTextContent("Needs attention: Spending vs previous month");
+    expect(change).toHaveTextContent("August 2026");
+    expect(change).toHaveTextContent(/\+€165\.20/);
+    expect(change).toHaveTextContent(/\+18(\.0)?%/);
+    expect(largest).toHaveTextContent("Largest category");
+    expect(largest).toHaveTextContent("Shopping");
+    expect(largest).toHaveTextContent(/19\.8%\s*of expenses/);
+    expect(largest).not.toHaveTextContent("Needs attention");
+  });
+
+  it("offers follow-up questions under the latest answer only; one tap asks it", async () => {
+    serveAssistant({
+      conversations: [SUMMARY],
+      details: {
+        7: {
+          ...SUMMARY,
+          messages: [
+            question(1, SUMMARY.title),
+            answer(2, "First answer.", { suggested_questions: ["An old follow-up?"] }),
+            question(3, "And last month?"),
+            answer(4, "Latest answer.", {
+              suggested_questions: ["How much did I spend on Food last month?", "Where could I reduce my spending?"],
+            }),
+          ],
+        },
+      },
+    });
+    const asked = answerWith(exchange(SUMMARY, "Where could I reduce my spending?", "Look at Shopping.", 5));
+    const { user } = renderApp("/assistant/7");
+
+    const chips = await screen.findByRole("list", { name: "You could also ask" });
+    expect(within(chips).getAllByRole("button").map((button) => button.textContent)).toEqual([
+      "How much did I spend on Food last month?",
+      "Where could I reduce my spending?",
+    ]);
+    expect(screen.queryByRole("button", { name: "An old follow-up?" })).not.toBeInTheDocument();
+
+    await user.click(within(chips).getByRole("button", { name: "Where could I reduce my spending?" }));
+
+    expect(await screen.findByText("Look at Shopping.")).toBeInTheDocument();
+    expect(asked).toEqual([{ url: "/api/assistant/conversations/7/messages/", body: { message: "Where could I reduce my spending?" } }]);
+  });
+
+  it("hides the follow-ups while the next answer is on its way", async () => {
+    serveAssistant({
+      conversations: [SUMMARY],
+      details: {
+        7: { ...SUMMARY, messages: [question(1, SUMMARY.title), answer(2, "Food.", { suggested_questions: ["Next?"] })] },
+      },
+    });
+    let release!: () => void;
+    answerWith(exchange(SUMMARY, "Typed question", "Done.", 3), new Promise<void>((resolve) => (release = resolve)));
+    const { user } = renderApp("/assistant/7");
+    expect(await screen.findByRole("button", { name: "Next?" })).toBeInTheDocument();
+
+    await user.type(screen.getByRole("textbox", { name: "Ask about your finances" }), "Typed question{Enter}");
+
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Next?" })).not.toBeInTheDocument());
+    release();
+    expect(await screen.findByText("Done.")).toBeInTheDocument();
   });
 
   it("says so when a conversation no longer exists", async () => {

@@ -13,8 +13,8 @@ from apps.common.permissions import IsOwner
 
 from ..models import AssistantConversation
 from . import conversations, suggestions
-from .client import AssistantError
 from .openapi import ASSISTANT_CONVERSATION_SCHEMA, ASSISTANT_STATUS_SCHEMA
+from .providers import AssistantError
 from .serializers import ConversationDetailSerializer, ConversationSerializer, ExchangeSerializer, QuestionSerializer
 
 NOT_CONFIGURED = _("The AI assistant isn't set up on this server.")
@@ -34,7 +34,7 @@ class AssistantStatusView(APIView):
                 "suggested_questions": (
                     suggestions.suggested_questions(request.user, timezone.localdate()) if available else []
                 ),
-                "max_question_length": conversations.MAX_QUESTION_LENGTH,
+                "max_question_length": conversations.max_question_length(),
             }
         )
 

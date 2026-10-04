@@ -100,7 +100,7 @@ info:
     | `POST /api/auth/register/` | 10 / hour | client IP |
     | `POST /api/auth/refresh/` | 30 / minute | client IP |
     | `POST /api/receipts/scan/` | 30 / hour | user |
-    | Questions to the AI assistant (`POST /api/assistant/conversations/…`) | 30 / hour | user |
+    | Questions to the AI assistant (`POST /api/assistant/conversations/…`; `AI_ASSISTANT_RATE`) | 30 / hour | user |
     | Everything else | 2000 / hour | user (IP when anonymous) |
 
     ## Idempotent transaction creation
@@ -1144,20 +1144,27 @@ paths:
     get:
       operationId: assistant_retrieve
       description: |-
-        Whether the assistant can be used on this server (`available` is false without a model API key), questions to suggest — picked from what data the user has, e.g. a question about their own savings goal — and the question length limit.
+        Whether the assistant can be used on this server (`available` is false without the provider's API key), questions to suggest — picked from what data the user has, e.g. a question about their own savings goal — and the question length limit.
 
-        The assistant (Claude) never reads the database. It can only call seven read-only backend tools
+        The assistant never reads the database. It can only call seven read-only backend tools
         — monthly spending, spending by category, by merchant, budget status, subscription costs, savings
         progress and month comparison — which run the same services as the dashboard, for the signed-in
-        user only, and return aggregated figures without ids, name or e-mail. Answers are based on those
-        results alone; when they are not enough, the answer says so ("Nem áll rendelkezésre elegendő adat." /
-        "There isn't enough data available.") instead of guessing. `sources` lists the tools an answer used.
+        user only, and return aggregated figures without ids, name or e-mail. **The numbers are calculated
+        by Python/PostgreSQL; the model only explains them.** Answers are based on those results alone;
+        when they are not enough, the answer says so ("Nem áll rendelkezésre elegendő adat." /
+        "There isn't enough data available.") instead of guessing. `sources` lists the tools an answer
+        used; `insights` are cards with the key figures, computed by the backend from the same results;
+        `suggested_questions` are follow-ups to offer under the latest answer.
 
-        The server keeps the history (the text of questions and answers; never the tool results — every
-        question fetches fresh figures). Questions: max 1000 characters; a conversation holds
-        25 questions. **Answering takes a few seconds, up to about 90**: use a long client
-        timeout and show progress. Nothing is stored when no answer comes back (`503`) — send the question again.
-        Limited to 30 questions per hour per user (`ASSISTANT_RATE`).
+        The model is a provider behind the backend (Gemini by default, Claude optional; chosen with
+        `AI_ASSISTANT_PROVIDER`) — its API key never leaves the server and the apps never see which one
+        answered. The server keeps the history (the text of questions and answers; never the tool results
+        — every question fetches fresh figures). Who asks always comes from the access token: a `user_id`
+        in the body is ignored. Questions: max 1000 characters by default
+        (`AI_ASSISTANT_MAX_QUESTION_LENGTH`); a conversation holds 25 questions.
+        **Answering takes a few seconds, up to about 90**: use a long client timeout and show progress.
+        Nothing is stored when no answer comes back (`503`) — send the question again.
+        Limited to 30 questions per hour per user (`AI_ASSISTANT_RATE`).
       summary: Assistant status and suggested questions
       tags:
       - AI Assistant
@@ -1313,18 +1320,25 @@ paths:
       description: |-
         Starts a conversation with its first question and returns the question and the answer.
 
-        The assistant (Claude) never reads the database. It can only call seven read-only backend tools
+        The assistant never reads the database. It can only call seven read-only backend tools
         — monthly spending, spending by category, by merchant, budget status, subscription costs, savings
         progress and month comparison — which run the same services as the dashboard, for the signed-in
-        user only, and return aggregated figures without ids, name or e-mail. Answers are based on those
-        results alone; when they are not enough, the answer says so ("Nem áll rendelkezésre elegendő adat." /
-        "There isn't enough data available.") instead of guessing. `sources` lists the tools an answer used.
+        user only, and return aggregated figures without ids, name or e-mail. **The numbers are calculated
+        by Python/PostgreSQL; the model only explains them.** Answers are based on those results alone;
+        when they are not enough, the answer says so ("Nem áll rendelkezésre elegendő adat." /
+        "There isn't enough data available.") instead of guessing. `sources` lists the tools an answer
+        used; `insights` are cards with the key figures, computed by the backend from the same results;
+        `suggested_questions` are follow-ups to offer under the latest answer.
 
-        The server keeps the history (the text of questions and answers; never the tool results — every
-        question fetches fresh figures). Questions: max 1000 characters; a conversation holds
-        25 questions. **Answering takes a few seconds, up to about 90**: use a long client
-        timeout and show progress. Nothing is stored when no answer comes back (`503`) — send the question again.
-        Limited to 30 questions per hour per user (`ASSISTANT_RATE`).
+        The model is a provider behind the backend (Gemini by default, Claude optional; chosen with
+        `AI_ASSISTANT_PROVIDER`) — its API key never leaves the server and the apps never see which one
+        answered. The server keeps the history (the text of questions and answers; never the tool results
+        — every question fetches fresh figures). Who asks always comes from the access token: a `user_id`
+        in the body is ignored. Questions: max 1000 characters by default
+        (`AI_ASSISTANT_MAX_QUESTION_LENGTH`); a conversation holds 25 questions.
+        **Answering takes a few seconds, up to about 90**: use a long client timeout and show progress.
+        Nothing is stored when no answer comes back (`503`) — send the question again.
+        Limited to 30 questions per hour per user (`AI_ASSISTANT_RATE`).
       summary: Ask a question in a new conversation
       tags:
       - AI Assistant
@@ -1365,6 +1379,8 @@ paths:
                       role: user
                       content: What did I spend the most on this month?
                       sources: []
+                      insights: []
+                      suggested_questions: []
                       created_at: '2026-09-29T10:15:08.410552Z'
                     - id: 18
                       role: assistant
@@ -1374,7 +1390,29 @@ paths:
                       - tool: get_monthly_spending
                         label: Monthly spending
                         detail: September 2026
+                      insights:
+                      - type: total_spending
+                        label: Total spending
+                        detail: September 2026
+                        amount: '1085.10'
+                        currency: EUR
+                        percentage: null
+                        tone: neutral
+                      - type: largest_category
+                        label: Largest category
+                        detail: Food
+                        amount: '412.30'
+                        currency: EUR
+                        percentage: 38.0
+                        tone: neutral
+                      suggested_questions:
+                      - How much did I spend on Food last month?
+                      - How does that compare to the previous month?
+                      - What are my biggest expense categories?
                       created_at: '2026-09-29T10:15:08.412311Z'
+                    usage:
+                      input_tokens: 2310
+                      output_tokens: 164
           description: Answered; the conversation was created.
         '400':
           content:
@@ -1484,6 +1522,8 @@ paths:
                       role: user
                       content: What did I spend the most on this month?
                       sources: []
+                      insights: []
+                      suggested_questions: []
                       created_at: '2026-09-29T10:15:08.410552Z'
                     - id: 18
                       role: assistant
@@ -1493,6 +1533,25 @@ paths:
                       - tool: get_monthly_spending
                         label: Monthly spending
                         detail: September 2026
+                      insights:
+                      - type: total_spending
+                        label: Total spending
+                        detail: September 2026
+                        amount: '1085.10'
+                        currency: EUR
+                        percentage: null
+                        tone: neutral
+                      - type: largest_category
+                        label: Largest category
+                        detail: Food
+                        amount: '412.30'
+                        currency: EUR
+                        percentage: 38.0
+                        tone: neutral
+                      suggested_questions:
+                      - How much did I spend on Food last month?
+                      - How does that compare to the previous month?
+                      - What are my biggest expense categories?
                       created_at: '2026-09-29T10:15:08.412311Z'
           description: ''
         '401':
@@ -1613,18 +1672,25 @@ paths:
       description: |-
         Asks in an existing conversation; the earlier questions and answers go to the model as context. Returns the question and the answer.
 
-        The assistant (Claude) never reads the database. It can only call seven read-only backend tools
+        The assistant never reads the database. It can only call seven read-only backend tools
         — monthly spending, spending by category, by merchant, budget status, subscription costs, savings
         progress and month comparison — which run the same services as the dashboard, for the signed-in
-        user only, and return aggregated figures without ids, name or e-mail. Answers are based on those
-        results alone; when they are not enough, the answer says so ("Nem áll rendelkezésre elegendő adat." /
-        "There isn't enough data available.") instead of guessing. `sources` lists the tools an answer used.
+        user only, and return aggregated figures without ids, name or e-mail. **The numbers are calculated
+        by Python/PostgreSQL; the model only explains them.** Answers are based on those results alone;
+        when they are not enough, the answer says so ("Nem áll rendelkezésre elegendő adat." /
+        "There isn't enough data available.") instead of guessing. `sources` lists the tools an answer
+        used; `insights` are cards with the key figures, computed by the backend from the same results;
+        `suggested_questions` are follow-ups to offer under the latest answer.
 
-        The server keeps the history (the text of questions and answers; never the tool results — every
-        question fetches fresh figures). Questions: max 1000 characters; a conversation holds
-        25 questions. **Answering takes a few seconds, up to about 90**: use a long client
-        timeout and show progress. Nothing is stored when no answer comes back (`503`) — send the question again.
-        Limited to 30 questions per hour per user (`ASSISTANT_RATE`).
+        The model is a provider behind the backend (Gemini by default, Claude optional; chosen with
+        `AI_ASSISTANT_PROVIDER`) — its API key never leaves the server and the apps never see which one
+        answered. The server keeps the history (the text of questions and answers; never the tool results
+        — every question fetches fresh figures). Who asks always comes from the access token: a `user_id`
+        in the body is ignored. Questions: max 1000 characters by default
+        (`AI_ASSISTANT_MAX_QUESTION_LENGTH`); a conversation holds 25 questions.
+        **Answering takes a few seconds, up to about 90**: use a long client timeout and show progress.
+        Nothing is stored when no answer comes back (`503`) — send the question again.
+        Limited to 30 questions per hour per user (`AI_ASSISTANT_RATE`).
       summary: Ask a follow-up question
       parameters:
       - in: path
@@ -1672,6 +1738,8 @@ paths:
                       role: user
                       content: What did I spend the most on this month?
                       sources: []
+                      insights: []
+                      suggested_questions: []
                       created_at: '2026-09-29T10:15:08.410552Z'
                     - id: 18
                       role: assistant
@@ -1681,7 +1749,29 @@ paths:
                       - tool: get_monthly_spending
                         label: Monthly spending
                         detail: September 2026
+                      insights:
+                      - type: total_spending
+                        label: Total spending
+                        detail: September 2026
+                        amount: '1085.10'
+                        currency: EUR
+                        percentage: null
+                        tone: neutral
+                      - type: largest_category
+                        label: Largest category
+                        detail: Food
+                        amount: '412.30'
+                        currency: EUR
+                        percentage: 38.0
+                        tone: neutral
+                      suggested_questions:
+                      - How much did I spend on Food last month?
+                      - How does that compare to the previous month?
+                      - What are my biggest expense categories?
                       created_at: '2026-09-29T10:15:08.412311Z'
+                    usage:
+                      input_tokens: 2310
+                      output_tokens: 164
           description: Answered.
         '400':
           content:
@@ -9002,7 +9092,7 @@ components:
           allOf:
           - $ref: '#/components/schemas/AssistantErrorCodeEnum'
           description: |-
-            `assistant_unavailable`: no answer this time (model API down or busy, too slow) — retry. `assistant_not_configured`: the server has no model API key — retrying won't help.
+            `assistant_unavailable`: no answer this time (model API down or busy, too slow) — retry. `assistant_not_configured`: the server has no API key for the chosen provider — retrying won't help.
 
             * `assistant_unavailable` - assistant_unavailable
             * `assistant_not_configured` - assistant_not_configured
@@ -9017,6 +9107,89 @@ components:
       description: |-
         * `assistant_unavailable` - assistant_unavailable
         * `assistant_not_configured` - assistant_not_configured
+    AssistantInsight:
+      type: object
+      description: A small card computed by the backend from the figures the answer
+        rests on (never by the model).
+      properties:
+        type:
+          $ref: '#/components/schemas/AssistantInsightTypeEnum'
+        label:
+          type: string
+          description: What the card is about, e.g. `Largest category`.
+        detail:
+          type: string
+          nullable: true
+          description: Which category, goal or period it is about, e.g. `Food`; or
+            `null`.
+        amount:
+          type: string
+          nullable: true
+          description: The card's main amount as a decimal string in `currency` (signed
+            for changes); or `null`.
+        currency:
+          type: string
+          nullable: true
+          description: ISO code of `amount`; `null` without an amount.
+        percentage:
+          type: number
+          format: double
+          nullable: true
+          description: A share, change or progress in percent; or `null` (e.g. no
+            earlier value).
+        tone:
+          allOf:
+          - $ref: '#/components/schemas/AssistantInsightToneEnum'
+          description: |-
+            How to colour the card; never the only signal.
+
+            * `neutral` - neutral
+            * `positive` - positive
+            * `warning` - warning
+      required:
+      - amount
+      - currency
+      - detail
+      - label
+      - percentage
+      - tone
+      - type
+    AssistantInsightToneEnum:
+      enum:
+      - neutral
+      - positive
+      - warning
+      type: string
+      description: |-
+        * `neutral` - neutral
+        * `positive` - positive
+        * `warning` - warning
+    AssistantInsightTypeEnum:
+      enum:
+      - total_spending
+      - largest_category
+      - category_spending
+      - top_merchant
+      - spending_change
+      - spending_change_year
+      - biggest_increase
+      - over_budget
+      - closest_budget
+      - subscriptions_cost
+      - goal_progress
+      type: string
+      description: |-
+        * `total_spending` - total_spending
+        * `largest_category` - largest_category
+        * `category_spending` - category_spending
+        * `top_merchant` - top_merchant
+        * `spending_change` - spending_change
+        * `spending_change_year` - spending_change_year
+        * `biggest_increase` - biggest_increase
+        * `over_budget` - over_budget
+        * `closest_budget` - closest_budget
+        * `subscriptions_cost` - subscriptions_cost
+        * `goal_progress` - goal_progress
     AssistantMessage:
       type: object
       properties:
@@ -9035,6 +9208,18 @@ components:
             $ref: '#/components/schemas/DataSource'
           description: 'Answers: the backend data the answer is based on (empty for
             questions and refusals).'
+        insights:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssistantInsight'
+          description: 'Answers: up to 3 cards with the key figures (empty for questions
+            and refusals).'
+        suggested_questions:
+          type: array
+          items:
+            type: string
+          description: 'Answers: up to 3 follow-up questions to offer (show them under
+            the latest answer only).'
         created_at:
           type: string
           format: date-time
@@ -9043,8 +9228,10 @@ components:
       - content
       - created_at
       - id
+      - insights
       - role
       - sources
+      - suggested_questions
     AssistantRoleEnum:
       enum:
       - user
@@ -9087,6 +9274,18 @@ components:
         * `get_subscription_costs` - get_subscription_costs
         * `get_savings_progress` - get_savings_progress
         * `get_month_comparison` - get_month_comparison
+    AssistantUsage:
+      type: object
+      properties:
+        input_tokens:
+          type: integer
+          description: Tokens sent to the model, all calls of this answer together.
+        output_tokens:
+          type: integer
+          description: Tokens the model wrote (thinking included).
+      required:
+      - input_tokens
+      - output_tokens
     AuditActionEnum:
       enum:
       - account_created
@@ -10003,9 +10202,14 @@ components:
           items:
             $ref: '#/components/schemas/AssistantMessage'
           description: The question, then the answer.
+        usage:
+          allOf:
+          - $ref: '#/components/schemas/AssistantUsage'
+          description: What this answer cost in model tokens (not stored).
       required:
       - conversation
       - messages
+      - usage
     FrequencyEnum:
       enum:
       - weekly
@@ -11100,11 +11304,15 @@ components:
             * `hu` - Magyar
     QuestionRequest:
       type: object
+      description: |-
+        Only the text: who asks comes from the signed-in user, never from the request body
+        (a `user_id` or similar in it is ignored).
       properties:
         message:
           type: string
           minLength: 1
-          description: The user's question (max 1000 characters).
+          description: The user's question (max 1000 characters by default; `max_question_length`
+            of GET /api/assistant/ says).
           maxLength: 1000
       required:
       - message

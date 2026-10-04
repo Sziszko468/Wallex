@@ -123,15 +123,18 @@ Design goals:
   device's version instead. API responses are never cached.
 - **AI finance assistant:** a chat (web and mobile, one API) that answers questions such as
   *What did I spend the most on this month?*, *Why did my spending go up?* or *How am I doing
-  with my Japan trip goal?*. The model (Claude, via the official Anthropic SDK) never touches
+  with my Japan trip goal?*. The model (Google Gemini by default, Claude optionally — a
+  replaceable provider behind the API; its key stays on the server) never touches
   the database: it can only call seven read-only backend tools — monthly spending, spending by
   category and by merchant, budget status, subscription costs, savings progress, month
   comparison — which reuse the dashboard's services for the signed-in user and return
   aggregated figures without ids, name or e-mail. Answers must come from those results; when
   they aren't enough the assistant says *"Nem áll rendelkezésre elegendő adat."* (or the English
-  equivalent) instead of guessing, and every answer lists the data it was based on. The server
-  keeps the conversation history (text only, never the tool results), suggests questions from
-  the user's own data, and is off unless `ANTHROPIC_API_KEY` is set.
+  equivalent) instead of guessing, and every answer lists the data it was based on, shows the key
+  figures as insight cards (computed by the backend, not the model) and offers follow-up questions.
+  The server keeps the conversation history (text only, never the tool results), suggests questions
+  from the user's own data, and is off unless the provider's key (`GEMINI_API_KEY`) is set.
+  Setup, deployment and security: [`docs/ai-assistant.md`](docs/ai-assistant.md).
 - **Multi-currency:** EUR, HUF, USD, GBP, JPY and CHF. A transaction keeps the amount and
   currency it was paid in; its value in the user's base currency is fixed with the ECB
   reference rate of its date. Every total is in the base currency, and changing the base

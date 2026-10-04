@@ -128,7 +128,14 @@ export function AssistantPage() {
         </div>
       );
     }
-    return <ChatMessages messages={chat.messages} pendingQuestion={chat.pendingQuestion} />;
+    return (
+      <ChatMessages
+        messages={chat.messages}
+        pendingQuestion={chat.pendingQuestion}
+        onAsk={(question) => void ask(question)}
+        canAsk={available && !chat.isAsking}
+      />
+    );
   }
 
   return (

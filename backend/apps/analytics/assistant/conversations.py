@@ -1,23 +1,21 @@
 """Asking within a stored conversation: the history sent along, limits, saving the exchange.
 
 The server owns the history. Clients send only the new question, so nobody can put words in
-the assistant's mouth — or fake tool results — by editing earlier turns.
+the assistant's mouth — or fake tool results — by editing earlier turns. The limits (question
+length, history sent, messages per conversation) are settings: AI_ASSISTANT[...].
 """
 
 from dataclasses import dataclass
 from datetime import date
 
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
 from ..models import AssistantConversation, AssistantMessage, AssistantRole
 from . import engine
+from .providers import Usage
 
-MAX_QUESTION_LENGTH = 1000
-# A conversation holds up to 25 questions and answers; after that, a new one starts afresh.
-MAX_MESSAGES = 50
-# Earlier messages sent to the model with a new question (an even number: question + answer pairs).
-HISTORY_MESSAGES = 20
 TITLE_LENGTH = 80
 
 
@@ -34,6 +32,11 @@ class Exchange:
     conversation: AssistantConversation
     question: AssistantMessage
     answer: AssistantMessage
+    usage: Usage
+
+
+def max_question_length() -> int:
+    return settings.AI_ASSISTANT["MAX_QUESTION_LENGTH"]
 
 
 def make_title(question: str) -> str:
@@ -42,7 +45,8 @@ def make_title(question: str) -> str:
 
 
 def _history(conversation: AssistantConversation) -> list[dict]:
-    latest = list(conversation.messages.order_by("-created_at", "-id")[:HISTORY_MESSAGES])
+    # Earlier messages sent with a new question (an even number: question + answer pairs).
+    latest = list(conversation.messages.order_by("-created_at", "-id")[: settings.AI_ASSISTANT["HISTORY_MESSAGES"]])
     history = [{"role": message.role, "content": message.content} for message in reversed(latest)]
     while history and history[0]["role"] != AssistantRole.USER:  # the model's input starts with a question
         history.pop(0)
@@ -57,7 +61,8 @@ def ask(user, question: str, conversation: AssistantConversation | None = None, 
     """
     history = []
     if conversation is not None:
-        if conversation.messages.count() + 2 > MAX_MESSAGES:
+        # A conversation holds up to MAX_MESSAGES / 2 questions and answers; after that, a new one starts afresh.
+        if conversation.messages.count() + 2 > settings.AI_ASSISTANT["MAX_MESSAGES"]:
             raise ConversationFullError
         history = _history(conversation)
 
@@ -74,6 +79,11 @@ def ask(user, question: str, conversation: AssistantConversation | None = None, 
             conversation.save(update_fields=["updated_at"])  # moves it to the top of the history
         asked = AssistantMessage.objects.create(conversation=conversation, role=AssistantRole.USER, content=question)
         answered = AssistantMessage.objects.create(
-            conversation=conversation, role=AssistantRole.ASSISTANT, content=result.text, sources=result.sources
+            conversation=conversation,
+            role=AssistantRole.ASSISTANT,
+            content=result.text,
+            sources=result.sources,
+            insights=result.insights,
+            suggested_questions=result.suggested_questions,
         )
-    return Exchange(conversation, asked, answered)
+    return Exchange(conversation, asked, answered, result.usage)

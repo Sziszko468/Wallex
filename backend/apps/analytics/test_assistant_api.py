@@ -152,8 +152,8 @@ def test_a_follow_up_sends_the_history_and_moves_the_conversation_up(auth_client
 
 
 @pytest.mark.django_db
-def test_only_the_latest_history_is_sent(auth_client, fake_model, monkeypatch):
-    monkeypatch.setattr(conversations, "HISTORY_MESSAGES", 2)
+def test_only_the_latest_history_is_sent(auth_client, fake_model, settings):
+    settings.AI_ASSISTANT = {**settings.AI_ASSISTANT, "HISTORY_MESSAGES": 2}
     started = _start(auth_client, fake_model, "Q1", "A1")
     fake_model.script = [text_reply("A2"), text_reply("A3")]
     auth_client.post(_messages_url(started["conversation"]["id"]), {"message": "Q2"}, format="json")
@@ -164,8 +164,8 @@ def test_only_the_latest_history_is_sent(auth_client, fake_model, monkeypatch):
 
 
 @pytest.mark.django_db
-def test_a_full_conversation_refuses_more_questions(auth_client, fake_model, monkeypatch):
-    monkeypatch.setattr(conversations, "MAX_MESSAGES", 2)
+def test_a_full_conversation_refuses_more_questions(auth_client, fake_model, settings):
+    settings.AI_ASSISTANT = {**settings.AI_ASSISTANT, "MAX_MESSAGES": 2}
     started = _start(auth_client, fake_model)
 
     response = auth_client.post(_messages_url(started["conversation"]["id"]), {"message": "More?"}, format="json")

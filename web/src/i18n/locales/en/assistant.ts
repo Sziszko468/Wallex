@@ -11,7 +11,7 @@ export const assistant = {
   welcome: "What would you like to know about your money?",
   chat: "Chat",
   notConfigured:
-    "The AI assistant isn't set up on this server yet: it needs a model API key (ANTHROPIC_API_KEY).",
+    "The AI assistant isn't set up on this server yet: it needs an API key for its AI provider (see docs/ai-assistant.md).",
   disclaimer:
     "The assistant only reads your data — it can't change anything. It can make mistakes, so check important figures in the app.",
   deleteDialog: {
@@ -29,6 +29,28 @@ export const assistant = {
     you: "You",
     assistant: "Assistant",
     thinking: "Checking your data",
+    insights: "Key figures",
+    followUps: "You could also ask",
+  },
+  insights: {
+    tone: {
+      warning: "Needs attention",
+      positive: "Good news",
+    },
+    // What the percentage on a card is a percentage of.
+    meaning: {
+      total_spending: "of expenses",
+      largest_category: "of expenses",
+      category_spending: "of expenses",
+      top_merchant: "of expenses",
+      spending_change: "change",
+      spending_change_year: "change",
+      biggest_increase: "change",
+      over_budget: "used",
+      closest_budget: "used",
+      subscriptions_cost: "of expenses",
+      goal_progress: "reached",
+    },
   },
   suggestions: {
     label: "Suggested questions",

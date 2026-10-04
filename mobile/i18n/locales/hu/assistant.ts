@@ -24,6 +24,28 @@ export const assistant: DeepStrings<typeof en> = {
     basedOnLabel: "Ezen alapul:",
     thinking: "Az adataid ellenőrzése",
     thinkingText: "Az adataid ellenőrzése…",
+    insights: "Fontosabb számok",
+    followUps: "Kérdezhetsz még",
+  },
+  insights: {
+    tone: {
+      warning: "Figyelmet igényel",
+      positive: "Jó hír",
+    },
+    // What the percentage on a card is a percentage of.
+    meaning: {
+      total_spending: "a kiadásokból",
+      largest_category: "a kiadásokból",
+      category_spending: "a kiadásokból",
+      top_merchant: "a kiadásokból",
+      spending_change: "változás",
+      spending_change_year: "változás",
+      biggest_increase: "változás",
+      over_budget: "felhasználva",
+      closest_budget: "felhasználva",
+      subscriptions_cost: "a kiadásokból",
+      goal_progress: "teljesítve",
+    },
   },
   suggestions: {
     label: "Javasolt kérdések",

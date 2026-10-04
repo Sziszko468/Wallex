@@ -95,7 +95,7 @@ Error messages are written for end users and may be shown as they are.
 | `POST /api/auth/register/` | 10 / hour | client IP |
 | `POST /api/auth/refresh/` | 30 / minute | client IP |
 | `POST /api/receipts/scan/` | 30 / hour | user |
-| Questions to the AI assistant (`POST /api/assistant/conversations/…`) | 30 / hour | user |
+| Questions to the AI assistant (`POST /api/assistant/conversations/…`; `AI_ASSISTANT_RATE`) | 30 / hour | user |
 | Everything else | 2000 / hour | user (IP when anonymous) |
 
 ## Idempotent transaction creation

@@ -73,6 +73,13 @@ export function formatPercentage(value: number): string {
   return `${formatter.format(value)}%`;
 }
 
+/** A change as the API reports it, with its sign: "+14.3%", "−5.0%". */
+export function formatSignedPercentage(value: number): string {
+  if (value > 0) return `+${formatPercentage(value)}`;
+  if (value < 0) return `${MINUS_SIGN}${formatPercentage(Math.abs(value))}`;
+  return formatPercentage(0);
+}
+
 export function formatMonthYear(year: number, month: number): string {
   return new Date(year, month - 1, 1).toLocaleDateString(currentLocale(), {
     month: "long",

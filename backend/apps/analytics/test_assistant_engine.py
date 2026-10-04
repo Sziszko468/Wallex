@@ -1,4 +1,4 @@
-"""One answer: the model ↔ tools loop, against a scripted stand-in for the Anthropic API."""
+"""One answer: the model ↔ tools loop, with the Claude provider against a scripted stand-in for the Anthropic API."""
 
 import json
 from datetime import date
@@ -9,7 +9,8 @@ import httpx2
 import pytest
 
 from apps.analytics.assistant import engine, prompts
-from apps.analytics.assistant.client import BUSY, FALLBACK_BETA, UNAVAILABLE, AssistantError
+from apps.analytics.assistant.providers import BUSY, UNAVAILABLE, AssistantError
+from apps.analytics.assistant.providers.anthropic import FALLBACK_BETA
 from apps.analytics.assistant.tools import TOOL_DEFINITIONS
 from apps.analytics.conftest import sent_tool_results, text_reply, tool_call_reply
 from apps.categories.models import Category, TransactionType

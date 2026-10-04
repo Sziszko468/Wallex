@@ -129,6 +129,10 @@ class AssistantMessage(models.Model):
     # Assistant answers: the backend tools the answer is based on, e.g.
     # [{"tool": "get_category_spending", "arguments": {"year": 2026, "month": 9}}].
     sources = models.JSONField(default=list, blank=True)
+    # Assistant answers: the insight cards computed from those tools' figures (data only; the apps
+    # get them with a label, see assistant/cards.py) and the questions offered next.
+    insights = models.JSONField(default=list, blank=True)
+    suggested_questions = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

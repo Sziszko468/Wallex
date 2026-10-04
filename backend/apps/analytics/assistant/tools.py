@@ -36,11 +36,14 @@ from apps.subscriptions.models import Subscription
 
 from .. import merchants, services
 from ..services import Against
+from .providers import ToolSpec
 
 logger = logging.getLogger(__name__)
 
 TOP_CATEGORIES = 5
 MAX_UPCOMING_PAYMENTS = 20
+# Rows a tool lists at most (subscriptions, goals): keeps what goes to the model small for any user.
+MAX_LISTED = 50
 
 
 # --- Output helpers ----------------------------------------------------------------------
@@ -354,7 +357,8 @@ def subscription_costs(user, args: dict, today: date) -> dict:
         ],
         # Subscriptions billed in these currencies have no recent exchange rate: not in the totals.
         "currencies_without_exchange_rate": summary["unconverted_currencies"],
-        "subscriptions": [row for _, row in sorted(rows, key=lambda item: item[0])],
+        "subscriptions": [row for _, row in sorted(rows, key=lambda item: item[0])][:MAX_LISTED],
+        "subscriptions_not_listed": max(len(rows) - MAX_LISTED, 0),
     }
 
 
@@ -411,6 +415,8 @@ def savings_progress(user, args: dict, today: date) -> dict:
                 + ", ".join(f'"{row["name"]}"' for row in rows)
                 + ".",
             )
+    result["goals_not_listed"] = max(len(result["goals"]) - MAX_LISTED, 0)
+    result["goals"] = result["goals"][:MAX_LISTED]
     return result
 
 
@@ -622,6 +628,7 @@ TOOLS: dict[str, Tool] = {
 
 # Always sent in this order: the tool list is part of the cached prompt prefix.
 TOOL_DEFINITIONS = [tool.definition() for tool in TOOLS.values()]
+TOOL_SPECS = [ToolSpec(**definition) for definition in TOOL_DEFINITIONS]
 
 
 # --- Running a tool call -----------------------------------------------------------------
@@ -633,6 +640,8 @@ class ToolResult:
     is_error: bool = False
     # What the answer can say it's based on: {"tool": name, "arguments": validated arguments}.
     source: dict | None = None
+    # The figures the model saw (None for errors): the answer's insight cards are built from them.
+    data: dict | None = None
 
 
 def _error(problem: object) -> ToolResult:
@@ -657,7 +666,7 @@ def run_tool(user, name: str, arguments: object, today: date) -> ToolResult:
     except Exception:  # a bug or a database problem: the model tells the user, the log keeps the trace
         logger.exception("Assistant tool %s failed", name)
         return _error("The data could not be loaded right now.")
-    return ToolResult(json.dumps(data, ensure_ascii=False), source={"tool": name, "arguments": validated})
+    return ToolResult(json.dumps(data, ensure_ascii=False), source={"tool": name, "arguments": validated}, data=data)
 
 
 def describe_source(source: dict) -> tuple[str, str | None]:

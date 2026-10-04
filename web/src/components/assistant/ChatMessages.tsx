@@ -1,7 +1,9 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import type { AssistantMessage } from "../../types/assistant";
 import { Icon } from "../icons/Icon";
+import { FollowUpQuestions } from "./FollowUpQuestions";
+import { InsightCards } from "./InsightCards";
 import { MarkdownText } from "./MarkdownText";
 import styles from "./ChatMessages.module.scss";
 
@@ -9,6 +11,10 @@ interface ChatMessagesProps {
   messages: AssistantMessage[];
   /** Asked, answer not here yet. */
   pendingQuestion: string | null;
+  /** Sends a follow-up question (the chips under the latest answer). */
+  onAsk: (question: string) => void;
+  /** False while another answer is on its way, or when the assistant can't be used. */
+  canAsk: boolean;
 }
 
 function AssistantAvatar() {
@@ -34,18 +40,20 @@ function Sources({ message }: { message: AssistantMessage }) {
   );
 }
 
-export function ChatMessages({ messages, pendingQuestion }: ChatMessagesProps) {
+export function ChatMessages({ messages, pendingQuestion, onAsk, canAsk }: ChatMessagesProps) {
   const { t } = useTranslation();
-  const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView?.({ block: "end", behavior: "smooth" });
+    // The composer is sticky below the thread, so aligning the thread's end with the window would
+    // leave the last answer's cards and follow-ups hidden behind it: scroll the page to its end.
+    const page = document.scrollingElement;
+    page?.scrollTo?.({ top: page.scrollHeight, behavior: "smooth" });
   }, [messages.length, pendingQuestion]);
 
   return (
     <div className={styles.thread}>
       <ol className={styles.messages} role="log" aria-label={t("assistant.messages.conversation")} aria-live="polite">
-        {messages.map((message) => (
+        {messages.map((message, index) => (
           <li
             key={message.id}
             className={message.role === "user" ? styles.fromUser : styles.fromAssistant}
@@ -62,6 +70,11 @@ export function ChatMessages({ messages, pendingQuestion }: ChatMessagesProps) {
               </div>
             </div>
             {message.role === "assistant" && <Sources message={message} />}
+            {message.role === "assistant" && <InsightCards insights={message.insights} />}
+            {/* Only the latest answer offers follow-ups, and not while the next one is being prepared. */}
+            {message.role === "assistant" && index === messages.length - 1 && pendingQuestion === null && (
+              <FollowUpQuestions questions={message.suggested_questions} onPick={onAsk} disabled={!canAsk} />
+            )}
           </li>
         ))}
         {pendingQuestion !== null && (
@@ -87,7 +100,6 @@ export function ChatMessages({ messages, pendingQuestion }: ChatMessagesProps) {
           </>
         )}
       </ol>
-      <div ref={endRef} />
     </div>
   );
 }

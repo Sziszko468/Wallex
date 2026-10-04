@@ -3,12 +3,18 @@ import { useTranslation } from "react-i18next";
 import { makeStyles, space, useTheme } from "../../theme";
 import type { AssistantMessage } from "../../types/assistant";
 import { Text } from "../ui/Text";
+import { FollowUpQuestions } from "./FollowUpQuestions";
+import { InsightCards } from "./InsightCards";
 import { MarkdownText } from "./MarkdownText";
 
 interface ChatMessageListProps {
   messages: AssistantMessage[];
   /** Asked, answer not here yet. */
   pendingQuestion: string | null;
+  /** Sends a follow-up question (the chips under the latest answer). */
+  onAsk: (question: string) => void;
+  /** False while another answer is on its way, offline, or when the assistant can't be used. */
+  canAsk: boolean;
 }
 
 const useStyles = makeStyles(({ colors }) => ({
@@ -38,7 +44,13 @@ function Question({ text }: { text: string }) {
   );
 }
 
-function Answer({ message }: { message: AssistantMessage }) {
+interface AnswerProps {
+  message: AssistantMessage;
+  /** The latest answer offers its follow-up questions. */
+  followUps?: { onAsk: (question: string) => void; canAsk: boolean };
+}
+
+function Answer({ message, followUps }: AnswerProps) {
   const { t } = useTranslation();
   const styles = useStyles();
   return (
@@ -61,17 +73,26 @@ function Answer({ message }: { message: AssistantMessage }) {
           ))}
         </View>
       ) : null}
+      <InsightCards insights={message.insights} />
+      {followUps ? (
+        <FollowUpQuestions questions={message.suggested_questions} onPick={followUps.onAsk} disabled={!followUps.canAsk} />
+      ) : null}
     </View>
   );
 }
 
-export function ChatMessageList({ messages, pendingQuestion }: ChatMessageListProps) {
+export function ChatMessageList({ messages, pendingQuestion, onAsk, canAsk }: ChatMessageListProps) {
   const { t } = useTranslation();
   const styles = useStyles();
   const { colors } = useTheme();
   return (
     <View style={styles.list}>
-      {messages.map((message) => (message.role === "user" ? <Question key={message.id} text={message.content} /> : <Answer key={message.id} message={message} />))}
+      {messages.map((message, index) => {
+        if (message.role === "user") return <Question key={message.id} text={message.content} />;
+        // Only the latest answer offers follow-ups, and not while the next one is being prepared.
+        const isLatest = index === messages.length - 1 && pendingQuestion === null;
+        return <Answer key={message.id} message={message} followUps={isLatest ? { onAsk, canAsk } : undefined} />;
+      })}
       {pendingQuestion !== null ? (
         <>
           <Question text={pendingQuestion} />

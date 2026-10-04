@@ -21,6 +21,28 @@ export const assistant = {
     basedOnLabel: "Based on:",
     thinking: "Checking your data",
     thinkingText: "Checking your data…",
+    insights: "Key figures",
+    followUps: "You could also ask",
+  },
+  insights: {
+    tone: {
+      warning: "Needs attention",
+      positive: "Good news",
+    },
+    // What the percentage on a card is a percentage of.
+    meaning: {
+      total_spending: "of expenses",
+      largest_category: "of expenses",
+      category_spending: "of expenses",
+      top_merchant: "of expenses",
+      spending_change: "change",
+      spending_change_year: "change",
+      biggest_increase: "change",
+      over_budget: "used",
+      closest_budget: "used",
+      subscriptions_cost: "of expenses",
+      goal_progress: "reached",
+    },
   },
   suggestions: {
     label: "Suggested questions",

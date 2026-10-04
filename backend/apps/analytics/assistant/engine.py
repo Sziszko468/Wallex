@@ -1,8 +1,9 @@
 """One answer: the model ↔ tools loop.
 
-The model may call tools for a few rounds; each call runs in tools.run_tool for the signed-in
-user and its JSON result goes back to the model. After MAX_TOOL_ROUNDS the model has to answer
-with what it has. The whole answer has one deadline (AI_ASSISTANT["TIMEOUT"]).
+The model (whichever provider is configured) may call tools for a few rounds; each call runs in
+tools.run_tool for the signed-in user and its JSON result goes back to the model. After
+MAX_TOOL_ROUNDS the model has to answer with what it has. The whole answer has one deadline
+(AI_ASSISTANT["TIMEOUT"]). The engine knows no vendor SDK: it speaks providers.AIProvider.
 """
 
 import time
@@ -12,8 +13,10 @@ from datetime import date
 from django.conf import settings
 from django.utils.translation import gettext_lazy
 
-from . import client as model
-from . import prompts, tools
+from apps.common.i18n import language_of
+
+from . import cards, prompts, providers, tools
+from .providers import AssistantError, FinishReason, Message, ToolOutput, Usage
 
 MAX_TOOL_ROUNDS = 5
 # Don't start a model call with less time than this left before the deadline.
@@ -32,57 +35,69 @@ class Answer:
     text: str
     # Tool calls the answer is based on, in call order, without repeats.
     sources: list[dict] = field(default_factory=list)
+    # Deterministic cards (cards.py) built from the figures the tools returned.
+    insights: list[dict] = field(default_factory=list)
+    # Questions to offer next (cards.follow_up_questions), in the user's language.
+    suggested_questions: list[str] = field(default_factory=list)
+    # Tokens of all model calls of this answer.
+    usage: Usage = Usage()
 
 
-def _text_of(response) -> str:
-    return "\n\n".join(block.text for block in response.content if block.type == "text").strip()
+def _finish(user, text: str, question: str, usage: Usage, used: list[tuple[str, dict, dict | None]]) -> Answer:
+    sources = []
+    for name, arguments, _data in used:
+        if (source := {"tool": name, "arguments": arguments}) not in sources:
+            sources.append(source)
+    with language_of(user):
+        insights = cards.build_cards(used)
+        follow_ups = cards.follow_up_questions([name for name, _, _ in used], insights, question)
+    return Answer(text, sources, insights, follow_ups, usage)
 
 
 def answer(user, history: list[dict], question: str, today: date) -> Answer:
     """`history`: the conversation so far as [{"role": "user" | "assistant", "content": str}],
-    oldest first, starting with a question. Raises model.AssistantError when there is no answer."""
-    client = model.get_client()
-    system = prompts.system_blocks(user, today)
-    messages = [*history, {"role": "user", "content": question}]
-    sources: list[dict] = []
+    oldest first, starting with a question. Raises AssistantError when there is no answer."""
+    provider = providers.get_provider()
+    system = prompts.system_prompt(user, today)
+    messages = [Message(entry["role"], text=entry["content"]) for entry in history]
+    messages.append(Message("user", text=question))
+    used: list[tuple[str, dict, dict | None]] = []  # (tool, arguments, data) of every tool call that worked
+    usage = Usage()
     deadline = time.monotonic() + settings.AI_ASSISTANT["TIMEOUT"]
 
     for round_number in range(MAX_TOOL_ROUNDS + 1):
         remaining = deadline - time.monotonic()
         if remaining < MIN_SECONDS_PER_CALL:
-            raise model.AssistantError(TOO_SLOW)
-        response = model.create_message(
-            client,
+            raise AssistantError(TOO_SLOW)
+        response = provider.generate_response(
             system=system,
             messages=messages,
-            tools=tools.TOOL_DEFINITIONS,
+            tools=tools.TOOL_SPECS,
             allow_tools=round_number < MAX_TOOL_ROUNDS,
             timeout=remaining,
         )
+        usage += response.usage
 
-        # Declined by the model or a safety classifier (after any fallback): never show partial output.
-        if response.stop_reason == "refusal":
-            return Answer(str(REFUSAL_ANSWER))
-        if response.stop_reason == "max_tokens":
-            raise model.AssistantError(INCOMPLETE)
+        # Declined by the model or a safety filter: never show partial output.
+        if response.finish == FinishReason.REFUSED:
+            return _finish(user, str(REFUSAL_ANSWER), question, usage, [])
+        if response.finish in (FinishReason.MAX_TOKENS, FinishReason.OTHER):
+            raise AssistantError(INCOMPLETE)
 
-        tool_calls = [block for block in response.content if block.type == "tool_use"]
-        if not tool_calls:
-            text = _text_of(response)
-            if not text:
-                raise model.AssistantError(INCOMPLETE)
-            return Answer(text, sources)
+        calls = response.message.tool_calls
+        if not calls:
+            if not response.message.text:
+                raise AssistantError(INCOMPLETE)
+            return _finish(user, response.message.text, question, usage, used)
 
-        # The full content goes back unchanged (thinking blocks included), then every result in one message.
-        messages.append({"role": "assistant", "content": response.content})
-        results = []
-        for call in tool_calls:
-            result = tools.run_tool(user, call.name, call.input, today)
-            if result.source is not None and result.source not in sources:
-                sources.append(result.source)
-            results.append(
-                {"type": "tool_result", "tool_use_id": call.id, "content": result.content, "is_error": result.is_error}
-            )
-        messages.append({"role": "user", "content": results})
+        # The turn goes back as it came (a provider replays its own thinking data), then every result in one message.
+        messages.append(response.message)
+        outputs = []
+        for call in calls:
+            result = tools.run_tool(user, call.name, call.arguments, today)
+            if result.source is not None:
+                used.append((result.source["tool"], result.source["arguments"], result.data))
+            outputs.append(ToolOutput(call.id, call.name, result.content, result.is_error))
+        messages.append(Message("user", tool_results=tuple(outputs)))
 
-    raise model.AssistantError(INCOMPLETE)  # not reached: the last round can't call tools
+    raise AssistantError(INCOMPLETE)  # not reached: the last round can't call tools

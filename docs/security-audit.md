@@ -5,7 +5,8 @@ login, JWT access/refresh) was **kept, not rewritten**. Each round added to it.
 
 ## 2026-09-29 — AI finance assistant
 
-Threat model of `apps/analytics/assistant/` (Claude via the Anthropic SDK), each point covered by tests
+Threat model of `apps/analytics/assistant/` (a provider behind `providers.AIProvider`: Gemini by default,
+  Claude optional; updated 2026-10-04), each point covered by tests
 (`apps/analytics/test_assistant_*.py`, the isolation matrix and canary sweep in `backend/tests/`).
 
 | Risk | Control |
@@ -15,7 +16,9 @@ Threat model of `apps/analytics/assistant/` (Claude via the Anthropic SDK), each
 | Prompt injection through user data (e.g. a category named "ignore your instructions…") | Tools can't write, so the worst outcome is a misleading answer to the same user. The system prompt marks tool text as data, not instructions; answers render as plain text (no HTML, no links). |
 | Invented answers | The prompt requires every figure to come from tool results and the exact "not enough data" sentence otherwise; tools return `has_data: false` with a reason instead of zeros; each answer lists its sources. |
 | Forged history (fake earlier answers or tool results) | The server stores and replays the history; clients send only the new question. Tool results are never stored or replayed — each question fetches fresh figures. |
-| Cost abuse / denial of wallet | Off without `ANTHROPIC_API_KEY`; 30 questions / hour / user (`assistant` scope, asking only); 1,000-character questions; 25 questions per conversation; ≤ 5 tool rounds and one 90 s deadline per answer; one SDK retry. |
+| Cost abuse / denial of wallet | Off without the chosen provider's key (`GEMINI_API_KEY` / `ANTHROPIC_API_KEY`); 30 questions / hour / user (`AI_ASSISTANT_RATE`, `assistant` scope, asking only); 1,000-character questions, 20 history messages and 25 questions per conversation (all settings); ≤ 5 tool rounds, one 90 s deadline and one retry per answer. |
+| The identity of the asker taken from the request body | The body is read for `message` only: a `user_id`, e-mail or conversation id in it is ignored (tested — the answer uses the token's user and a new conversation). |
+| The provider's API key leaking | Settings → SDK header only; not in any API response, not in logs (a test makes a provider error echo the key and checks the log). The web/mobile apps know the API address only. |
 | Failures leaking details | API errors become one `503` message; logs hold status codes, request ids and token counts — never question or answer text. A failed question stores nothing. |
 | Retention | Conversations are the user's own: deletable from both apps, deleted with the account, not shown in the Django admin. |
 
@@ -23,8 +26,10 @@ Found and fixed on the way: the mobile client treated **any** 502/503/504 as "ba
 `503` written by Django itself (assistant or receipt OCR temporarily down) switched the whole app to offline
 mode. `isOfflineError` now ignores a 503 that carries a DRF `detail` body (`mobile/__tests__/offline/network.test.ts`).
 
-Accepted: the assistant sends financial aggregates and the question text to Anthropic's API (disclosed by
-the feature itself; covered by Anthropic's API data-usage terms). Answers are generated text and can still
+Accepted: the assistant sends financial aggregates and the question text to the provider's API (disclosed by
+the feature itself). **Gemini's free tier** lets Google use submitted content to improve its products, with
+human review — acceptable for test data only; real users need Gemini's paid tier or Claude's API terms
+(`docs/ai-assistant.md`, `docs/privacy.md`). Answers are generated text and can still
 be wrong in wording — the apps say so under the question box.
 
 ## 2026-09-29 — account security (financial-grade)

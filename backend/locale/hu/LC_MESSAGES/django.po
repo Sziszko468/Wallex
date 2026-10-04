@@ -125,6 +125,115 @@ msgstr "Mennyit költöttem ebben a hónapban erre: %(category)s?"
 msgid "How am I doing with my %(goal)s savings goal?"
 msgstr "Hogy állok a(z) %(goal)s megtakarítási céllal?"
 
+#: apps/analytics/assistant/cards.py
+msgid "Total spending"
+msgstr "Összes kiadás"
+
+#: apps/analytics/assistant/cards.py
+msgid "Largest category"
+msgstr "Legnagyobb kategória"
+
+#: apps/analytics/assistant/cards.py
+msgid "Category spending"
+msgstr "Kategória kiadása"
+
+#: apps/analytics/assistant/cards.py
+msgid "Top merchant"
+msgstr "Legnagyobb kereskedő"
+
+#: apps/analytics/assistant/cards.py
+msgid "Spending vs previous month"
+msgstr "Kiadások az előző hónaphoz képest"
+
+#: apps/analytics/assistant/cards.py
+msgid "Spending vs same month last year"
+msgstr "Kiadások a tavalyi hónaphoz képest"
+
+#: apps/analytics/assistant/cards.py
+msgid "Biggest increase"
+msgstr "Legnagyobb emelkedés"
+
+#: apps/analytics/assistant/cards.py
+msgid "Over budget"
+msgstr "Túllépett költségkeret"
+
+#: apps/analytics/assistant/cards.py
+msgid "Closest to its limit"
+msgstr "Legközelebb a határhoz"
+
+#: apps/analytics/assistant/cards.py
+msgid "Subscriptions per month"
+msgstr "Előfizetések havonta"
+
+#: apps/analytics/assistant/cards.py
+msgid "Savings goal"
+msgstr "Megtakarítási cél"
+
+#: apps/analytics/assistant/cards.py
+#, python-format
+msgid "%(count)d active subscription"
+msgid_plural "%(count)d active subscriptions"
+msgstr[0] "%(count)d aktív előfizetés"
+msgstr[1] "%(count)d aktív előfizetés"
+
+#: apps/analytics/assistant/cards.py
+#, python-format
+msgid "%(budgets)s (%(count)d budgets)"
+msgstr "%(budgets)s (%(count)d költségkeret)"
+
+#: apps/analytics/assistant/cards.py
+#, python-format
+msgid "How much did I spend on %(category)s last month?"
+msgstr "Mennyit költöttem az előző hónapban erre: %(category)s?"
+
+#: apps/analytics/assistant/cards.py
+msgid "How does that compare to the previous month?"
+msgstr "Hogy viszonyul ez az előző hónaphoz?"
+
+#: apps/analytics/assistant/cards.py
+msgid "What are my biggest expense categories?"
+msgstr "Melyek a legnagyobb kiadási kategóriáim?"
+
+#: apps/analytics/assistant/cards.py
+msgid "Where could I reduce my spending?"
+msgstr "Hol csökkenthetném a kiadásaimat?"
+
+#: apps/analytics/assistant/cards.py
+msgid "Give me a summary of my finances this month."
+msgstr "Foglald össze a pénzügyeimet ebben a hónapban."
+
+#: apps/analytics/assistant/cards.py
+msgid "Which category increased the most?"
+msgstr "Melyik kategória nőtt a legtöbbet?"
+
+#: apps/analytics/assistant/cards.py
+msgid "Which budget am I closest to exceeding?"
+msgstr "Melyik költségkeretet közelítem meg a leginkább?"
+
+#: apps/analytics/assistant/cards.py
+msgid "How much budget do I have left?"
+msgstr "Mennyi költségkeretem maradt?"
+
+#: apps/analytics/assistant/cards.py
+msgid "How much do my subscriptions cost per year?"
+msgstr "Mennyibe kerülnek az előfizetéseim évente?"
+
+#: apps/analytics/assistant/cards.py
+msgid "How much of my monthly expenses are subscriptions?"
+msgstr "A havi kiadásaim mekkora részét teszik ki az előfizetések?"
+
+#: apps/analytics/assistant/cards.py
+msgid "How much do I need to save per month to reach my goals?"
+msgstr "Havonta mennyit kell megtakarítanom a céljaim eléréséhez?"
+
+#: apps/analytics/assistant/cards.py
+msgid "Am I on track with my savings goals?"
+msgstr "Jó úton haladok a megtakarítási céljaimmal?"
+
+#: apps/analytics/assistant/cards.py
+msgid "Which category did I spend the most on?"
+msgstr "Melyik kategóriára költöttem a legtöbbet?"
+
 #: apps/analytics/assistant/tools.py:506
 msgid "Monthly spending"
 msgstr "Havi kiadások"

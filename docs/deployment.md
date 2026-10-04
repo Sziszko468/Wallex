@@ -107,10 +107,13 @@ Required variables are **bold**. Everything else has a safe default.
 | `API_USER_RATE`, `AUTH_LOGIN_RATE`, `AUTH_REGISTER_RATE`, `AUTH_REFRESH_RATE`, `RECEIPT_SCAN_RATE` | see `.env.prod.example` | DRF rate format `N/second\|minute\|hour\|day`. |
 | `RECEIPT_OCR_PROVIDER`, `RECEIPT_OCR_LANGUAGES` | Tesseract, `hun+eng` | The OCR engine is swappable (see `apps/receipts/ocr`). |
 | `EXPO_PUSH_ACCESS_TOKEN` | *(none)* | Only if "Enhanced push security" is enabled in the Expo dashboard. |
-| `ANTHROPIC_API_KEY` | *(none)* | Turns the AI finance assistant on (Claude API). A secret: store it in the platform's secret manager. Without it the assistant answers `503 assistant_not_configured` and the apps show that it isn't set up. |
-| `AI_ASSISTANT_MODEL`, `AI_ASSISTANT_EFFORT` | `claude-opus-5`, `medium` | Model and thinking effort. Raise the effort if answers fall short; lower it for speed and cost. |
-| `AI_ASSISTANT_TIMEOUT`, `ASSISTANT_RATE` | `90`, `30/hour` | Seconds one answer may take in total; questions per user. Every question is a paid model call. |
-| `AI_ASSISTANT_FALLBACKS` | `True` | When a safety classifier declines a request, the Claude API re-runs it on Anthropic's recommended fallback model (beta `fallbacks: "default"`). |
+| `GEMINI_API_KEY` | *(none)* | Turns the AI finance assistant on (Google Gemini, the default provider). A secret: store it in the platform's secret manager — **never** in a `VITE_*` or `EXPO_PUBLIC_*` variable. Without it the assistant answers `503 assistant_not_configured` and the apps show that it isn't set up. The free Gemini tier lets Google use what is sent to improve its products: use a paid plan for real users (`docs/ai-assistant.md`). |
+| `AI_ASSISTANT_PROVIDER` | `gemini` (`anthropic` if only `ANTHROPIC_API_KEY` is set) | Which model API answers: `gemini` or `anthropic` (Claude). Needs that provider's key (`GEMINI_API_KEY` / `ANTHROPIC_API_KEY`). |
+| `AI_ASSISTANT_MODEL`, `AI_ASSISTANT_EFFORT` | `gemini-3.8-flash`, `low` (Claude: `claude-opus-5`, `medium`) | Model and thinking effort (`minimal`/`low`/`medium`/`high` for Gemini). Raise the effort if answers fall short; lower it for speed and cost. |
+| `AI_ASSISTANT_TIMEOUT`, `AI_ASSISTANT_RATE` | `90`, `30/hour` | Seconds one answer may take in total; questions per user (the older name `ASSISTANT_RATE` still works). Every question is a paid model call. |
+| `AI_ASSISTANT_MAX_TOKENS` | `16000` | Longest answer one model call may write, thinking included. |
+| `AI_ASSISTANT_MAX_QUESTION_LENGTH`, `AI_ASSISTANT_HISTORY_MESSAGES`, `AI_ASSISTANT_MAX_MESSAGES` | `1000`, `20`, `50` | Cost control: characters per question, earlier messages sent along with a new question, and messages per conversation (questions + answers). |
+| `AI_ASSISTANT_FALLBACKS` | `True` | Claude only: when a safety classifier declines a request, the Claude API re-runs it on Anthropic's recommended fallback model (beta `fallbacks: "default"`). |
 | `API_DOCS_ENABLED` | `False` (prod), `True` (dev) | Serves Swagger UI at `/api/docs/` and the OpenAPI schema at `/api/schema/`. Both are public when enabled, so turn them on deliberately. The committed `backend/openapi.yaml` is always available. |
 
 `DJANGO_SETTINGS_MODULE=config.settings.prod` is set inside the production image.
@@ -302,6 +305,10 @@ What the blueprint sets or relies on:
 | `DJANGO_ALLOWED_HOSTS` | Not needed for the `*.onrender.com` address: the app allows the host Render names in `RENDER_EXTERNAL_HOSTNAME`. Set it for a custom domain. |
 | `DJANGO_BEHIND_TLS_PROXY=True` | In the blueprint: Render terminates TLS. |
 | `PORT` | Render sets it; gunicorn binds to it. |
+| `GEMINI_API_KEY` | You, in the dashboard (the AI assistant; see `docs/ai-assistant.md`). Server-side only. |
+
+The web app on Vercel and the mobile app only need this API's address — see
+`docs/ai-assistant.md` ("Vercel" and "Expo"): they never get the Gemini key.
 
 If the service stops with **"Worker failed to boot" / "exited with code 3"**, the line that explains
 it is a few lines *above* those two in the log: look for `ImproperlyConfigured`. The app now lists

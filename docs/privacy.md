@@ -37,7 +37,7 @@ transaction.
 | Recipient | What | Why |
 |---|---|---|
 | Expo push service | Push token, notification title and text | Delivering notifications to the phone |
-| Anthropic (Claude), only when the assistant is switched on | The question text and aggregated figures from the user's data (totals, category and merchant names). No e-mail, name or id, which a test enforces — but a question can contain whatever the user types. | Answering assistant questions |
+| Google (Gemini API) or Anthropic (Claude) — whichever `AI_ASSISTANT_PROVIDER` names, only when the assistant is switched on | The question text and aggregated figures from the user's data (totals, category and merchant names). No e-mail, name or id, which a test enforces — but a question can contain whatever the user types. **Gemini's free tier lets Google use submitted content to improve its products (with human review); the paid tier does not** — real users' data needs the paid tier (see `docs/ai-assistant.md`). | Answering assistant questions |
 | European Central Bank | Nothing about the user: WALLEX downloads the public daily rates | Currency conversion |
 
 There are no analytics or advertising services in the apps or the API.
@@ -61,6 +61,6 @@ There are no analytics or advertising services in the apps or the API.
 ## For the operator before going live
 
 - [ ] Fill in the bracketed parts and publish the policy where the app's sign-up screen can link to it.
-- [ ] A data processing agreement with the hosting provider, and with Anthropic if the assistant is enabled.
+- [ ] A data processing agreement with the hosting provider, and with Google (paid Gemini plan, never the free tier) or Anthropic if the assistant is enabled.
 - [ ] Decide the backup retention, and write it above.
 - [ ] Answer the store questionnaires from the tables above (data types: email, financial info, user content, device identifiers, diagnostics = none).

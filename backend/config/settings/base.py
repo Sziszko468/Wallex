@@ -144,7 +144,7 @@ REST_FRAMEWORK = {
         "auth_refresh": env("AUTH_REFRESH_RATE", default="30/minute"),
         "receipt_scan": env("RECEIPT_SCAN_RATE", default="30/hour"),
         # Questions to the AI assistant (per user): every one is a paid model call.
-        "assistant": env("ASSISTANT_RATE", default="30/hour"),
+        "assistant": env("AI_ASSISTANT_RATE", default=env("ASSISTANT_RATE", default="30/hour")),
     },
     # How many reverse proxies sit in front of Django. Throttling identifies
     # clients by IP; with None, DRF trusts X-Forwarded-For as sent, which an
@@ -197,6 +197,8 @@ SPECTACULAR_SETTINGS = {
         "AssistantToolEnum": "apps.analytics.assistant.serializers.TOOL_CHOICES",
         "AssistantRoleEnum": "apps.analytics.models.AssistantRole",
         "AssistantErrorCodeEnum": "apps.analytics.assistant.openapi.ERROR_CODE_CHOICES",
+        "AssistantInsightTypeEnum": "apps.analytics.assistant.cards.CARD_TYPES",
+        "AssistantInsightToneEnum": "apps.analytics.assistant.cards.TONE_CHOICES",
     },
     "POSTPROCESSING_HOOKS": [
         "drf_spectacular.hooks.postprocess_schema_enums",
@@ -287,23 +289,46 @@ CSV_IMPORT_MAX_ROWS = 5000
 EXPO_PUSH_ACCESS_TOKEN = env("EXPO_PUSH_ACCESS_TOKEN", default="")
 
 # --- AI finance assistant ----------------------------------------------------------------------
-# Answers questions about the user's own finances with Claude. The model never reaches the
-# database: all it can do is call the read-only tools in apps/analytics/assistant/tools.py,
-# which return aggregated figures of the signed-in user. Without an API key the feature is off.
+# Answers questions about the user's own finances. The model never reaches the database: all it can
+# do is call the read-only tools in apps/analytics/assistant/tools.py, which return aggregated
+# figures of the signed-in user. The provider (a vendor behind apps/analytics/assistant/providers/)
+# is chosen here; its API key stays on the server. Without the chosen provider's key the feature is off.
+GEMINI_API_KEY = env("GEMINI_API_KEY", default="")
 ANTHROPIC_API_KEY = env("ANTHROPIC_API_KEY", default="")
+# What each provider needs: its key, and the model and reasoning effort to use unless overridden.
+AI_PROVIDER_DEFAULTS = {
+    "gemini": {"key": GEMINI_API_KEY, "model": "gemini-3.8-flash", "effort": "low"},
+    "anthropic": {"key": ANTHROPIC_API_KEY, "model": "claude-opus-5", "effort": "medium"},
+}
+# Gemini unless only a Claude key is set (an existing Claude setup keeps working without a new variable).
+_ai_provider = env(
+    "AI_ASSISTANT_PROVIDER", default="anthropic" if ANTHROPIC_API_KEY and not GEMINI_API_KEY else "gemini"
+).lower()
+if _ai_provider not in AI_PROVIDER_DEFAULTS:
+    raise ImproperlyConfigured(
+        f"AI_ASSISTANT_PROVIDER must be one of {', '.join(AI_PROVIDER_DEFAULTS)}, not {_ai_provider!r}."
+    )
 AI_ASSISTANT = {
-    "ENABLED": bool(ANTHROPIC_API_KEY),
-    # Builds the model client (swappable, e.g. for tests).
-    "CLIENT": env("AI_ASSISTANT_CLIENT", default="apps.analytics.assistant.client.anthropic_client"),
-    "MODEL": env("AI_ASSISTANT_MODEL", default="claude-opus-5"),
-    # How hard the model thinks: "medium" keeps chat answers quick; raise it if answers fall short.
-    "EFFORT": env("AI_ASSISTANT_EFFORT", default="medium"),
+    "PROVIDER": _ai_provider,
+    "ENABLED": bool(AI_PROVIDER_DEFAULTS[_ai_provider]["key"]),
+    # Builds the provider's SDK client (swappable, e.g. for tests); empty = the provider's own.
+    "CLIENT": env("AI_ASSISTANT_CLIENT", default=""),
+    "MODEL": env("AI_ASSISTANT_MODEL", default=AI_PROVIDER_DEFAULTS[_ai_provider]["model"]),
+    # How hard the model thinks: low keeps chat answers quick and cheap; raise it if answers fall
+    # short. Gemini: minimal | low | medium | high (empty = the model's own default).
+    "EFFORT": env("AI_ASSISTANT_EFFORT", default=AI_PROVIDER_DEFAULTS[_ai_provider]["effort"]),
+    # Longest answer a model call may write (thinking included).
     "MAX_TOKENS": env.int("AI_ASSISTANT_MAX_TOKENS", default=16000),
-    # When a safety classifier declines a request, the Claude API re-runs it on Anthropic's
-    # recommended fallback model instead of refusing (Claude API only — off for other platforms).
+    # Claude only: when a safety classifier declines a request, the Claude API re-runs it on
+    # Anthropic's recommended fallback model instead of refusing.
     "FALLBACKS": env.bool("AI_ASSISTANT_FALLBACKS", default=True),
     # Seconds one answer may take in total, every model call and tool round included.
     "TIMEOUT": env.int("AI_ASSISTANT_TIMEOUT", default=90),
+    # Cost control: how long a question may be, how many earlier messages go to the model with a
+    # new question, and how many messages (questions + answers) one conversation holds.
+    "MAX_QUESTION_LENGTH": env.int("AI_ASSISTANT_MAX_QUESTION_LENGTH", default=1000),
+    "HISTORY_MESSAGES": env.int("AI_ASSISTANT_HISTORY_MESSAGES", default=20),
+    "MAX_MESSAGES": env.int("AI_ASSISTANT_MAX_MESSAGES", default=50),
 }
 
 SIMPLE_JWT = {

@@ -34,6 +34,12 @@ services:
         sync: false
       - key: FIELD_ENCRYPTION_KEY
         sync: false
+      # AI finance assistant (docs/ai-assistant.md): your Gemini API key, asked for in the dashboard
+      # and never stored in git. Without a key the API still runs and the apps say the assistant
+      # isn't set up. Server-side only: it must never become a VITE_* / EXPO_PUBLIC_* variable of
+      # the web or mobile app. Optional: AI_ASSISTANT_MODEL, AI_ASSISTANT_RATE (docs/ai-assistant.md).
+      - key: GEMINI_API_KEY
+        sync: false
       # Render terminates TLS in front of the service and sends X-Forwarded-Proto.
       - key: DJANGO_BEHIND_TLS_PROXY
         value: "True"

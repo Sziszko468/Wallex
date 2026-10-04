@@ -1,0 +1,37 @@
+// Aligned with the answer bubble (avatar width + gap), like the "Based on" row.
+.chips {
+  align-self: stretch;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0 0 0 calc(2rem + var(--space-3));
+  padding: 0;
+  list-style: none;
+}
+
+.chip {
+  min-height: var(--control-height-sm);
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-snug);
+  color: var(--color-primary-ink);
+  text-align: left;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition:
+    border-color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard);
+
+  &:hover:not(:disabled) {
+    background-color: var(--color-primary-soft);
+    border-color: transparent;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+}

@@ -41,18 +41,25 @@ const SUMMARY: AssistantConversationSummary = {
   updated_at: "2026-09-29T10:00:00Z",
 };
 
-function message(id: number, role: "user" | "assistant", content: string): AssistantMessage {
+function message(id: number, role: "user" | "assistant", content: string, extras: Partial<AssistantMessage> = {}): AssistantMessage {
   return {
     id,
     role,
     content,
     sources: role === "assistant" ? [{ tool: "get_monthly_spending", label: "Monthly spending", detail: "September 2026" }] : [],
+    insights: [],
+    suggested_questions: [],
     created_at: "2026-09-29T10:00:00Z",
+    ...extras,
   };
 }
 
-function exchange(asked: string, answered: string, firstId = 1): AssistantExchange {
-  return { conversation: SUMMARY, messages: [message(firstId, "user", asked), message(firstId + 1, "assistant", answered)] };
+function exchange(asked: string, answered: string, firstId = 1, extras: Partial<AssistantMessage> = {}): AssistantExchange {
+  return {
+    conversation: SUMMARY,
+    messages: [message(firstId, "user", asked), message(firstId + 1, "assistant", answered, extras)],
+    usage: { input_tokens: 1200, output_tokens: 85 },
+  };
 }
 
 function httpError(status: number, data: unknown) {
@@ -134,6 +141,85 @@ describe("AssistantScreen", () => {
     expect(await screen.findByText("€380.00 in August.")).toBeTruthy();
     expect(mocked.ask).toHaveBeenCalledWith(7, "And last month?");
     expect(mocked.start).not.toHaveBeenCalled();
+  });
+
+  it("shows the key figures of an answer as cards that don't rely on colour alone", async () => {
+    mocked.start.mockResolvedValue(
+      exchange("Why did my spending change?", "Spending is up.", 1, {
+        insights: [
+          {
+            type: "spending_change",
+            label: "Spending vs previous month",
+            detail: "August 2026",
+            amount: "165.20",
+            currency: "EUR",
+            percentage: 18,
+            tone: "warning",
+          },
+          {
+            type: "largest_category",
+            label: "Largest category",
+            detail: "Shopping",
+            amount: "121.00",
+            currency: "EUR",
+            percentage: 19.8,
+            tone: "neutral",
+          },
+        ],
+      })
+    );
+    const user = userEvent.setup();
+    await render(<AssistantScreen />);
+
+    await user.type(await screen.findByLabelText("Ask about your finances"), "Why did my spending change?");
+    await user.press(screen.getByRole("button", { name: "Send" }));
+
+    expect(await screen.findByLabelText(/^Needs attention, Spending vs previous month, August 2026, \+€165\.20, \+18/)).toBeTruthy();
+    expect(screen.getByLabelText(/^Largest category, Shopping, €121\.00, 19\.8%\s*of expenses/)).toBeTruthy();
+    expect(screen.queryByLabelText(/^Needs attention, Largest category/)).toBeNull();
+  });
+
+  it("offers follow-up questions under the latest answer only; one tap asks it", async () => {
+    mocked.list.mockResolvedValue({ count: 1, next: null, previous: null, results: [SUMMARY] });
+    mocked.get.mockResolvedValue({
+      ...SUMMARY,
+      messages: [
+        message(1, "user", SUMMARY.title),
+        message(2, "assistant", "First answer.", { suggested_questions: ["An old follow-up?"] }),
+        message(3, "user", "And last month?"),
+        message(4, "assistant", "Latest answer.", { suggested_questions: ["Where could I reduce my spending?"] }),
+      ],
+    });
+    mocked.ask.mockResolvedValue(exchange("Where could I reduce my spending?", "Look at Shopping.", 5));
+    const user = userEvent.setup();
+    await render(<AssistantScreen />);
+
+    await user.press(screen.getByRole("button", { name: "Conversation history" }));
+    await user.press(await screen.findByRole("button", { name: `Open conversation: ${SUMMARY.title}` }));
+
+    expect(await screen.findByText("Latest answer.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "An old follow-up?" })).toBeNull();
+
+    await user.press(screen.getByRole("button", { name: "Where could I reduce my spending?" }));
+
+    expect(await screen.findByText("Look at Shopping.")).toBeTruthy();
+    expect(mocked.ask).toHaveBeenCalledWith(7, "Where could I reduce my spending?");
+  });
+
+  it("can't send a follow-up while offline", async () => {
+    mocked.list.mockResolvedValue({ count: 1, next: null, previous: null, results: [SUMMARY] });
+    mocked.get.mockResolvedValue({
+      ...SUMMARY,
+      messages: [message(1, "user", SUMMARY.title), message(2, "assistant", "Food.", { suggested_questions: ["Next?"] })],
+    });
+    mockIsOffline = true;
+    await render(<AssistantScreen />);
+    const user = userEvent.setup();
+
+    await user.press(screen.getByRole("button", { name: "Conversation history" }));
+    await user.press(await screen.findByRole("button", { name: `Open conversation: ${SUMMARY.title}` }));
+
+    expect(await screen.findByRole("button", { name: "Next?" })).toBeDisabled();
   });
 
   it("says when the assistant isn't set up on the server", async () => {

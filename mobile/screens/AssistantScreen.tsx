@@ -127,7 +127,12 @@ export function AssistantScreen() {
             )}
           </View>
         ) : (
-          <ChatMessageList messages={chat.messages} pendingQuestion={chat.pendingQuestion} />
+          <ChatMessageList
+            messages={chat.messages}
+            pendingQuestion={chat.pendingQuestion}
+            onAsk={(question) => void ask(question)}
+            canAsk={canType}
+          />
         )}
       </SectionState>
     );

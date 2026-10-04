@@ -665,6 +665,7 @@ def test_receipt_scanning_contract(auth_client, ledger, check, settings):
 def test_assistant_contract(auth_client, ledger, check, settings):
     settings.AI_ASSISTANT = {
         **settings.AI_ASSISTANT,
+        "PROVIDER": "anthropic",
         "ENABLED": True,
         "CLIENT": "apps.analytics.conftest.FakeAnthropic",
     }

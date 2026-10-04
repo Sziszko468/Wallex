@@ -947,14 +947,12 @@ def test_data_driven_suggestions_in_hungarian(auth_client, user, settings):
 
 @pytest.mark.django_db
 def test_the_prompt_names_the_users_language(user, hungarian_user):
-    english = prompts.system_blocks(user, date(2026, 9, 28))[1]["text"]
-    hungarian = prompts.system_blocks(hungarian_user, date(2026, 9, 28))[1]["text"]
+    english = prompts.system_prompt(user, date(2026, 9, 28))
+    hungarian = prompts.system_prompt(hungarian_user, date(2026, 9, 28))
 
-    assert "interface language is English" in english
-    assert "interface language is Hungarian" in hungarian
-    assert (
-        prompts.system_blocks(user, date(2026, 9, 28))[0] == prompts.system_blocks(hungarian_user, date(2026, 9, 28))[0]
-    )
+    assert "interface language is English" in english.per_request
+    assert "interface language is Hungarian" in hungarian.per_request
+    assert english.stable == hungarian.stable
 
 
 @pytest.mark.django_db
@@ -1381,13 +1379,13 @@ def test_turning_off_two_factor_that_is_off_in_hungarian(auth_client):
 
 @pytest.mark.django_db
 def test_the_not_enough_data_sentence_reaches_the_model_in_the_users_language(user, hungarian_user):
-    english = prompts.system_blocks(user, date(2026, 9, 28))
-    hungarian = prompts.system_blocks(hungarian_user, date(2026, 9, 28))
+    english = prompts.system_prompt(user, date(2026, 9, 28))
+    hungarian = prompts.system_prompt(hungarian_user, date(2026, 9, 28))
 
-    assert 'The "not enough data" sentence is: "There isn\'t enough data available."' in english[1]["text"]
-    assert 'The "not enough data" sentence is: "Nem áll rendelkezésre elegendő adat."' in hungarian[1]["text"]
-    assert english[0] == hungarian[0]  # the cached block stays identical for everyone
-    assert "Nem áll rendelkezésre" not in english[0]["text"]
+    assert 'The "not enough data" sentence is: "There isn\'t enough data available."' in english.per_request
+    assert 'The "not enough data" sentence is: "Nem áll rendelkezésre elegendő adat."' in hungarian.per_request
+    assert english.stable == hungarian.stable  # the cacheable part stays identical for everyone
+    assert "Nem áll rendelkezésre" not in english.stable
 
 
 # =============================== the starting currency follows the language ===============================

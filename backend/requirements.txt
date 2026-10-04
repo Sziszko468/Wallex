@@ -12,5 +12,7 @@ whitenoise==6.12.0
 drf-spectacular==0.30.0
 # Encrypts two-factor (TOTP) secrets at rest (Fernet); keys come from the environment.
 cryptography==50.0.1
-# Official Anthropic SDK: the AI finance assistant's model calls (apps/analytics/assistant/client.py).
+# Official model SDKs of the AI finance assistant's providers (apps/analytics/assistant/providers/):
+# Gemini (the default) and Claude (optional). Each is imported only when its provider is used.
+google-genai==2.28.0
 anthropic==1.9.0

@@ -14,7 +14,7 @@ export const assistant: DeepStrings<typeof enAssistant> = {
   welcome: "Mit szeretnél tudni a pénzedről?",
   chat: "Beszélgetés",
   notConfigured:
-    "Az AI asszisztens még nincs beállítva ezen a szerveren: modell API-kulcsra (ANTHROPIC_API_KEY) van szüksége.",
+    "Az AI asszisztens még nincs beállítva ezen a szerveren: az AI-szolgáltatójához tartozó API-kulcsra van szüksége (lásd: docs/ai-assistant.md).",
   disclaimer:
     "Az asszisztens csak olvassa az adataidat – semmit nem tud módosítani. Tévedhet, ezért a fontos számokat ellenőrizd az alkalmazásban.",
   deleteDialog: {
@@ -32,6 +32,28 @@ export const assistant: DeepStrings<typeof enAssistant> = {
     you: "Te",
     assistant: "Asszisztens",
     thinking: "Az adataid ellenőrzése",
+    insights: "Fontosabb számok",
+    followUps: "Kérdezhetsz még",
+  },
+  insights: {
+    tone: {
+      warning: "Figyelmet igényel",
+      positive: "Jó hír",
+    },
+    // What the percentage on a card is a percentage of.
+    meaning: {
+      total_spending: "a kiadásokból",
+      largest_category: "a kiadásokból",
+      category_spending: "a kiadásokból",
+      top_merchant: "a kiadásokból",
+      spending_change: "változás",
+      spending_change_year: "változás",
+      biggest_increase: "változás",
+      over_budget: "felhasználva",
+      closest_budget: "felhasználva",
+      subscriptions_cost: "a kiadásokból",
+      goal_progress: "teljesítve",
+    },
   },
   suggestions: {
     label: "Javasolt kérdések",
